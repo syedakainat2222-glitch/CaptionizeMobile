@@ -26,6 +26,40 @@ type EditorViewProps = {
   onSubtitleFontChange: (font: string) => void;
 };
 
+const FONT_OPTIONS = [
+  // Sans-serif
+  { label: 'Inter', value: 'Inter, sans-serif' },
+  { label: 'Roboto', value: 'Roboto, sans-serif' },
+  { label: 'Open Sans', value: '"Open Sans", sans-serif' },
+  { label: 'Lato', value: 'Lato, sans-serif' },
+  { label: 'Montserrat', value: 'Montserrat, sans-serif' },
+  { label: 'Poppins', value: 'Poppins, sans-serif' },
+  { label: 'Nunito', value: 'Nunito, sans-serif' },
+  { label: 'Raleway', value: 'Raleway, sans-serif' },
+  { label: 'Source Sans 3', value: '"Source Sans 3", sans-serif' },
+  { label: 'Ubuntu', value: 'Ubuntu, sans-serif' },
+  { label: 'Oswald', value: 'Oswald, sans-serif' },
+  { label: 'Exo 2', value: '"Exo 2", sans-serif' },
+  { label: 'Dosis', value: 'Dosis, sans-serif' },
+  { label: 'Helvetica', value: 'Helvetica, sans-serif' },
+  { label: 'Arial', value: 'Arial, sans-serif' },
+
+  // Serif
+  { label: 'Playfair Display', value: '"Playfair Display", serif' },
+  { label: 'Merriweather', value: 'Merriweather, serif' },
+  { label: 'Lora', value: 'Lora, serif' },
+  { label: 'PT Serif', value: '"PT Serif", serif' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+
+  // Display & Handwriting
+  { label: 'Pacifico', value: 'Pacifico, cursive' },
+  { label: 'Caveat', value: 'Caveat, cursive' },
+  { label: 'Dancing Script', value: '"Dancing Script", cursive' },
+
+  // Monospace
+  { label: 'Source Code Pro', value: '"Source Code Pro", monospace' },
+];
+
 const EditorView: FC<EditorViewProps> = ({
   videoUrl,
   subtitles,
@@ -52,15 +86,6 @@ const EditorView: FC<EditorViewProps> = ({
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
-
-  const FONT_OPTIONS = [
-    { label: 'Inter', value: 'Inter, sans-serif' },
-    { label: 'Roboto', value: 'Roboto, sans-serif' },
-    { label: 'Open Sans', value: '"Open Sans", sans-serif' },
-    { label: 'Lato', value: 'Lato, sans-serif' },
-    { label: 'Arial', value: 'Arial, sans-serif' },
-    { label: 'Helvetica', value: 'Helvetica, sans-serif' },
-  ];
 
   return (
     <div className="container mx-auto p-4">
