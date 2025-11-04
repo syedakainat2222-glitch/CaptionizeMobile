@@ -23,6 +23,7 @@ export default function CaptionEditor() {
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeSubtitleId, setActiveSubtitleId] = useState<number | null>(null);
+  const [subtitleFont, setSubtitleFont] = useState('Inter, sans-serif');
   const { toast } = useToast();
   const [correctionDialogState, setCorrectionDialogState] =
     useState<CorrectionDialogState>({
@@ -195,6 +196,8 @@ export default function CaptionEditor() {
             onUpdateSubtitle={updateSubtitle}
             onSuggestCorrection={handleSuggestCorrection}
             onReset={handleReset}
+            subtitleFont={subtitleFont}
+            onSubtitleFontChange={setSubtitleFont}
           />
           <CorrectionDialog
             state={correctionDialogState}
@@ -205,7 +208,9 @@ export default function CaptionEditor() {
           />
         </>
       ) : (
-        <VideoUpload onVideoSelect={handleVideoSelect} isLoading={isLoading} />
+        <div className="flex flex-1 items-center justify-center">
+            <VideoUpload onVideoSelect={handleVideoSelect} isLoading={isLoading} />
+        </div>
       )}
     </div>
   );

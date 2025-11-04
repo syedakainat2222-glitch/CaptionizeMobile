@@ -9,9 +9,10 @@ type VideoPlayerProps = {
   videoUrl: string;
   subtitles: Subtitle[];
   onTimeUpdate: (time: number) => void;
+  fontFamily?: string;
 };
 
-const VideoPlayer = ({ videoUrl, subtitles, onTimeUpdate }: VideoPlayerProps) => {
+const VideoPlayer = ({ videoUrl, subtitles, onTimeUpdate, fontFamily }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [vttUrl, setVttUrl] = useState<string | null>(null);
 
@@ -43,9 +44,41 @@ const VideoPlayer = ({ videoUrl, subtitles, onTimeUpdate }: VideoPlayerProps) =>
     videoElement.addEventListener('timeupdate', handleTimeUpdateEvent);
 
     return () => {
-      videoElement.removeEventListener('timeupdate', handleTimeUpdateEvent);
+      if (videoElement) {
+        videoElement.removeEventListener('timeupdate', handleTimeUpdateEvent);
+      }
     };
   }, [onTimeUpdate]);
+  
+  useEffect(() => {
+    const styleId = 'subtitle-style';
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = styleId;
+      document.head.appendChild(styleElement);
+    }
+    
+    // Using a class on the video parent and the ::cue selector
+    // to style the subtitles.
+    const videoParent = videoRef.current?.parentElement;
+    if (videoParent) {
+      videoParent.classList.add('custom-cues');
+    }
+    
+    styleElement.textContent = `
+      .custom-cues::cue {
+        font-family: ${fontFamily || 'inherit'} !important;
+      }
+    `;
+
+    return () => {
+       if (videoParent) {
+         videoParent.classList.remove('custom-cues');
+       }
+    }
+
+  }, [fontFamily]);
 
   return (
     <Card className="overflow-hidden shadow-lg">
