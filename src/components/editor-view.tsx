@@ -1,9 +1,9 @@
-import type { FC } from 'react';
+import { FC, useState } from 'react';
 import VideoPlayer from '@/components/video-player';
 import SubtitleEditor from '@/components/subtitle-editor';
 import type { Subtitle } from '@/lib/srt';
 import { Button } from '@/components/ui/button';
-import { Download, Upload, ArrowLeft } from 'lucide-react';
+import { Download, Upload, ArrowLeft, Loader2 } from 'lucide-react';
 import { formatSrt, formatVtt } from '@/lib/srt';
 import {
   Select,
@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import SubtitleStyler from './subtitle-styler';
+import { useToast } from '@/hooks/use-toast';
+
 
 type EditorViewProps = {
   videoUrl: string;
@@ -74,6 +76,9 @@ const EditorView: FC<EditorViewProps> = ({
   subtitleFont,
   onSubtitleFontChange,
 }) => {
+  const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
+
   const handleExport = (format: 'srt' | 'vtt') => {
     const content =
       format === 'srt' ? formatSrt(subtitles) : formatVtt(subtitles);
@@ -90,23 +95,69 @@ const EditorView: FC<EditorViewProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadVideo = async () => {
+  const downloadFile = async (url: string, filename: string) => {
     try {
-      const response = await fetch(videoUrl);
+      const response = await fetch(url);
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
-      link.download = videoName || 'video.mp4';
+      link.href = blobUrl;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      console.error('Failed to download video:', error);
-      // Optionally, show a toast notification to the user
+       console.error('Failed to download file:', error);
+       toast({
+         variant: 'destructive',
+         title: 'Download Failed',
+         description: 'Could not download the processed video file.'
+       })
+    }
+  }
+
+  const handleExportVideoWithSubtitles = async () => {
+    setIsExporting(true);
+    toast({
+      title: 'Starting Video Export',
+      description: 'Your video is being processed with subtitles. This may take a few minutes.'
+    });
+
+    try {
+      const response = await fetch('/api/burn-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl, subtitles }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to start video processing.');
+      }
+      
+      toast({
+        title: 'Processing Complete!',
+        description: 'Your video is now being downloaded.'
+      });
+
+      const processedFilename = `${videoName.split('.')[0]}-with-subtitles.mp4`;
+      await downloadFile(result.videoUrl, processedFilename);
+
+    } catch (error) {
+      console.error('Failed to export video with subtitles:', error);
+       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+      toast({
+        variant: 'destructive',
+        title: 'Export Failed',
+        description: errorMessage,
+      });
+    } finally {
+      setIsExporting(false);
     }
   };
+
 
   return (
     <div className="container mx-auto p-4">
@@ -140,14 +191,19 @@ const EditorView: FC<EditorViewProps> = ({
           <Button variant="secondary" onClick={onReset}>
             <Upload className="mr-2" /> Upload New Video
           </Button>
-          <Button onClick={() => handleExport('srt')}>
+          <Button onClick={() => handleExport('srt')} variant="outline">
             <Download className="mr-2" /> Export SRT
           </Button>
-          <Button onClick={() => handleExport('vtt')}>
+          <Button onClick={() => handleExport('vtt')} variant="outline">
             <Download className="mr-2" /> Export VTT
           </Button>
-          <Button onClick={handleDownloadVideo} variant="outline">
-            <Download className="mr-2" /> Download Video
+          <Button onClick={handleExportVideoWithSubtitles} disabled={isExporting}>
+            {isExporting ? (
+                <Loader2 className="mr-2 animate-spin" />
+            ) : (
+                <Download className="mr-2" />
+            )}
+            Export Video with Subtitles
           </Button>
         </div>
       </div>
