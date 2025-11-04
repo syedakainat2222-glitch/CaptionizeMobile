@@ -1,12 +1,11 @@
 'use server';
 
 /**
- * @fileOverview A Genkit flow for burning subtitles into a video file using Cloudinary.
+ * @fileOverview A helper for burning subtitles into a video file using Cloudinary.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
+import { z } from 'zod';
 
 // Configure Cloudinary with environment variables
 cloudinary.config({
@@ -38,14 +37,10 @@ const BurnInSubtitlesOutputSchema = z.object({
 
 export type BurnInSubtitlesOutput = z.infer<typeof BurnInSubtitlesOutputSchema>;
 
-export async function burnInSubtitles(input: BurnInSubtitlesInput): Promise<BurnInSubtitlesOutput> {
-  return burnInSubtitlesFlow(input);
-}
-
 // Helper to convert SRT time to seconds
 const srtTimeToSeconds = (time: string): number => {
   const parts = time.split(':');
-  const secondsParts = parts[2].split(',');
+  const secondsParts = parts[2].split(/[,\.]/); // handles both "," or "."
   const hours = parseInt(parts[0], 10);
   const minutes = parseInt(parts[1], 10);
   const seconds = parseInt(secondsParts[0], 10);
@@ -53,50 +48,48 @@ const srtTimeToSeconds = (time: string): number => {
   return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
 };
 
-const burnInSubtitlesFlow = ai.defineFlow(
-  {
-    name: 'burnInSubtitlesFlow',
-    inputSchema: BurnInSubtitlesInputSchema,
-    outputSchema: BurnInSubtitlesOutputSchema,
-  },
-  async ({ videoPublicId, subtitles }) => {
-    // Generate Cloudinary overlay transformations for each subtitle
-    const subtitleOverlays = subtitles.map(subtitle => {
-      const startOffset = srtTimeToSeconds(subtitle.startTime);
-      const endOffset = srtTimeToSeconds(subtitle.endTime);
+// Main function to burn subtitles
+async function burnInSubtitlesFlow({
+  videoPublicId,
+  subtitles,
+}: BurnInSubtitlesInput): Promise<BurnInSubtitlesOutput> {
+  const subtitleOverlays = subtitles.map(subtitle => {
+    const startOffset = srtTimeToSeconds(subtitle.startTime);
+    const endOffset = srtTimeToSeconds(subtitle.endTime);
 
-      return {
-        overlay: {
-          font_family: "Arial",
-          font_size: 48,
-          text: subtitle.text,
-        },
-        color: "white",
-        background: "rgba:0,0,0,0.5",
-        gravity: "south",
-        y: 20,
-        start_offset: startOffset.toFixed(2),
-        end_offset: endOffset.toFixed(2),
-      };
-    });
-
-    // Generate the final video URL with all subtitle overlays
-    // The SDK handles all encoding and construction.
-    const transformedVideoUrl = cloudinary.url(videoPublicId, {
-      resource_type: 'video',
-      transformation: subtitleOverlays,
-      format: 'mp4',
-    });
-    
-    console.log("Generated Cloudinary URL:", transformedVideoUrl);
-
-    if (!transformedVideoUrl) {
-      throw new Error('Failed to generate transformed video URL from Cloudinary.');
-    }
-
-    // Return the public URL directly. The browser will handle the download.
     return {
-      videoWithSubtitlesUrl: transformedVideoUrl,
+      overlay: {
+        font_family: 'Arial',
+        font_size: 48,
+        text: subtitle.text,
+      },
+      color: 'white',
+      background: 'rgba:0,0,0,0.5',
+      gravity: 'south',
+      y: 20,
+      start_offset: startOffset.toFixed(2),
+      end_offset: endOffset.toFixed(2),
     };
+  });
+
+  const transformedVideoUrl = cloudinary.url(videoPublicId, {
+    resource_type: 'video',
+    transformation: subtitleOverlays,
+    format: 'mp4',
+  });
+
+  console.log('Generated Cloudinary URL:', transformedVideoUrl);
+
+  if (!transformedVideoUrl) {
+    throw new Error('Failed to generate transformed video URL from Cloudinary.');
   }
-);
+
+  return { videoWithSubtitlesUrl: transformedVideoUrl };
+}
+
+// Exported wrapper for Next.js server route
+export async function burnInSubtitles(
+  input: BurnInSubtitlesInput
+): Promise<BurnInSubtitlesOutput> {
+  return burnInSubtitlesFlow(input);
+}
