@@ -58,12 +58,8 @@ const generateSubtitlesFlow = ai.defineFlow(
       audio_url: uploadResult.secure_url,
     });
 
-    if (transcript.status === 'error') {
-      throw new Error(transcript.error);
-    }
-    
-    if(!transcript.id) {
-        throw new Error('No transcript ID returned from AssemblyAI');
+    if (transcript.status === 'error' || !transcript.id) {
+      throw new Error(transcript.error || 'Failed to create transcript.');
     }
 
     // Get subtitles in SRT format
