@@ -183,28 +183,30 @@ export default function CaptionEditor() {
     setActiveSubtitleId(null);
   }, []);
   
-  if (videoUrl && !isLoading) {
-    return (
-      <>
-        <EditorView
-          videoUrl={videoUrl}
-          subtitles={subtitles}
-          activeSubtitleId={activeSubtitleId}
-          onTimeUpdate={handleTimeUpdate}
-          onUpdateSubtitle={updateSubtitle}
-          onSuggestCorrection={handleSuggestCorrection}
-          onReset={handleReset}
-        />
-        <CorrectionDialog
-          state={correctionDialogState}
-          onOpenChange={(isOpen) =>
-            setCorrectionDialogState({ ...correctionDialogState, open: isOpen })
-          }
-          onAccept={handleAcceptSuggestion}
-        />
-      </>
-    );
-  }
-
-  return <VideoUpload onVideoSelect={handleVideoSelect} isLoading={isLoading} />;
+  return (
+    <div className="flex flex-1 flex-col">
+      {videoUrl && !isLoading ? (
+        <>
+          <EditorView
+            videoUrl={videoUrl}
+            subtitles={subtitles}
+            activeSubtitleId={activeSubtitleId}
+            onTimeUpdate={handleTimeUpdate}
+            onUpdateSubtitle={updateSubtitle}
+            onSuggestCorrection={handleSuggestCorrection}
+            onReset={handleReset}
+          />
+          <CorrectionDialog
+            state={correctionDialogState}
+            onOpenChange={(isOpen) =>
+              setCorrectionDialogState({ ...correctionDialogState, open: isOpen })
+            }
+            onAccept={handleAcceptSuggestion}
+          />
+        </>
+      ) : (
+        <VideoUpload onVideoSelect={handleVideoSelect} isLoading={isLoading} />
+      )}
+    </div>
+  );
 }
