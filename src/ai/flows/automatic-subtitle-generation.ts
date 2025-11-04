@@ -13,7 +13,7 @@ import {z} from 'genkit';
 import {AssemblyAI} from 'assemblyai';
 
 const assemblyai = new AssemblyAI({
-  apiKey: process.env.ASSEMBLYAI_API_KEY!,
+  apiKey: process.env.NEXT_PUBLIC_ASSEMBLYAI_API_KEY!,
 });
 
 const GenerateSubtitlesInputSchema = z.object({
