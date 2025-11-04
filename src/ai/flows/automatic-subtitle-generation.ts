@@ -10,7 +10,18 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import wav from 'wav';
+import {v2 as cloudinary} from 'cloudinary';
+import {AssemblyAI} from 'assemblyai';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const assemblyai = new AssemblyAI({
+  apiKey: process.env.ASSEMBLYAI_API_KEY!,
+});
 
 const GenerateSubtitlesInputSchema = z.object({
   videoDataUri: z
@@ -30,17 +41,6 @@ export async function generateSubtitles(input: GenerateSubtitlesInput): Promise<
   return generateSubtitlesFlow(input);
 }
 
-const generateSubtitlesPrompt = ai.definePrompt({
-  name: 'generateSubtitlesPrompt',
-  input: {schema: GenerateSubtitlesInputSchema},
-  output: {schema: GenerateSubtitlesOutputSchema},
-  prompt: `You are an AI expert in generating subtitles for videos. You will receive the video content as input, and your task is to generate subtitles in SRT format.
-
-Ensure the subtitles are properly timed and accurately reflect the spoken content in the video.
-
-Video Content: {{media url=videoDataUri}}`,
-});
-
 const generateSubtitlesFlow = ai.defineFlow(
   {
     name: 'generateSubtitlesFlow',
@@ -48,45 +48,27 @@ const generateSubtitlesFlow = ai.defineFlow(
     outputSchema: GenerateSubtitlesOutputSchema,
   },
   async input => {
-    // Ideally, we'd convert video to audio here using a library like ffmpeg,
-    // but due to the limitations of the environment, we'll assume
-    // the video is already in a suitable audio format.
-    //
-    // const audioBuffer = await convertVideoToAudio(input.videoDataUri);
+    // Upload the video to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(input.videoDataUri, {
+      resource_type: 'video',
+    });
 
-    // For now, we will just return a dummy subtitle to prove it works.
-    // const subtitles = await transcribeAudio(audioBuffer);
+    // Transcribe the video using AssemblyAI
+    const transcript = await assemblyai.transcripts.create({
+      audio_url: uploadResult.secure_url,
+    });
 
-    const {output} = await generateSubtitlesPrompt(input);
+    if (transcript.status === 'error') {
+      throw new Error(transcript.error);
+    }
+    
+    if(!transcript.id) {
+        throw new Error('No transcript ID returned from AssemblyAI');
+    }
 
-    return output!;
+    // Get subtitles in SRT format
+    const srt = await assemblyai.transcripts.subtitles(transcript.id, 'srt');
+
+    return {subtitles: srt};
   }
 );
-
-async function toWav(
-  pcmData: Buffer,
-  channels = 1,
-  rate = 24000,
-  sampleWidth = 2
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const writer = new wav.Writer({
-      channels,
-      sampleRate: rate,
-      bitDepth: sampleWidth * 8,
-    });
-
-    let bufs = [] as any[];
-    writer.on('error', reject);
-    writer.on('data', function (d) {
-      bufs.push(d);
-    });
-    writer.on('end', function () {
-      resolve(Buffer.concat(bufs).toString('base64'));
-    });
-
-    writer.write(pcmData);
-    writer.end();
-  });
-}
-
