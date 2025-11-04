@@ -9,10 +9,9 @@ type VideoPlayerProps = {
   videoUrl: string;
   subtitles: Subtitle[];
   onTimeUpdate: (time: number) => void;
-  fontFamily?: string;
 };
 
-const VideoPlayer = ({ videoUrl, subtitles, onTimeUpdate, fontFamily }: VideoPlayerProps) => {
+const VideoPlayer = ({ videoUrl, subtitles, onTimeUpdate }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [vttUrl, setVttUrl] = useState<string | null>(null);
@@ -50,44 +49,9 @@ const VideoPlayer = ({ videoUrl, subtitles, onTimeUpdate, fontFamily }: VideoPla
       }
     };
   }, [onTimeUpdate]);
-  
-  useEffect(() => {
-    const videoElement = videoRef.current;
-    if (!videoElement || !fontFamily) return;
-
-    const styleId = 'subtitle-style';
-    let styleElement = document.getElementById(styleId) as HTMLStyleElement | null;
-    if (!styleElement) {
-      styleElement = document.createElement('style');
-      styleElement.id = styleId;
-      document.head.appendChild(styleElement);
-    }
-    
-    // The unique class name is added to the video container
-    const uniqueClassName = `video-cues-${videoRef.current.id || Math.random().toString(36).substring(7)}`;
-    const container = containerRef.current;
-    if (container) {
-      container.classList.add(uniqueClassName);
-    }
-
-    // This targets the ::cue pseudo-element within the uniquely classed container.
-    styleElement.textContent = `
-      .${uniqueClassName}::cue {
-        font-family: ${fontFamily} !important;
-        /* You can add more subtitle styles here */
-      }
-    `;
-
-    return () => {
-       if (container) {
-         container.classList.remove(uniqueClassName);
-       }
-    }
-  }, [fontFamily]);
 
   const handleLoadedMetadata = () => {
     if (videoRef.current && videoRef.current.textTracks[0]) {
-      // Set mode to 'showing' to ensure subtitles are displayed by default.
       videoRef.current.textTracks[0].mode = 'showing';
     }
   };

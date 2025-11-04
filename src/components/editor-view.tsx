@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import SubtitleStyler from './subtitle-styler';
 
 type EditorViewProps = {
   videoUrl: string;
@@ -89,6 +90,7 @@ const EditorView: FC<EditorViewProps> = ({
 
   return (
     <div className="container mx-auto p-4">
+      <SubtitleStyler fontFamily={subtitleFont} />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <Label htmlFor="font-select">Subtitle Font:</Label>
@@ -126,7 +128,6 @@ const EditorView: FC<EditorViewProps> = ({
           videoUrl={videoUrl}
           subtitles={subtitles}
           onTimeUpdate={onTimeUpdate}
-          fontFamily={subtitleFont}
         />
         <SubtitleEditor
           subtitles={subtitles}
