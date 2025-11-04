@@ -7,7 +7,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { v2 as cloudinary } from 'cloudinary';
-import type { Subtitle } from '@/lib/srt';
 import { PassThrough } from 'stream';
 
 // Configure Cloudinary with environment variables
@@ -17,9 +16,19 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Define a Zod schema for a single subtitle object
+const SubtitleSchema = z.object({
+  id: z.number(),
+  startTime: z.string(),
+  endTime: z.string(),
+  text: z.string(),
+});
+
+export type Subtitle = z.infer<typeof SubtitleSchema>;
+
 const BurnInSubtitlesInputSchema = z.object({
   videoPublicId: z.string().describe('The public ID of the video in Cloudinary.'),
-  subtitles: z.custom<Subtitle[]>().describe('An array of subtitle objects to burn into the video.'),
+  subtitles: z.array(SubtitleSchema).describe('An array of subtitle objects to burn into the video.'),
 });
 
 export type BurnInSubtitlesInput = z.infer<typeof BurnInSubtitlesInputSchema>;
