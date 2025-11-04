@@ -3,7 +3,7 @@ import VideoPlayer from '@/components/video-player';
 import SubtitleEditor from '@/components/subtitle-editor';
 import type { Subtitle } from '@/lib/srt';
 import { Button } from '@/components/ui/button';
-import { Download, Upload, ArrowLeft, Loader2, Video, Film } from 'lucide-react';
+import { Download, Upload, ArrowLeft, Loader2, Film } from 'lucide-react';
 import { formatSrt, formatVtt } from '@/lib/srt';
 import {
   Select,

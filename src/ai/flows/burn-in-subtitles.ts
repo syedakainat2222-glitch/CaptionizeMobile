@@ -80,13 +80,11 @@ const burnInSubtitlesFlow = ai.defineFlow(
       const startOffset = srtTimeToSeconds(subtitle.startTime);
       const endOffset = srtTimeToSeconds(subtitle.endTime);
       
-      const encodedText = `text:Arial_48:${encodeURIComponent(subtitle.text)}`;
-      
       return {
         overlay: {
             font_family: "Arial",
             font_size: 48,
-            text: subtitle.text
+            text: subtitle.text,
         },
         color: 'white',
         background: 'rgba:0,0,0,0.5',
