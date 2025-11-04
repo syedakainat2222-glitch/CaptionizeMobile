@@ -106,9 +106,9 @@ const EditorView: FC<EditorViewProps> = ({
       link.click();
       document.body.removeChild(link);
       // For blob URLs, we might want to revoke them, but for data URIs, this is not needed.
-      // if (url.startsWith('blob:')) {
-      //   URL.revokeObjectURL(url);
-      // }
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
     } catch (error) {
        console.error('Failed to download file:', error);
        toast({
@@ -155,7 +155,7 @@ const EditorView: FC<EditorViewProps> = ({
       });
 
       const processedFilename = `${videoName.split('.')[0]}-with-subtitles.mp4`;
-      downloadFile(result.videoUrl, processedFilename);
+      downloadFile(result.videoWithSubtitlesUrl, processedFilename);
 
     } catch (error) {
       console.error('Failed to export video with subtitles:', error);
