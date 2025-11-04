@@ -2,15 +2,10 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Lock down all documents by default
+    // WARNING: This rule is insecure and allows open access to your database.
+    // It is intended for development purposes to remove permission errors.
     match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // This rule allows any authenticated user to perform all actions
-    // on the 'videos' collection. This is permissive for development.
-    match /videos/{videoId} {
-      allow get, list, create, update, delete: if request.auth != null;
+      allow read, write: if true;
     }
   }
 }
