@@ -9,7 +9,7 @@ import { parseSrt, type Subtitle } from '@/lib/srt';
 import { aiSuggestedCorrections } from '@/ai/flows/ai-suggested-corrections';
 import CorrectionDialog from '@/components/correction-dialog';
 import VideoLibrary from './video-library';
-import { fetchVideoLibrary, addVideo, updateVideo } from '@/lib/video-service';
+import { fetchVideoLibrary, addVideo, updateVideo, deleteVideo } from '@/lib/video-service';
 import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
@@ -32,8 +32,7 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
   if (timestamp instanceof Date) {
     return timestamp;
   }
-  // Fallback for unexpected types, though it shouldn't happen with proper typing.
-  return new Date();
+  return new Date(timestamp);
 };
 
 
@@ -120,7 +119,7 @@ export default function CaptionEditor() {
           const newVideoData: Omit<Video, 'id' | 'userId' | 'createdAt'> = {
             name: file.name,
             videoUrl: videoUrl,
-            publicId: publicId, // Ensure publicId is included here
+            publicId: publicId,
             subtitles: parsedSubs,
             updatedAt: Timestamp.now(),
           };
@@ -286,6 +285,24 @@ export default function CaptionEditor() {
     setSubtitles(video.subtitles);
   };
   
+    const handleDeleteVideo = useCallback(async (videoId: string) => {
+    try {
+      await deleteVideo(videoId);
+      setVideoLibrary(prev => prev.filter(v => v.id !== videoId));
+      toast({
+        title: 'Video Deleted',
+        description: 'The video has been successfully removed.',
+      });
+    } catch (error) {
+      console.error('Failed to delete video:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Delete Failed',
+        description: 'Could not delete the video. Please try again.',
+      });
+    }
+  }, [toast]);
+  
   if (isFetchingLibrary) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -323,7 +340,7 @@ export default function CaptionEditor() {
         <div className="flex flex-1 items-center justify-center p-4">
           <div className="w-full max-w-6xl space-y-8">
             <VideoUpload onVideoSelect={handleVideoSelect} isLoading={isLoading} />
-            <VideoLibrary videos={videoLibrary} onSelectVideo={handleSelectVideoFromLibrary} />
+            <VideoLibrary videos={videoLibrary} onSelectVideo={handleSelectVideoFromLibrary} onDeleteVideo={handleDeleteVideo} />
           </div>
         </div>
       )}
