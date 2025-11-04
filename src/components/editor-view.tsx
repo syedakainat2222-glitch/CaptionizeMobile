@@ -3,7 +3,7 @@ import VideoPlayer from '@/components/video-player';
 import SubtitleEditor from '@/components/subtitle-editor';
 import type { Subtitle } from '@/lib/srt';
 import { Button } from '@/components/ui/button';
-import { Download, Upload, ArrowLeft, Loader2, Video } from 'lucide-react';
+import { Download, Upload, ArrowLeft, Loader2, Video, Film } from 'lucide-react';
 import { formatSrt, formatVtt } from '@/lib/srt';
 import {
   Select,
@@ -97,25 +97,18 @@ const EditorView: FC<EditorViewProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const downloadFile = async (url: string, filename: string) => {
+  const downloadFile = (url: string, filename: string) => {
     try {
-      // Use fetch to get the video as a blob
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch video: ${response.statusText}`);
-      }
-      const blob = await response.blob();
-      
-      // Create a temporary link to trigger the download
-      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = blobUrl;
+      link.href = url;
       link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl); // Clean up the blob URL
-
+      // For blob URLs, we might want to revoke them, but for data URIs, this is not needed.
+      // if (url.startsWith('blob:')) {
+      //   URL.revokeObjectURL(url);
+      // }
     } catch (error) {
        console.error('Failed to download file:', error);
        toast({
@@ -125,6 +118,7 @@ const EditorView: FC<EditorViewProps> = ({
        })
     }
   }
+
 
   const handleExportVideoWithSubtitles = async () => {
     if (!videoPublicId) {
@@ -161,7 +155,7 @@ const EditorView: FC<EditorViewProps> = ({
       });
 
       const processedFilename = `${videoName.split('.')[0]}-with-subtitles.mp4`;
-      await downloadFile(result.videoUrl, processedFilename);
+      downloadFile(result.videoUrl, processedFilename);
 
     } catch (error) {
       console.error('Failed to export video with subtitles:', error);
@@ -175,6 +169,10 @@ const EditorView: FC<EditorViewProps> = ({
       setIsExporting(false);
     }
   };
+
+  const handleDownloadOriginal = () => {
+    downloadFile(videoUrl, videoName);
+  }
 
 
   return (
@@ -209,6 +207,9 @@ const EditorView: FC<EditorViewProps> = ({
           <Button variant="secondary" onClick={onReset}>
             <Upload className="mr-2" /> Upload New Video
           </Button>
+          <Button onClick={handleDownloadOriginal} variant="outline">
+            <Download className="mr-2" /> Download Video
+          </Button>
           <Button onClick={() => handleExport('srt')} variant="outline">
             <Download className="mr-2" /> Export SRT
           </Button>
@@ -219,7 +220,7 @@ const EditorView: FC<EditorViewProps> = ({
             {isExporting ? (
                 <Loader2 className="mr-2 animate-spin" />
             ) : (
-                <Video className="mr-2" />
+                <Film className="mr-2" />
             )}
             Export Video with Subtitles
           </Button>
