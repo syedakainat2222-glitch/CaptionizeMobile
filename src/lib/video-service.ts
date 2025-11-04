@@ -1,3 +1,4 @@
+'use client';
 import { getAuth, signInAnonymously } from "firebase/auth";
 import {
   getFirestore,
@@ -41,11 +42,12 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
 
   return snapshot.docs.map((doc) => {
     const data = doc.data();
+    // Explicitly map fields to ensure type safety and prevent missing properties.
     return {
       id: doc.id,
       name: data.name,
       videoUrl: data.videoUrl,
-      publicId: data.publicId, // Explicitly map publicId
+      publicId: data.publicId, 
       subtitles: data.subtitles,
       userId: data.userId,
       createdAt: data.createdAt,
@@ -57,7 +59,7 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
 /**
  * Fetch a single video
  */
-export async function fetchVideo(videoId: string) {
+export async function fetchVideo(videoId: string): Promise<Video> {
   const user = await ensureAuth();
   const userId = user.uid;
 
@@ -68,13 +70,14 @@ export async function fetchVideo(videoId: string) {
     throw new Error("Video not found");
   }
 
-  return { id: snapshot.id, ...snapshot.data() };
+  const data = snapshot.data();
+  return { id: snapshot.id, ...data } as Video;
 }
 
 /**
  * Add a new video
  */
-export async function addVideo(videoData: any) {
+export async function addVideo(videoData: Omit<Video, 'id' | 'userId' | 'createdAt'>): Promise<string> {
   const user = await ensureAuth();
   const userId = user.uid;
 
@@ -83,6 +86,7 @@ export async function addVideo(videoData: any) {
     ...videoData,
     userId,
     createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(), // Ensure updatedAt is set on creation
   });
 
   return docRef.id;
@@ -91,12 +95,13 @@ export async function addVideo(videoData: any) {
 /**
  * Update existing video
  */
-export async function updateVideo(videoId: string, updateData: any) {
+export async function updateVideo(videoId: string, updateData: Partial<Video>) {
   const user = await ensureAuth();
   const userId = user.uid;
 
   const videoRef = doc(db, `users/${userId}/videos/${videoId}`);
-  await updateDoc(videoRef, updateData);
+  // Always include updatedAt on any update
+  await updateDoc(videoRef, { ...updateData, updatedAt: Timestamp.now() });
 }
 
 /**
