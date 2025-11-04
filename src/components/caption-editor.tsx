@@ -283,6 +283,7 @@ export default function CaptionEditor() {
         <>
           <EditorView
             videoUrl={currentVideo.videoUrl}
+            videoName={currentVideo.name}
             subtitles={subtitles}
             activeSubtitleId={activeSubtitleId}
             onTimeUpdate={handleTimeUpdate}

@@ -17,6 +17,7 @@ import SubtitleStyler from './subtitle-styler';
 
 type EditorViewProps = {
   videoUrl: string;
+  videoName: string;
   subtitles: Subtitle[];
   activeSubtitleId: number | null;
   onTimeUpdate: (time: number) => void;
@@ -63,6 +64,7 @@ const FONT_OPTIONS = [
 
 const EditorView: FC<EditorViewProps> = ({
   videoUrl,
+  videoName,
   subtitles,
   activeSubtitleId,
   onTimeUpdate,
@@ -86,6 +88,24 @@ const EditorView: FC<EditorViewProps> = ({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadVideo = async () => {
+    try {
+      const response = await fetch(videoUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = videoName || 'video.mp4';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download video:', error);
+      // Optionally, show a toast notification to the user
+    }
   };
 
   return (
@@ -125,6 +145,9 @@ const EditorView: FC<EditorViewProps> = ({
           </Button>
           <Button onClick={() => handleExport('vtt')}>
             <Download className="mr-2" /> Export VTT
+          </Button>
+          <Button onClick={handleDownloadVideo} variant="outline">
+            <Download className="mr-2" /> Download Video
           </Button>
         </div>
       </div>
