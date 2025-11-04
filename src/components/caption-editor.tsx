@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import VideoUpload from '@/components/video-upload';
 import EditorView from '@/components/editor-view';
 import { generateSubtitles } from '@/ai/flows/automatic-subtitle-generation';
@@ -8,6 +8,10 @@ import { useToast } from '@/hooks/use-toast';
 import { parseSrt, type Subtitle } from '@/lib/srt';
 import { aiSuggestedCorrections } from '@/ai/flows/ai-suggested-corrections';
 import CorrectionDialog from '@/components/correction-dialog';
+import VideoLibrary from './video-library';
+import { getVideos, saveVideo, updateVideoSubtitles } from '@/lib/video-service';
+import type { Video } from '@/lib/types';
+import { Loader2 } from 'lucide-react';
 
 type CorrectionDialogState = {
   open: boolean;
@@ -19,12 +23,14 @@ type CorrectionDialogState = {
 
 export default function CaptionEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingLibrary, setIsFetchingLibrary] = useState(true);
   const [activeSubtitleId, setActiveSubtitleId] = useState<number | null>(null);
   const [subtitleFont, setSubtitleFont] = useState('Inter, sans-serif');
   const { toast } = useToast();
+  const [videoLibrary, setVideoLibrary] = useState<Video[]>([]);
   const [correctionDialogState, setCorrectionDialogState] =
     useState<CorrectionDialogState>({
       open: false,
@@ -34,42 +40,82 @@ export default function CaptionEditor() {
       isLoading: false,
     });
 
+  const fetchVideoLibrary = useCallback(async () => {
+    setIsFetchingLibrary(true);
+    const videos = await getVideos();
+    setVideoLibrary(videos);
+    setIsFetchingLibrary(false);
+  }, []);
+
+  useEffect(() => {
+    fetchVideoLibrary();
+  }, [fetchVideoLibrary]);
+  
   const handleVideoSelect = useCallback(
     async (file: File) => {
       setVideoFile(file);
       setIsLoading(true);
-
-      const objectUrl = URL.createObjectURL(file);
-      setVideoUrl(objectUrl);
 
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = async () => {
         try {
           const videoDataUri = reader.result as string;
+          
+          // Generate subtitles first
           const result = await generateSubtitles({
             videoDataUri,
           });
 
-          if (result && result.subtitles) {
-            const parsedSubs = parseSrt(result.subtitles);
-            setSubtitles(parsedSubs);
-            toast({
-              title: 'Success!',
-              description: 'Subtitles generated successfully.',
-            });
-          } else {
+          if (!result || !result.subtitles) {
             throw new Error('Subtitle generation returned an empty result.');
           }
+
+          const parsedSubs = parseSrt(result.subtitles);
+          setSubtitles(parsedSubs);
+          
+          // Then, save video to DB. For simplicity, we use the file URL from cloudinary which is inside the result of generateSubtitles flow
+          // but we are not modifying the flow to return it. So we re-upload. This is not optimal.
+           const cloudinary = require('cloudinary').v2;
+           cloudinary.config({
+              cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+              api_key: process.env.CLOUDINARY_API_KEY,
+              api_secret: process.env.CLOUDINARY_API_SECRET,
+            });
+          const uploadResult = await cloudinary.uploader.upload(videoDataUri, {
+            resource_type: 'video',
+          });
+
+          const newVideo: Omit<Video, 'id' | 'createdAt' | 'updatedAt'> = {
+            name: file.name,
+            videoUrl: uploadResult.secure_url,
+            subtitles: parsedSubs,
+          };
+
+          const newVideoId = await saveVideo(newVideo);
+
+          if (newVideoId) {
+             const savedVideo = await getVideos().then(videos => videos.find(v => v.id === newVideoId));
+             if (savedVideo) {
+                setCurrentVideo(savedVideo);
+                setSubtitles(savedVideo.subtitles);
+                await fetchVideoLibrary();
+             }
+          }
+          
+          toast({
+            title: 'Success!',
+            description: 'Subtitles generated and video saved.',
+          });
+
         } catch (error) {
-          console.error('Subtitle generation failed:', error);
+          console.error('Processing failed:', error);
           toast({
             variant: 'destructive',
             title: 'An error occurred.',
             description:
-              'Failed to generate subtitles. Please try again with a different video.',
+              'Failed to process video. Please try again.',
           });
-          setVideoUrl(null);
           setVideoFile(null);
         } finally {
           setIsLoading(false);
@@ -83,11 +129,10 @@ export default function CaptionEditor() {
           description: 'There was an error reading the selected video file.',
         });
         setIsLoading(false);
-        setVideoUrl(null);
         setVideoFile(null);
       };
     },
-    [toast]
+    [toast, fetchVideoLibrary]
   );
 
   const handleTimeUpdate = useCallback(
@@ -113,11 +158,18 @@ export default function CaptionEditor() {
     [subtitles]
   );
 
-  const updateSubtitle = useCallback((id: number, newText: string) => {
-    setSubtitles((prev) =>
-      prev.map((sub) => (sub.id === id ? { ...sub, text: newText } : sub))
-    );
-  }, []);
+  const updateSubtitle = useCallback(async (id: number, newText: string) => {
+    const newSubtitles = subtitles.map((sub) => (sub.id === id ? { ...sub, text: newText } : sub));
+    setSubtitles(newSubtitles);
+
+    if (currentVideo) {
+      await updateVideoSubtitles(currentVideo.id, newSubtitles);
+      toast({
+        title: 'Saved!',
+        description: 'Your subtitle changes have been saved.',
+      });
+    }
+  }, [subtitles, currentVideo, toast]);
 
   const handleSuggestCorrection = useCallback(
     async (subtitle: Subtitle) => {
@@ -177,19 +229,33 @@ export default function CaptionEditor() {
   }, [correctionDialogState, updateSubtitle]);
 
   const handleReset = useCallback(() => {
+    setCurrentVideo(null);
     setVideoFile(null);
-    setVideoUrl(null);
     setSubtitles([]);
     setIsLoading(false);
     setActiveSubtitleId(null);
-  }, []);
+    fetchVideoLibrary();
+  }, [fetchVideoLibrary]);
+
+  const handleSelectVideoFromLibrary = (video: Video) => {
+    setCurrentVideo(video);
+    setSubtitles(video.subtitles);
+  };
   
+  if (isFetchingLibrary) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 flex-col">
-      {videoUrl && !isLoading ? (
+      {currentVideo ? (
         <>
           <EditorView
-            videoUrl={videoUrl}
+            videoUrl={currentVideo.videoUrl}
             subtitles={subtitles}
             activeSubtitleId={activeSubtitleId}
             onTimeUpdate={handleTimeUpdate}
@@ -208,8 +274,11 @@ export default function CaptionEditor() {
           />
         </>
       ) : (
-        <div className="flex flex-1 items-center justify-center">
+        <div className="flex flex-1 items-center justify-center p-4">
+          <div className="w-full max-w-6xl space-y-8">
             <VideoUpload onVideoSelect={handleVideoSelect} isLoading={isLoading} />
+            <VideoLibrary videos={videoLibrary} onSelectVideo={handleSelectVideoFromLibrary} />
+          </div>
         </div>
       )}
     </div>

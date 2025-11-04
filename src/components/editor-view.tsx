@@ -3,7 +3,7 @@ import VideoPlayer from '@/components/video-player';
 import SubtitleEditor from '@/components/subtitle-editor';
 import type { Subtitle } from '@/lib/srt';
 import { Button } from '@/components/ui/button';
-import { Download, Upload } from 'lucide-react';
+import { Download, Upload, ArrowLeft } from 'lucide-react';
 import { formatSrt, formatVtt } from '@/lib/srt';
 import {
   Select,
@@ -92,27 +92,32 @@ const EditorView: FC<EditorViewProps> = ({
     <div className="container mx-auto p-4">
       <SubtitleStyler fontFamily={subtitleFont} />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Label htmlFor="font-select">Subtitle Font:</Label>
-          <Select value={subtitleFont} onValueChange={onSubtitleFontChange}>
-            <SelectTrigger id="font-select" className="w-[180px]">
-              <SelectValue placeholder="Select font" />
-            </SelectTrigger>
-            <SelectContent>
-              {FONT_OPTIONS.map((font) => (
-                <SelectItem
-                  key={font.value}
-                  value={font.value}
-                  style={{ fontFamily: font.value }}
-                >
-                  {font.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-4">
+           <Button variant="outline" size="icon" onClick={onReset}>
+            <ArrowLeft />
+          </Button>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="font-select">Subtitle Font:</Label>
+            <Select value={subtitleFont} onValueChange={onSubtitleFontChange}>
+              <SelectTrigger id="font-select" className="w-[180px]">
+                <SelectValue placeholder="Select font" />
+              </SelectTrigger>
+              <SelectContent>
+                {FONT_OPTIONS.map((font) => (
+                  <SelectItem
+                    key={font.value}
+                    value={font.value}
+                    style={{ fontFamily: font.value }}
+                  >
+                    {font.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button variant="outline" onClick={onReset}>
+          <Button variant="secondary" onClick={onReset}>
             <Upload className="mr-2" /> Upload New Video
           </Button>
           <Button onClick={() => handleExport('srt')}>
