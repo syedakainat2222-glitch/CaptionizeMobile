@@ -27,7 +27,7 @@ const GenerateSubtitlesInputSchema = z.object({
   videoDataUri: z
     .string()
     .describe(
-      'A video file, as a data URI that must include a MIME type and use Base64 encoding. Expected format: \'data:<mimetype>;base64,<encoded_data>\'.' // keep the single quotes, they are needed in the string
+      "A video file, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
 });
 export type GenerateSubtitlesInput = z.infer<typeof GenerateSubtitlesInputSchema>;
