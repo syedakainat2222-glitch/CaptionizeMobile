@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 
 type EditorViewProps = {
   videoUrl: string;
-  videoPublicId: string;
+  videoPublicId?: string;
   videoName: string;
   subtitles: Subtitle[];
   activeSubtitleId: number | null;
@@ -215,7 +215,7 @@ const EditorView: FC<EditorViewProps> = ({
           <Button onClick={() => handleExport('vtt')} variant="outline">
             <Download className="mr-2" /> Export VTT
           </Button>
-          <Button onClick={handleExportVideoWithSubtitles} disabled={isExporting}>
+          <Button onClick={handleExportVideoWithSubtitles} disabled={isExporting || !videoPublicId}>
             {isExporting ? (
                 <Loader2 className="mr-2 animate-spin" />
             ) : (
