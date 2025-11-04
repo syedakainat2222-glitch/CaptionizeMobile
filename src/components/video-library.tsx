@@ -6,18 +6,25 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from './ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { PlayCircle } from 'lucide-react';
-import type { Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 type VideoLibraryProps = {
   videos: Video[];
   onSelectVideo: (video: Video) => void;
 };
 
-const toDate = (timestamp: Timestamp | Date): Date => {
-  if (timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
-    return (timestamp as Timestamp).toDate();
+const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
+  if (!timestamp) {
+    return new Date();
   }
-  return timestamp as Date;
+  if (timestamp instanceof Timestamp) {
+    return timestamp.toDate();
+  }
+  if (timestamp instanceof Date) {
+    return timestamp;
+  }
+  // Fallback for unexpected types, though it shouldn't happen with proper typing.
+  return new Date();
 };
 
 export default function VideoLibrary({ videos, onSelectVideo }: VideoLibraryProps) {
