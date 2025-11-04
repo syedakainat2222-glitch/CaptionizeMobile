@@ -56,7 +56,11 @@ const VideoPlayer = ({ videoUrl, subtitles, onTimeUpdate }: VideoPlayerProps) =>
           controls
           crossOrigin="anonymous"
           className="h-full w-full"
-          onLoadedMetadata={() => videoRef.current?.textTracks[0]?.mode = 'showing'}
+          onLoadedMetadata={() => {
+            if (videoRef.current && videoRef.current.textTracks[0]) {
+              videoRef.current.textTracks[0].mode = 'showing';
+            }
+          }}
         >
           <source src={videoUrl} type="video/mp4" />
           {vttUrl && (
