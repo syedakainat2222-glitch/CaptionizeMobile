@@ -12,6 +12,7 @@ import VideoLibrary from './video-library';
 import { getVideos, saveVideo, updateVideoSubtitles } from '@/lib/video-service';
 import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { serverTimestamp } from 'firebase/firestore';
 
 type CorrectionDialogState = {
   open: boolean;
@@ -58,8 +59,10 @@ export default function CaptionEditor() {
   }, [toast]);
 
   useEffect(() => {
-    fetchVideoLibrary();
-  }, [fetchVideoLibrary]);
+    if (!currentVideo) {
+      fetchVideoLibrary();
+    }
+  }, [currentVideo, fetchVideoLibrary]);
   
   const handleVideoSelect = useCallback(
     async (file: File) => {
@@ -72,7 +75,6 @@ export default function CaptionEditor() {
         try {
           const videoDataUri = reader.result as string;
           
-          // Step 1: Upload video to our server, which uploads to Cloudinary
           const uploadResponse = await fetch('/api/upload-video', {
             method: 'POST',
             body: JSON.stringify({ videoDataUri }),
@@ -89,7 +91,6 @@ export default function CaptionEditor() {
             throw new Error('Could not get video URL after upload.');
           }
 
-          // Step 2: Generate subtitles using the now public video URL
           const result = await generateSubtitles({
             videoUrl,
           });
@@ -100,25 +101,27 @@ export default function CaptionEditor() {
 
           const parsedSubs = parseSrt(result.subtitles);
           
-          // Step 3: Save video metadata to Firestore
-          const newVideo: Omit<Video, 'id' | 'createdAt' | 'updatedAt'> = {
+          const newVideoData = {
             name: file.name,
             videoUrl: videoUrl,
             subtitles: parsedSubs,
           };
 
-          const newVideoId = await saveVideo(newVideo);
+          const newVideoId = await saveVideo(newVideoData);
 
           if (newVideoId) {
-             // Refresh the library to show the new video
-             await fetchVideoLibrary();
-             // Find the newly added video and set it as current
-             const videos = await getVideos();
-             const savedVideo = videos.find(v => v.id === newVideoId);
-             if (savedVideo) {
-                setCurrentVideo(savedVideo);
-                setSubtitles(savedVideo.subtitles);
+             const savedVideo: Video = {
+               ...newVideoData,
+               id: newVideoId,
+               createdAt: serverTimestamp(),
+               updatedAt: serverTimestamp(),
              }
+             setCurrentVideo(savedVideo);
+             setSubtitles(savedVideo.subtitles);
+             // We don't need to refetch the library here,
+             // it will be refetched when we go back to the library view.
+          } else {
+            throw new Error('Failed to save video to database.');
           }
           
           toast({
@@ -150,7 +153,7 @@ export default function CaptionEditor() {
         setVideoFile(null);
       };
     },
-    [toast, fetchVideoLibrary]
+    [toast]
   );
 
   const handleTimeUpdate = useCallback(
@@ -250,17 +253,15 @@ export default function CaptionEditor() {
     setCurrentVideo(null);
     setVideoFile(null);
     setSubtitles([]);
-    setIsLoading(false);
     setActiveSubtitleId(null);
-    fetchVideoLibrary();
-  }, [fetchVideoLibrary]);
+  }, []);
 
   const handleSelectVideoFromLibrary = (video: Video) => {
     setCurrentVideo(video);
     setSubtitles(video.subtitles);
   };
   
-  if (isFetchingLibrary) {
+  if (isFetchingLibrary && !currentVideo) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
