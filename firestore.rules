@@ -9,10 +9,12 @@ service cloud.firestore {
 
     // This rule allows a user to read and write documents in the 'videos'
     // collection, but only if the 'userId' field in the document matches
-    // the user's own authentication UID.
+    // the user's own authentication UID. A user can only list videos
+    // if they are querying by their own userId.
     match /videos/{videoId} {
       allow read, delete, update: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow list: if request.auth != null && request.query.resource.data.userId == request.auth.uid;
     }
   }
 }
