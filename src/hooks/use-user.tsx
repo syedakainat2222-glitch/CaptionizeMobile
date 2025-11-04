@@ -9,14 +9,8 @@ import {
 } from "react";
 import { onAuthStateChanged } from "@/lib/firebase/auth";
 import type { User } from "@/lib/types";
+import { auth } from "@/lib/firebase";
 
-// For this prototype, we'll use a mock user.
-// In a real application, you would integrate a full authentication flow.
-const MOCK_USER: User = {
-    uid: 'dev-user-12345',
-    email: 'dev@example.com',
-    displayName: 'Dev User',
-};
 
 type UserContextType = {
   user: User | null;
@@ -30,14 +24,26 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In a real app, you'd use onAuthStateChanged(auth, (user) => ...);
-    // For now, we simulate an async fetch of the user.
-    const timer = setTimeout(() => {
-        setUser(MOCK_USER);
-        setLoading(false);
-    }, 500);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUser({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+        });
+      } else {
+        // For this prototype, we'll create a mock anonymous user if no one is logged in.
+        // In a real app, you might redirect to a login page.
+        setUser({
+          uid: `dev-user-${Date.now()}`,
+          email: 'dev@example.com',
+          displayName: 'Dev User'
+        });
+      }
+      setLoading(false);
+    });
 
-    return () => clearTimeout(timer);
+    return () => unsubscribe();
   }, []);
 
   return (

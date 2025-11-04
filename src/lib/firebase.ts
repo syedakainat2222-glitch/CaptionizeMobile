@@ -1,14 +1,16 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import getConfig from 'next/config';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBFybMGcRgMGHiBwUtFmLlleVIZmKNPo-8",
-  authDomain: "studio-4279257619-fdb62.firebaseapp.com",
-  projectId: "studio-4279257619-fdb62",
-};
+const { publicRuntimeConfig } = getConfig();
+
+const firebaseConfig: FirebaseOptions = publicRuntimeConfig.firebase;
 
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-export { db };
+export { app, db, auth };
+export { firebaseConfig };
