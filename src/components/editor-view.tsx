@@ -99,16 +99,15 @@ const EditorView: FC<EditorViewProps> = ({
 
   const downloadFile = (url: string, filename: string) => {
     try {
+      if (!url) {
+        throw new Error('Download URL is empty.');
+      }
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      // For blob URLs, we might want to revoke them, but for data URIs, this is not needed.
-      if (url.startsWith('blob:')) {
-        URL.revokeObjectURL(url);
-      }
     } catch (error) {
        console.error('Failed to download file:', error);
        toast({
@@ -148,6 +147,10 @@ const EditorView: FC<EditorViewProps> = ({
       if (!response.ok) {
         throw new Error(result.error || 'Failed to start video processing.');
       }
+
+      if (!result.videoUrl) {
+        throw new Error('The video processing flow did not return a URL.');
+      }
       
       toast({
         title: 'Processing Complete!',
@@ -155,7 +158,7 @@ const EditorView: FC<EditorViewProps> = ({
       });
 
       const processedFilename = `${videoName.split('.')[0]}-with-subtitles.mp4`;
-      downloadFile(result.videoWithSubtitlesUrl, processedFilename);
+      downloadFile(result.videoUrl, processedFilename);
 
     } catch (error) {
       console.error('Failed to export video with subtitles:', error);

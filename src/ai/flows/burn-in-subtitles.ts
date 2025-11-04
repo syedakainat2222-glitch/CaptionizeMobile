@@ -68,28 +68,6 @@ async function downloadAndEncode(url: string): Promise<string> {
     return buffer.toString('base64');
 }
 
-const sanitizeCloudinaryText = (text: string): string => {
-  // Cloudinary has a very specific way of escaping text for overlays.
-  // Characters like , / ? # \ = % < > [ ] { } | ^ ~ ` are problematic.
-  // The official recommendation is to URI encode the text, but some characters need special handling.
-  // 1. First, handle characters Cloudinary uses in its syntax.
-  let sanitized = text
-    .replace(/\,/g, '%2C') // comma
-    .replace(/\//g, '%2F') // slash
-    .replace(/\$/g, '%24'); // dollar sign
-
-  // 2. Parentheses are often problematic in URLs. Let's encode them.
-  sanitized = sanitized.replace(/\(/g, '%28').replace(/\)/g, '%29');
-
-  // 3. Apostrophes/quotes can break the text block.
-  sanitized = sanitized.replace(/'/g, '%27').replace(/"/g, '%22');
-
-  // 4. Now, wrap the text in a text block with URI encoding applied.
-  // The format is `text:<font>_<size>:<encoded_text>`
-  return `text:Arial_48:${encodeURIComponent(text)}`;
-};
-
-
 const burnInSubtitlesFlow = ai.defineFlow(
   {
     name: 'burnInSubtitlesFlow',
@@ -102,29 +80,28 @@ const burnInSubtitlesFlow = ai.defineFlow(
       const startOffset = srtTimeToSeconds(subtitle.startTime);
       const endOffset = srtTimeToSeconds(subtitle.endTime);
       
-      const encodedText = `text:Arial_48:${encodeURIComponent(subtitle.text.replace(/,/g, '\\,').replace(/\//g, '\\/'))}`;
+      const encodedText = `text:Arial_48:${encodeURIComponent(subtitle.text)}`;
       
       return {
-        // Text overlay with font, size, and color
-        overlay: encodedText,
-        // Styling for the text
+        overlay: {
+            font_family: "Arial",
+            font_size: 48,
+            text: subtitle.text
+        },
         color: 'white',
-        // Add a semi-transparent background for readability
         background: 'rgba:0,0,0,0.5',
-        // Position at the bottom center
         gravity: 'south',
         y: 20,
-        // Apply the overlay only during the subtitle's timeframe
         start_offset: startOffset.toFixed(2),
         end_offset: endOffset.toFixed(2),
       };
     });
 
     // Generate the final video URL with all subtitle overlays
+    // This uses the SDK's built-in URL generator which handles encoding correctly.
     const transformedVideoUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: subtitleOverlays,
-      // Request a .mp4 format for wide compatibility
       format: 'mp4',
     });
 
