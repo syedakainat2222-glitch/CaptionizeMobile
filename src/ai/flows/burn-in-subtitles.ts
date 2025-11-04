@@ -69,21 +69,24 @@ async function downloadAndEncode(url: string): Promise<string> {
 }
 
 const sanitizeCloudinaryText = (text: string): string => {
-  // Cloudinary requires special escaping for text overlays.
-  // 1. First, escape Cloudinary-specific characters.
-  //    , -> _  (comma)
-  //    / -> _  (slash)
-  //    $ -> __ (dollar sign)
-  //    ( and ) are problematic in URLs.
+  // Cloudinary has a very specific way of escaping text for overlays.
+  // Characters like , / ? # \ = % < > [ ] { } | ^ ~ ` are problematic.
+  // The official recommendation is to URI encode the text, but some characters need special handling.
+  // 1. First, handle characters Cloudinary uses in its syntax.
   let sanitized = text
-    .replace(/,/g, '_')
-    .replace(/\//g, '_')
-    .replace(/\$/g, '__')
-    .replace(/\(/g, '\\(')
-    .replace(/\)/g, '\\)');
+    .replace(/\,/g, '%2C') // comma
+    .replace(/\//g, '%2F') // slash
+    .replace(/\$/g, '%24'); // dollar sign
 
-  // 2. Then, apply standard URL encoding to the rest.
-  return encodeURIComponent(sanitized);
+  // 2. Parentheses are often problematic in URLs. Let's encode them.
+  sanitized = sanitized.replace(/\(/g, '%28').replace(/\)/g, '%29');
+
+  // 3. Apostrophes/quotes can break the text block.
+  sanitized = sanitized.replace(/'/g, '%27').replace(/"/g, '%22');
+
+  // 4. Now, wrap the text in a text block with URI encoding applied.
+  // The format is `text:<font>_<size>:<encoded_text>`
+  return `text:Arial_48:${encodeURIComponent(text)}`;
 };
 
 
@@ -99,15 +102,11 @@ const burnInSubtitlesFlow = ai.defineFlow(
       const startOffset = srtTimeToSeconds(subtitle.startTime);
       const endOffset = srtTimeToSeconds(subtitle.endTime);
       
-      const encodedText = sanitizeCloudinaryText(subtitle.text);
+      const encodedText = `text:Arial_48:${encodeURIComponent(subtitle.text.replace(/,/g, '\\,').replace(/\//g, '\\/'))}`;
       
       return {
         // Text overlay with font, size, and color
-        overlay: {
-          font_family: "Arial",
-          font_size: 48,
-          text: encodedText,
-        },
+        overlay: encodedText,
         // Styling for the text
         color: 'white',
         // Add a semi-transparent background for readability
