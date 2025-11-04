@@ -7,7 +7,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
-import { PassThrough } from 'stream';
 
 // Configure Cloudinary with environment variables
 cloudinary.config({
@@ -93,14 +92,14 @@ const burnInSubtitlesFlow = ai.defineFlow(
         overlay: {
           font_family: "Arial",
           font_size: 48,
-          text: subtitle.text, // The SDK handles encoding
+          text: subtitle.text,
         },
         color: "white",
         background: "rgba:0,0,0,0.5",
         gravity: "south",
         y: 20,
-        start_offset: startOffset.toFixed(2),
-        end_offset: endOffset.toFixed(2),
+        start_offset: startOffset.toFixed(2), // MUST be a string
+        end_offset: endOffset.toFixed(2),     // MUST be a string
       };
     });
 
