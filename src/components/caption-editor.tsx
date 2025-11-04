@@ -54,7 +54,7 @@ export default function CaptionEditor() {
     setIsFetchingLibrary(true);
     try {
       const videos = await fetchVideoLibrary();
-      setVideoLibrary(videos as Video[]);
+      setVideoLibrary(videos);
     } catch (error) {
       console.error("Failed to fetch video library:", error);
       toast({

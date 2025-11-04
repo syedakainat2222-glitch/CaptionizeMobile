@@ -13,6 +13,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { app } from "@/lib/firebase";
+import type { Video } from "./types";
 
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -30,7 +31,7 @@ async function ensureAuth() {
 /**
  * Fetch all videos for the current user
  */
-export async function fetchVideoLibrary() {
+export async function fetchVideoLibrary(): Promise<Video[]> {
   const user = await ensureAuth();
   const userId = user.uid;
 
@@ -38,10 +39,19 @@ export async function fetchVideoLibrary() {
   const q = query(videosRef, orderBy("updatedAt", "desc"));
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  }));
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      name: data.name,
+      videoUrl: data.videoUrl,
+      publicId: data.publicId, // Explicitly map publicId
+      subtitles: data.subtitles,
+      userId: data.userId,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    } as Video;
+  });
 }
 
 /**
