@@ -6,6 +6,13 @@ export type Video = {
     name: string;
     videoUrl: string;
     subtitles: Subtitle[];
+    userId: string;
     createdAt: Timestamp;
     updatedAt: Timestamp;
+};
+
+export type User = {
+    uid: string;
+    email: string | null;
+    displayName: string | null;
 };

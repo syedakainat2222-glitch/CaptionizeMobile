@@ -13,6 +13,7 @@ import { getVideos, saveVideo, updateVideoSubtitles } from '@/lib/video-service'
 import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
+import { useUser } from '@/hooks/use-user';
 
 type CorrectionDialogState = {
   open: boolean;
@@ -32,6 +33,8 @@ export default function CaptionEditor() {
   const [subtitleFont, setSubtitleFont] = useState('Inter, sans-serif');
   const { toast } = useToast();
   const [videoLibrary, setVideoLibrary] = useState<Video[]>([]);
+  const { user, loading: userLoading } = useUser();
+
   const [correctionDialogState, setCorrectionDialogState] =
     useState<CorrectionDialogState>({
       open: false,
@@ -42,9 +45,10 @@ export default function CaptionEditor() {
     });
 
   const fetchVideoLibrary = useCallback(async () => {
+    if (!user) return;
     setIsFetchingLibrary(true);
     try {
-      const videos = await getVideos();
+      const videos = await getVideos(user.uid);
       setVideoLibrary(videos);
     } catch (error) {
       console.error("Failed to fetch video library:", error);
@@ -56,14 +60,24 @@ export default function CaptionEditor() {
     } finally {
       setIsFetchingLibrary(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   useEffect(() => {
-    fetchVideoLibrary();
-  }, [fetchVideoLibrary]);
+    if (user) {
+      fetchVideoLibrary();
+    }
+  }, [user, fetchVideoLibrary]);
   
   const handleVideoSelect = useCallback(
     async (file: File) => {
+      if (!user) {
+        toast({
+          variant: 'destructive',
+          title: 'Authentication Error',
+          description: 'You must be signed in to upload a video.',
+        });
+        return;
+      }
       setVideoFile(file);
       setIsLoading(true);
 
@@ -107,13 +121,14 @@ export default function CaptionEditor() {
             subtitles: parsedSubs,
           };
 
-          const newVideoId = await saveVideo(newVideoData);
+          const newVideoId = await saveVideo(user.uid, newVideoData);
 
           if (newVideoId) {
              const now = Timestamp.now();
              const savedVideo: Video = {
                ...newVideoData,
                id: newVideoId,
+               userId: user.uid,
                createdAt: now,
                updatedAt: now,
              }
@@ -153,7 +168,7 @@ export default function CaptionEditor() {
         setVideoFile(null);
       };
     },
-    [toast]
+    [toast, user]
   );
 
   const handleTimeUpdate = useCallback(
@@ -183,8 +198,8 @@ export default function CaptionEditor() {
     const newSubtitles = subtitles.map((sub) => (sub.id === id ? { ...sub, text: newText } : sub));
     setSubtitles(newSubtitles);
 
-    if (currentVideo) {
-      await updateVideoSubtitles(currentVideo.id, newSubtitles);
+    if (currentVideo && user) {
+      await updateVideoSubtitles(user.uid, currentVideo.id, newSubtitles);
       // Optimistically update the video library state
       setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? {...v, subtitles: newSubtitles, updatedAt: Timestamp.now()} : v));
       toast({
@@ -192,7 +207,7 @@ export default function CaptionEditor() {
         description: 'Your subtitle changes have been saved.',
       });
     }
-  }, [subtitles, currentVideo, toast]);
+  }, [subtitles, currentVideo, toast, user]);
 
   const handleSuggestCorrection = useCallback(
     async (subtitle: Subtitle) => {
@@ -264,7 +279,7 @@ export default function CaptionEditor() {
     setSubtitles(video.subtitles);
   };
   
-  if (isFetchingLibrary && videoLibrary.length === 0) {
+  if (isFetchingLibrary || userLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
