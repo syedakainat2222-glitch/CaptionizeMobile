@@ -42,10 +42,20 @@ export default function CaptionEditor() {
 
   const fetchVideoLibrary = useCallback(async () => {
     setIsFetchingLibrary(true);
-    const videos = await getVideos();
-    setVideoLibrary(videos);
-    setIsFetchingLibrary(false);
-  }, []);
+    try {
+      const videos = await getVideos();
+      setVideoLibrary(videos);
+    } catch (error) {
+      console.error("Failed to fetch video library:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not load your video library.',
+      });
+    } finally {
+      setIsFetchingLibrary(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     fetchVideoLibrary();
@@ -89,7 +99,6 @@ export default function CaptionEditor() {
           }
 
           const parsedSubs = parseSrt(result.subtitles);
-          setSubtitles(parsedSubs);
           
           // Step 3: Save video metadata to Firestore
           const newVideo: Omit<Video, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -101,11 +110,14 @@ export default function CaptionEditor() {
           const newVideoId = await saveVideo(newVideo);
 
           if (newVideoId) {
-             const savedVideo = await getVideos().then(videos => videos.find(v => v.id === newVideoId));
+             // Refresh the library to show the new video
+             await fetchVideoLibrary();
+             // Find the newly added video and set it as current
+             const videos = await getVideos();
+             const savedVideo = videos.find(v => v.id === newVideoId);
              if (savedVideo) {
                 setCurrentVideo(savedVideo);
                 setSubtitles(savedVideo.subtitles);
-                await fetchVideoLibrary();
              }
           }
           
