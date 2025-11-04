@@ -14,6 +14,9 @@ import {AssemblyAI} from 'assemblyai';
 
 const apiKey = process.env.NEXT_PUBLIC_ASSEMBLYAI_API_KEY;
 
+// NOTE: Do not check in your API key to source control.
+// This is done here for demonstration purposes only.
+// In a real application, you would use a secret manager.
 if (!apiKey) {
   // This check is important for production environments like Vercel
   console.error("AssemblyAI API key is not configured.");
