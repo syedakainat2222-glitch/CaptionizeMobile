@@ -1,11 +1,8 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // WARNING: This rule is insecure and allows open access to your database.
-    // It is intended for development purposes to remove permission errors.
-    match /{document=**} {
-      allow read, write: if true;
+    match /users/{userId}/videos/{videoId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }

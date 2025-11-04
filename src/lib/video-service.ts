@@ -1,96 +1,100 @@
-'use client';
+import { getAuth, signInAnonymously } from "firebase/auth";
 import {
+  getFirestore,
   collection,
-  addDoc,
   getDocs,
   doc,
+  getDoc,
+  addDoc,
   updateDoc,
-  serverTimestamp,
+  deleteDoc,
   query,
-  where,
-  type Firestore,
-} from 'firebase/firestore';
-import type { Subtitle } from './srt';
-import type { Video } from './types';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import { db } from './firebase';
+  orderBy,
+} from "firebase/firestore";
+import { app } from "@/lib/firebase";
 
-export const saveVideo = async (
-  userId: string,
-  videoData: {
-    videoUrl: string;
-    subtitles: Subtitle[];
-    name: string;
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/**
+ * Ensures Firebase Authentication (anonymous if needed)
+ */
+async function ensureAuth() {
+  if (!auth.currentUser) {
+    await signInAnonymously(auth);
   }
-) => {
-  const newDoc = {
-    ...videoData,
+  return auth.currentUser!;
+}
+
+/**
+ * Fetch all videos for the current user
+ */
+export async function fetchVideoLibrary() {
+  const user = await ensureAuth();
+  const userId = user.uid;
+
+  const videosRef = collection(db, `users/${userId}/videos`);
+  const q = query(videosRef, orderBy("updatedAt", "desc"));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+}
+
+/**
+ * Fetch a single video
+ */
+export async function fetchVideo(videoId: string) {
+  const user = await ensureAuth();
+  const userId = user.uid;
+
+  const videoRef = doc(db, `users/${userId}/videos/${videoId}`);
+  const snapshot = await getDoc(videoRef);
+
+  if (!snapshot.exists()) {
+    throw new Error("Video not found");
+  }
+
+  return { id: snapshot.id, ...snapshot.data() };
+}
+
+/**
+ * Add a new video
+ */
+export async function addVideo(videoData: any) {
+  const user = await ensureAuth();
+  const userId = user.uid;
+
+  const videosRef = collection(db, `users/${userId}/videos`);
+  const docRef = await addDoc(videosRef, {
     userId,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
+    createdAt: new Date().toISOString(),
+    ...videoData,
+  });
 
-  return addDoc(collection(db, 'videos'), newDoc)
-    .then(docRef => {
-      return docRef.id;
-    })
-    .catch(async (serverError: Error) => {
-      const permissionError = new FirestorePermissionError({
-        path: 'videos',
-        operation: 'create',
-        requestResourceData: newDoc,
-      } satisfies SecurityRuleContext);
-      errorEmitter.emit('permission-error', permissionError);
-      // Return null or re-throw a different error to be caught by the caller
-      return null;
-    });
-};
+  return docRef.id;
+}
 
-export const getVideos = async (userId: string): Promise<Video[]> => {
-  if (!userId) return [];
-  const q = query(collection(db, 'videos'), where('userId', '==', userId));
+/**
+ * Update existing video
+ */
+export async function updateVideo(videoId: string, updateData: any) {
+  const user = await ensureAuth();
+  const userId = user.uid;
 
-  return getDocs(q)
-    .then(querySnapshot => {
-      const videos: Video[] = [];
-      querySnapshot.forEach(doc => {
-        videos.push({ id: doc.id, ...doc.data() } as Video);
-      });
-      return videos.sort(
-        (a, b) => b.updatedAt.toMillis() - a.updatedAt.toMillis()
-      );
-    })
-    .catch(async (serverError: Error) => {
-      const permissionError = new FirestorePermissionError({
-        path: 'videos',
-        operation: 'list',
-      } satisfies SecurityRuleContext);
-      errorEmitter.emit('permission-error', permissionError);
-      return [];
-    });
-};
+  const videoRef = doc(db, `users/${userId}/videos/${videoId}`);
+  await updateDoc(videoRef, updateData);
+}
 
-export const updateVideoSubtitles = async (
-  userId: string,
-  videoId: string,
-  subtitles: Subtitle[]
-) => {
-  const videoRef = doc(db, 'videos', videoId);
-  const updatedData = {
-    subtitles: subtitles,
-    updatedAt: serverTimestamp(),
-  };
+/**
+ * Delete video
+ */
+export async function deleteVideo(videoId: string) {
+  const user = await ensureAuth();
+  const userId = user.uid;
 
-  return updateDoc(videoRef, updatedData)
-    .then(() => true)
-    .catch(async (serverError: Error) => {
-      const permissionError = new FirestorePermissionError({
-        path: videoRef.path,
-        operation: 'update',
-        requestResourceData: updatedData,
-      } satisfies SecurityRuleContext);
-      errorEmitter.emit('permission-error', permissionError);
-      return false;
-    });
-};
+  const videoRef = doc(db, `users/${userId}/videos/${videoId}`);
+  await deleteDoc(videoRef);
+}
