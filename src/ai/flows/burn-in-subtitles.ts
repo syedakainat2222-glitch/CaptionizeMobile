@@ -68,6 +68,24 @@ async function downloadAndEncode(url: string): Promise<string> {
     return buffer.toString('base64');
 }
 
+const sanitizeCloudinaryText = (text: string): string => {
+  // Cloudinary requires special escaping for text overlays.
+  // 1. First, escape Cloudinary-specific characters.
+  //    , -> _  (comma)
+  //    / -> _  (slash)
+  //    $ -> __ (dollar sign)
+  //    ( and ) are problematic in URLs.
+  let sanitized = text
+    .replace(/,/g, '_')
+    .replace(/\//g, '_')
+    .replace(/\$/g, '__')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+
+  // 2. Then, apply standard URL encoding to the rest.
+  return encodeURIComponent(sanitized);
+};
+
 
 const burnInSubtitlesFlow = ai.defineFlow(
   {
@@ -80,11 +98,8 @@ const burnInSubtitlesFlow = ai.defineFlow(
     const subtitleOverlays = subtitles.map(subtitle => {
       const startOffset = srtTimeToSeconds(subtitle.startTime);
       const endOffset = srtTimeToSeconds(subtitle.endTime);
-
-      // Sanitize text for URL: remove special characters, escape others.
-      // Cloudinary text overlays have specific encoding requirements.
-      // Example: ' becomes %27, / becomes %2F, ? becomes %3F
-      const encodedText = encodeURIComponent(subtitle.text).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29');
+      
+      const encodedText = sanitizeCloudinaryText(subtitle.text);
       
       return {
         // Text overlay with font, size, and color
@@ -113,6 +128,8 @@ const burnInSubtitlesFlow = ai.defineFlow(
       // Request a .mp4 format for wide compatibility
       format: 'mp4',
     });
+
+    console.log("Generated Cloudinary URL:", transformedVideoUrl);
 
     if (!transformedVideoUrl) {
       throw new Error('Failed to generate transformed video URL from Cloudinary.');
