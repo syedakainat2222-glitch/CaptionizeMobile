@@ -12,8 +12,15 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import {AssemblyAI} from 'assemblyai';
 
+const apiKey = process.env.NEXT_PUBLIC_ASSEMBLYAI_API_KEY;
+
+if (!apiKey) {
+  // This check is important for production environments like Vercel
+  console.error("AssemblyAI API key is not configured.");
+}
+
 const assemblyai = new AssemblyAI({
-  apiKey: process.env.NEXT_PUBLIC_ASSEMBLYAI_API_KEY!,
+  apiKey: apiKey!,
 });
 
 const GenerateSubtitlesInputSchema = z.object({
@@ -27,6 +34,9 @@ const GenerateSubtitlesOutputSchema = z.object({
 export type GenerateSubtitlesOutput = z.infer<typeof GenerateSubtitlesOutputSchema>;
 
 export async function generateSubtitles(input: GenerateSubtitlesInput): Promise<GenerateSubtitlesOutput> {
+  if (!apiKey) {
+    throw new Error('AssemblyAI API key is not configured. Please add NEXT_PUBLIC_ASSEMBLYAI_API_KEY to your environment variables.');
+  }
   return generateSubtitlesFlow(input);
 }
 
