@@ -5,7 +5,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
 import { PassThrough } from 'stream';
 
@@ -93,7 +93,7 @@ const burnInSubtitlesFlow = ai.defineFlow(
         overlay: {
           font_family: "Arial",
           font_size: 48,
-          text: encodeURIComponent(subtitle.text), // ✅ safely encode subtitle text
+          text: subtitle.text, // The SDK handles encoding
         },
         color: "white",
         background: "rgba:0,0,0,0.5",
@@ -111,7 +111,7 @@ const burnInSubtitlesFlow = ai.defineFlow(
       format: 'mp4',
     });
 
-    console.log("Generated Cloudinary URL:", transformedVideoUrl);
+    console.log("Generated Cloudinary URL for download:", transformedVideoUrl);
 
     if (!transformedVideoUrl) {
       throw new Error('Failed to generate transformed video URL from Cloudinary.');
