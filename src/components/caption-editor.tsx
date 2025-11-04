@@ -23,6 +23,7 @@ type CorrectionDialogState = {
 };
 
 const toDate = (timestamp: Timestamp | Date): Date => {
+  if (!timestamp) return new Date();
   if (timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
     return (timestamp as Timestamp).toDate();
   }
@@ -110,10 +111,10 @@ export default function CaptionEditor() {
 
           const parsedSubs = parseSrt(result.subtitles);
           
-          const newVideoData = {
+          const newVideoData: Omit<Video, 'id' | 'userId' | 'createdAt'> = {
             name: file.name,
             videoUrl: videoUrl,
-            publicId: publicId,
+            publicId: publicId, // Ensure publicId is included here
             subtitles: parsedSubs,
             updatedAt: Timestamp.now(),
           };
@@ -160,7 +161,7 @@ export default function CaptionEditor() {
         setVideoFile(null);
       };
     },
-    [toast]
+    [toast, loadVideoLibrary]
   );
 
   const handleTimeUpdate = useCallback(
@@ -198,7 +199,8 @@ export default function CaptionEditor() {
       };
       await updateVideo(currentVideo.id, updateData);
       
-      setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? {...v, subtitles: newSubtitles, updatedAt: updatedTimestamp} : v));
+      setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? {...v, subtitles: newSubtitles, updatedAt: updatedTimestamp} : v)
+      .sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
       
       toast({
         title: 'Saved!',
@@ -273,6 +275,7 @@ export default function CaptionEditor() {
   }, [loadVideoLibrary]);
 
   const handleSelectVideoFromLibrary = (video: Video) => {
+    console.log("Selected video from library:", video);
     setCurrentVideo(video);
     setSubtitles(video.subtitles);
   };

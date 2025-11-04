@@ -41,17 +41,17 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((doc) => {
-    const data = doc.data();
+    const data = doc.data() || {};
     // Explicitly map fields to ensure type safety and prevent missing properties.
     return {
       id: doc.id,
-      name: data.name,
-      videoUrl: data.videoUrl,
-      publicId: data.publicId, 
-      subtitles: data.subtitles,
-      userId: data.userId,
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
+      name: data.name ?? "Untitled",
+      videoUrl: data.videoUrl ?? "",
+      publicId: data.publicId ?? "",
+      subtitles: data.subtitles ?? [],
+      userId: data.userId ?? userId,
+      createdAt: data.createdAt ?? Timestamp.now(),
+      updatedAt: data.updatedAt ?? Timestamp.now(),
     } as Video;
   });
 }
@@ -86,7 +86,7 @@ export async function addVideo(videoData: Omit<Video, 'id' | 'userId' | 'created
     ...videoData,
     userId,
     createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(), // Ensure updatedAt is set on creation
+    updatedAt: videoData.updatedAt || Timestamp.now(),
   });
 
   return docRef.id;
@@ -95,7 +95,7 @@ export async function addVideo(videoData: Omit<Video, 'id' | 'userId' | 'created
 /**
  * Update existing video
  */
-export async function updateVideo(videoId: string, updateData: Partial<Video>) {
+export async function updateVideo(videoId: string, updateData: Partial<Omit<Video, 'id'>>) {
   const user = await ensureAuth();
   const userId = user.uid;
 
