@@ -22,6 +22,14 @@ type CorrectionDialogState = {
   isLoading: boolean;
 };
 
+const toDate = (timestamp: Timestamp | Date): Date => {
+  if (timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
+    return (timestamp as Timestamp).toDate();
+  }
+  return timestamp as Date;
+};
+
+
 export default function CaptionEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
@@ -121,7 +129,7 @@ export default function CaptionEditor() {
           
           setCurrentVideo(savedVideo);
           setSubtitles(savedVideo.subtitles);
-          setVideoLibrary(prevLibrary => [savedVideo, ...prevLibrary].sort((a,b) => b.updatedAt.toMillis() - a.updatedAt.toMillis()));
+          setVideoLibrary(prevLibrary => [savedVideo, ...prevLibrary].sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
           
           toast({
             title: 'Success!',
