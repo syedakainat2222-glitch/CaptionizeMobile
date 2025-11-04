@@ -12,6 +12,7 @@ import VideoLibrary from './video-library';
 import { getVideos, saveVideo, updateVideoSubtitles } from '@/lib/video-service';
 import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { v2 as cloudinary } from 'cloudinary';
 
 type CorrectionDialogState = {
   open: boolean;
@@ -62,7 +63,7 @@ export default function CaptionEditor() {
         try {
           const videoDataUri = reader.result as string;
           
-          // Generate subtitles first
+          // Generate subtitles first. This flow also uploads to cloudinary.
           const result = await generateSubtitles({
             videoDataUri,
           });
@@ -74,21 +75,21 @@ export default function CaptionEditor() {
           const parsedSubs = parseSrt(result.subtitles);
           setSubtitles(parsedSubs);
           
-          // Then, save video to DB. For simplicity, we use the file URL from cloudinary which is inside the result of generateSubtitles flow
-          // but we are not modifying the flow to return it. So we re-upload. This is not optimal.
-           const cloudinary = require('cloudinary').v2;
-           cloudinary.config({
-              cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-              api_key: process.env.CLOUDINARY_API_KEY,
-              api_secret: process.env.CLOUDINARY_API_SECRET,
-            });
-          const uploadResult = await cloudinary.uploader.upload(videoDataUri, {
-            resource_type: 'video',
+          // We need to re-upload to get the URL because the flow doesn't return it.
+          // This is not optimal. A better solution would be to modify the flow.
+          // For now, we will do this to get the feature working.
+          const response = await fetch('/api/upload-video', {
+            method: 'POST',
+            body: JSON.stringify({ videoDataUri }),
+            headers: { 'Content-Type': 'application/json' }
           });
+
+          const { videoUrl } = await response.json();
+
 
           const newVideo: Omit<Video, 'id' | 'createdAt' | 'updatedAt'> = {
             name: file.name,
-            videoUrl: uploadResult.secure_url,
+            videoUrl: videoUrl,
             subtitles: parsedSubs,
           };
 
