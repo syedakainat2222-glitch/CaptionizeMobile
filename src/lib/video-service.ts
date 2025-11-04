@@ -10,6 +10,7 @@ import {
   deleteDoc,
   query,
   orderBy,
+  Timestamp,
 } from "firebase/firestore";
 import { app } from "@/lib/firebase";
 
@@ -69,9 +70,9 @@ export async function addVideo(videoData: any) {
 
   const videosRef = collection(db, `users/${userId}/videos`);
   const docRef = await addDoc(videosRef, {
-    userId,
-    createdAt: new Date().toISOString(),
     ...videoData,
+    userId,
+    createdAt: Timestamp.now(),
   });
 
   return docRef.id;

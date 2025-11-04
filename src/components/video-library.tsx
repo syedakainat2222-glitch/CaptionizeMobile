@@ -6,10 +6,18 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from './ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { PlayCircle } from 'lucide-react';
+import type { Timestamp } from 'firebase/firestore';
 
 type VideoLibraryProps = {
   videos: Video[];
   onSelectVideo: (video: Video) => void;
+};
+
+const toDate = (timestamp: Timestamp | Date): Date => {
+  if (timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
+    return (timestamp as Timestamp).toDate();
+  }
+  return timestamp as Date;
 };
 
 export default function VideoLibrary({ videos, onSelectVideo }: VideoLibraryProps) {
@@ -33,7 +41,7 @@ export default function VideoLibrary({ videos, onSelectVideo }: VideoLibraryProp
                   <div>
                     <p className="font-semibold">{video.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      Last updated: {formatDistanceToNow(video.updatedAt.toDate(), { addSuffix: true })}
+                      Last updated: {formatDistanceToNow(toDate(video.updatedAt), { addSuffix: true })}
                     </p>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => onSelectVideo(video)}>

@@ -106,7 +106,7 @@ export default function CaptionEditor() {
             name: file.name,
             videoUrl: videoUrl,
             subtitles: parsedSubs,
-            updatedAt: new Date().toISOString(),
+            updatedAt: Timestamp.now(),
           };
 
           const newVideoId = await addVideo(newVideoData);
@@ -115,8 +115,7 @@ export default function CaptionEditor() {
              ...newVideoData,
              id: newVideoId,
              userId: '', // This will be set by the service
-             createdAt: Timestamp.now(), // Firestore timestamp will be different
-             updatedAt: Timestamp.fromDate(new Date(newVideoData.updatedAt))
+             createdAt: Timestamp.now(), 
           }
           
           setCurrentVideo(savedVideo);
@@ -183,13 +182,13 @@ export default function CaptionEditor() {
     setSubtitles(newSubtitles);
 
     if (currentVideo) {
+      const updatedTimestamp = Timestamp.now();
       const updateData = { 
         subtitles: newSubtitles,
-        updatedAt: new Date().toISOString(),
+        updatedAt: updatedTimestamp,
       };
       await updateVideo(currentVideo.id, updateData);
       
-      const updatedTimestamp = Timestamp.fromDate(new Date(updateData.updatedAt));
       setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? {...v, subtitles: newSubtitles, updatedAt: updatedTimestamp} : v));
       
       toast({
