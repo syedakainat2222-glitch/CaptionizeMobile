@@ -86,10 +86,10 @@ export default function CaptionEditor() {
             throw new Error(uploadResult.error || 'Failed to upload video.');
           }
 
-          const { videoUrl } = uploadResult;
+          const { videoUrl, publicId } = uploadResult;
 
-          if (!videoUrl) {
-            throw new Error('Could not get video URL after upload.');
+          if (!videoUrl || !publicId) {
+            throw new Error('Could not get video URL or public ID after upload.');
           }
 
           const result = await generateSubtitles({
@@ -105,6 +105,7 @@ export default function CaptionEditor() {
           const newVideoData = {
             name: file.name,
             videoUrl: videoUrl,
+            publicId: publicId,
             subtitles: parsedSubs,
             updatedAt: Timestamp.now(),
           };
@@ -282,6 +283,7 @@ export default function CaptionEditor() {
         <>
           <EditorView
             videoUrl={currentVideo.videoUrl}
+            videoPublicId={currentVideo.publicId}
             videoName={currentVideo.name}
             subtitles={subtitles}
             activeSubtitleId={activeSubtitleId}

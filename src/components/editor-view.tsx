@@ -3,7 +3,7 @@ import VideoPlayer from '@/components/video-player';
 import SubtitleEditor from '@/components/subtitle-editor';
 import type { Subtitle } from '@/lib/srt';
 import { Button } from '@/components/ui/button';
-import { Download, Upload, ArrowLeft, Loader2 } from 'lucide-react';
+import { Download, Upload, ArrowLeft, Loader2, Video } from 'lucide-react';
 import { formatSrt, formatVtt } from '@/lib/srt';
 import {
   Select,
@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 
 type EditorViewProps = {
   videoUrl: string;
+  videoPublicId: string;
   videoName: string;
   subtitles: Subtitle[];
   activeSubtitleId: number | null;
@@ -66,6 +67,7 @@ const FONT_OPTIONS = [
 
 const EditorView: FC<EditorViewProps> = ({
   videoUrl,
+  videoPublicId,
   videoName,
   subtitles,
   activeSubtitleId,
@@ -97,8 +99,14 @@ const EditorView: FC<EditorViewProps> = ({
 
   const downloadFile = async (url: string, filename: string) => {
     try {
+      // Use fetch to get the video as a blob
       const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch video: ${response.statusText}`);
+      }
       const blob = await response.blob();
+      
+      // Create a temporary link to trigger the download
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
@@ -106,7 +114,8 @@ const EditorView: FC<EditorViewProps> = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
+      URL.revokeObjectURL(blobUrl); // Clean up the blob URL
+
     } catch (error) {
        console.error('Failed to download file:', error);
        toast({
@@ -118,6 +127,15 @@ const EditorView: FC<EditorViewProps> = ({
   }
 
   const handleExportVideoWithSubtitles = async () => {
+    if (!videoPublicId) {
+       toast({
+         variant: 'destructive',
+         title: 'Export Failed',
+         description: 'Video public ID is missing. Cannot process video.',
+       });
+       return;
+    }
+
     setIsExporting(true);
     toast({
       title: 'Starting Video Export',
@@ -128,7 +146,7 @@ const EditorView: FC<EditorViewProps> = ({
       const response = await fetch('/api/burn-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl, subtitles }),
+        body: JSON.stringify({ videoPublicId, subtitles }),
       });
 
       const result = await response.json();
@@ -201,7 +219,7 @@ const EditorView: FC<EditorViewProps> = ({
             {isExporting ? (
                 <Loader2 className="mr-2 animate-spin" />
             ) : (
-                <Download className="mr-2" />
+                <Video className="mr-2" />
             )}
             Export Video with Subtitles
           </Button>

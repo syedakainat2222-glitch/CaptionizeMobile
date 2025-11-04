@@ -3,28 +3,25 @@ import { burnInSubtitles } from '@/ai/flows/burn-in-subtitles';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
-  const { videoUrl, subtitles } = await request.json();
+  const { videoPublicId, subtitles } = await request.json();
 
-  if (!videoUrl || !subtitles) {
+  if (!videoPublicId || !subtitles) {
     return NextResponse.json(
-      { error: 'Missing videoUrl or subtitles' },
+      { error: 'Missing videoPublicId or subtitles' },
       { status: 400 }
     );
   }
 
   try {
     const result = await burnInSubtitles({
-      videoUrl,
+      videoPublicId,
       subtitles,
     });
 
     if (!result.videoWithSubtitlesUrl) {
-      throw new Error('The AI flow did not return a video URL.');
+      throw new Error('The video processing flow did not return a URL.');
     }
     
-    // In a real-world scenario, we'd get a downloadable URL.
-    // For this prototype, we'll return the result and let the client handle it.
-    // This might be a data URI or a URL to a temporary file.
     return NextResponse.json({ videoUrl: result.videoWithSubtitlesUrl });
 
   } catch (error) {

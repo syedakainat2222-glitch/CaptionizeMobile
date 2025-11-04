@@ -1,59 +1,48 @@
 'use server';
 
 /**
- * @fileOverview A Genkit flow for burning subtitles into a video file.
- * This flow uses a multimodal AI model to render text overlays on a video.
+ * @fileOverview A Genkit flow for burning subtitles into a video file using Cloudinary.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { formatSrt } from '@/lib/srt';
+import { v2 as cloudinary } from 'cloudinary';
 import type { Subtitle } from '@/lib/srt';
 
+// Configure Cloudinary with environment variables
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const BurnInSubtitlesInputSchema = z.object({
-  videoUrl: z.string().describe('The public URL of the source video file.'),
+  videoPublicId: z.string().describe('The public ID of the video in Cloudinary.'),
   subtitles: z.custom<Subtitle[]>().describe('An array of subtitle objects to burn into the video.'),
 });
 
 export type BurnInSubtitlesInput = z.infer<typeof BurnInSubtitlesInputSchema>;
 
 const BurnInSubtitlesOutputSchema = z.object({
-    videoWithSubtitlesUrl: z.string().describe('The URL of the new video file with subtitles burned in. This may be a data URI.'),
+  videoWithSubtitlesUrl: z.string().describe('The URL of the new video file with subtitles burned in.'),
 });
 
 export type BurnInSubtitlesOutput = z.infer<typeof BurnInSubtitlesOutputSchema>;
 
-
 export async function burnInSubtitles(input: BurnInSubtitlesInput): Promise<BurnInSubtitlesOutput> {
-    return burnInSubtitlesFlow(input);
+  return burnInSubtitlesFlow(input);
 }
 
-
-const burnInSubtitlesPrompt = ai.definePrompt({
-    name: 'burnInSubtitlesPrompt',
-    input: { schema: z.object({ videoUrl: z.string(), srtContent: z.string() }) },
-    output: { schema: BurnInSubtitlesOutputSchema },
-
-    prompt: `You are a video processing AI. Your task is to burn the provided SRT subtitles into the video file.
-
-    Video Source: {{media url=videoUrl}}
-    Subtitles (SRT format):
-    {{{srtContent}}}
-
-    Process the video and render the subtitles directly onto the video frames according to their timestamps. The output should be a new video file.
-    Ensure the subtitles are placed at the bottom-center of the video, with a legible font and a semi-transparent background for readability.
-    `,
-    
-    // We are telling the model we want a video file as an output.
-    // Note: This is a conceptual representation. Actual model support for direct video output like this may vary.
-    // In a real implementation, this might call a specific tool or model fine-tuned for this task.
-    config: {
-        // Hypothetical model configuration for video output
-        // responseModalities: ['VIDEO']
-    }
-});
-
+// Helper to convert SRT time to seconds
+const srtTimeToSeconds = (time: string): number => {
+  const parts = time.split(':');
+  const secondsParts = parts[2].split(',');
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  const seconds = parseInt(secondsParts[0], 10);
+  const milliseconds = parseInt(secondsParts[1], 10);
+  return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+};
 
 const burnInSubtitlesFlow = ai.defineFlow(
   {
@@ -61,35 +50,51 @@ const burnInSubtitlesFlow = ai.defineFlow(
     inputSchema: BurnInSubtitlesInputSchema,
     outputSchema: BurnInSubtitlesOutputSchema,
   },
-  async (input) => {
-    // Convert the subtitle objects back to a single SRT formatted string for the prompt
-    const srtContent = formatSrt(input.subtitles);
+  async ({ videoPublicId, subtitles }) => {
+    // Generate Cloudinary overlay transformations for each subtitle
+    const subtitleOverlays = subtitles.map(subtitle => {
+      const startOffset = srtTimeToSeconds(subtitle.startTime);
+      const endOffset = srtTimeToSeconds(subtitle.endTime);
 
-    // This is a conceptual step. We are assuming a powerful multimodal model
-    // that can take a video and text and produce a new video.
-    // A more realistic implementation would use a dedicated video processing tool or API
-    // like Cloudinary's text overlays or an FFmpeg wrapper.
-    
-    // For this prototype, we will simulate the process by returning the original video URL.
-    // This allows the UI and API to be built correctly, and we can swap in a real
-    // implementation later.
-    console.log("Simulating subtitle burn-in for video:", input.videoUrl);
-    console.log("With SRT content:", srtContent);
-
-    // TODO: Replace this simulation with a real video processing call.
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Simulate processing time
-
-    return {
-      videoWithSubtitlesUrl: input.videoUrl, // Returning original URL as placeholder
-    };
-
-    /*
-    // Conceptual "real" implementation:
-    const { output } = await burnInSubtitlesPrompt({
-        videoUrl: input.videoUrl,
-        srtContent: srtContent,
+      // Sanitize text for URL: remove special characters, escape others.
+      // Cloudinary text overlays have specific encoding requirements.
+      // Example: ' becomes %27, / becomes %2F, ? becomes %3F
+      const encodedText = encodeURIComponent(subtitle.text).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29');
+      
+      return {
+        // Text overlay with font, size, and color
+        overlay: {
+          font_family: "Arial",
+          font_size: 48,
+          text: encodedText,
+        },
+        // Styling for the text
+        color: 'white',
+        // Add a semi-transparent background for readability
+        background: 'rgba:0,0,0,0.5',
+        // Position at the bottom center
+        gravity: 'south',
+        y: 20,
+        // Apply the overlay only during the subtitle's timeframe
+        start_offset: startOffset.toFixed(2),
+        end_offset: endOffset.toFixed(2),
+      };
     });
-    return output!;
-    */
+
+    // Generate the final video URL with all subtitle overlays
+    const transformedVideoUrl = cloudinary.url(videoPublicId, {
+      resource_type: 'video',
+      transformation: subtitleOverlays,
+      // Request a .mp4 format for wide compatibility
+      format: 'mp4',
+    });
+
+    if (!transformedVideoUrl) {
+      throw new Error('Failed to generate transformed video URL from Cloudinary.');
+    }
+    
+    return {
+      videoWithSubtitlesUrl: transformedVideoUrl,
+    };
   }
 );

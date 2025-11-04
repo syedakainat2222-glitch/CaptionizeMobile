@@ -5,6 +5,7 @@ export type Video = {
     id: string;
     name: string;
     videoUrl: string;
+    publicId: string; // Cloudinary public ID
     subtitles: Subtitle[];
     userId: string;
     createdAt: Timestamp;
