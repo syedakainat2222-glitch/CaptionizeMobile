@@ -110,14 +110,15 @@ export default function CaptionEditor() {
           const newVideoId = await saveVideo(newVideoData);
 
           if (newVideoId) {
-             const now = new Date();
+             const now = Timestamp.now();
              const savedVideo: Video = {
                ...newVideoData,
                id: newVideoId,
-               createdAt: Timestamp.fromDate(now),
-               updatedAt: Timestamp.fromDate(now),
+               createdAt: now,
+               updatedAt: now,
              }
              setCurrentVideo(savedVideo);
+             setSubtitles(savedVideo.subtitles);
              setVideoLibrary(prevLibrary => [savedVideo, ...prevLibrary]);
           } else {
             throw new Error('Failed to save video to database.');
