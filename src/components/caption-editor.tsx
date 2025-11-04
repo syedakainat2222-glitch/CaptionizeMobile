@@ -12,7 +12,7 @@ import VideoLibrary from './video-library';
 import { getVideos, saveVideo, updateVideoSubtitles } from '@/lib/video-service';
 import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
-import { serverTimestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 type CorrectionDialogState = {
   open: boolean;
@@ -59,10 +59,8 @@ export default function CaptionEditor() {
   }, [toast]);
 
   useEffect(() => {
-    if (!currentVideo) {
-      fetchVideoLibrary();
-    }
-  }, [currentVideo, fetchVideoLibrary]);
+    fetchVideoLibrary();
+  }, [fetchVideoLibrary]);
   
   const handleVideoSelect = useCallback(
     async (file: File) => {
@@ -81,11 +79,13 @@ export default function CaptionEditor() {
             headers: { 'Content-Type': 'application/json' }
           });
           
+          const uploadResult = await uploadResponse.json();
+
           if (!uploadResponse.ok) {
-            throw new Error('Failed to upload video.');
+            throw new Error(uploadResult.error || 'Failed to upload video.');
           }
 
-          const { videoUrl } = await uploadResponse.json();
+          const { videoUrl } = uploadResult;
 
           if (!videoUrl) {
             throw new Error('Could not get video URL after upload.');
@@ -110,16 +110,15 @@ export default function CaptionEditor() {
           const newVideoId = await saveVideo(newVideoData);
 
           if (newVideoId) {
+             const now = new Date();
              const savedVideo: Video = {
                ...newVideoData,
                id: newVideoId,
-               createdAt: serverTimestamp(),
-               updatedAt: serverTimestamp(),
+               createdAt: Timestamp.fromDate(now),
+               updatedAt: Timestamp.fromDate(now),
              }
              setCurrentVideo(savedVideo);
-             setSubtitles(savedVideo.subtitles);
-             // We don't need to refetch the library here,
-             // it will be refetched when we go back to the library view.
+             setVideoLibrary(prevLibrary => [savedVideo, ...prevLibrary]);
           } else {
             throw new Error('Failed to save video to database.');
           }
@@ -129,13 +128,13 @@ export default function CaptionEditor() {
             description: 'Subtitles generated and video saved.',
           });
 
-        } catch (error) {
+        } catch (error: any) {
           console.error('Processing failed:', error);
           toast({
             variant: 'destructive',
             title: 'An error occurred.',
             description:
-              'Failed to process video. Please try again.',
+              error.message || 'Failed to process video. Please try again.',
           });
           setVideoFile(null);
         } finally {
@@ -185,6 +184,8 @@ export default function CaptionEditor() {
 
     if (currentVideo) {
       await updateVideoSubtitles(currentVideo.id, newSubtitles);
+      // Optimistically update the video library state
+      setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? {...v, subtitles: newSubtitles, updatedAt: Timestamp.now()} : v));
       toast({
         title: 'Saved!',
         description: 'Your subtitle changes have been saved.',
@@ -254,14 +255,15 @@ export default function CaptionEditor() {
     setVideoFile(null);
     setSubtitles([]);
     setActiveSubtitleId(null);
-  }, []);
+    fetchVideoLibrary(); // Refresh library when returning to the list
+  }, [fetchVideoLibrary]);
 
   const handleSelectVideoFromLibrary = (video: Video) => {
     setCurrentVideo(video);
     setSubtitles(video.subtitles);
   };
   
-  if (isFetchingLibrary && !currentVideo) {
+  if (isFetchingLibrary && videoLibrary.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
