@@ -12,7 +12,6 @@ import VideoLibrary from './video-library';
 import { getVideos, saveVideo, updateVideoSubtitles } from '@/lib/video-service';
 import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
-import { v2 as cloudinary } from 'cloudinary';
 
 type CorrectionDialogState = {
   open: boolean;
@@ -63,9 +62,26 @@ export default function CaptionEditor() {
         try {
           const videoDataUri = reader.result as string;
           
-          // Generate subtitles first. This flow also uploads to cloudinary.
+          // Step 1: Upload video to our server, which uploads to Cloudinary
+          const uploadResponse = await fetch('/api/upload-video', {
+            method: 'POST',
+            body: JSON.stringify({ videoDataUri }),
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload video.');
+          }
+
+          const { videoUrl } = await uploadResponse.json();
+
+          if (!videoUrl) {
+            throw new Error('Could not get video URL after upload.');
+          }
+
+          // Step 2: Generate subtitles using the now public video URL
           const result = await generateSubtitles({
-            videoDataUri,
+            videoUrl,
           });
 
           if (!result || !result.subtitles) {
@@ -75,18 +91,7 @@ export default function CaptionEditor() {
           const parsedSubs = parseSrt(result.subtitles);
           setSubtitles(parsedSubs);
           
-          // We need to re-upload to get the URL because the flow doesn't return it.
-          // This is not optimal. A better solution would be to modify the flow.
-          // For now, we will do this to get the feature working.
-          const response = await fetch('/api/upload-video', {
-            method: 'POST',
-            body: JSON.stringify({ videoDataUri }),
-            headers: { 'Content-Type': 'application/json' }
-          });
-
-          const { videoUrl } = await response.json();
-
-
+          // Step 3: Save video metadata to Firestore
           const newVideo: Omit<Video, 'id' | 'createdAt' | 'updatedAt'> = {
             name: file.name,
             videoUrl: videoUrl,

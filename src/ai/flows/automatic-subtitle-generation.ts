@@ -10,25 +10,14 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import {v2 as cloudinary} from 'cloudinary';
 import {AssemblyAI} from 'assemblyai';
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 const assemblyai = new AssemblyAI({
   apiKey: process.env.ASSEMBLYAI_API_KEY!,
 });
 
 const GenerateSubtitlesInputSchema = z.object({
-  videoDataUri: z
-    .string()
-    .describe(
-      "A video file, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
+  videoUrl: z.string().describe('The public URL of the video file.'),
 });
 export type GenerateSubtitlesInput = z.infer<typeof GenerateSubtitlesInputSchema>;
 
@@ -48,14 +37,9 @@ const generateSubtitlesFlow = ai.defineFlow(
     outputSchema: GenerateSubtitlesOutputSchema,
   },
   async input => {
-    // Upload the video to Cloudinary
-    const uploadResult = await cloudinary.uploader.upload(input.videoDataUri, {
-      resource_type: 'video',
-    });
-
-    // Transcribe the video using AssemblyAI
+    // Transcribe the video using AssemblyAI from the provided URL
     const transcript = await assemblyai.transcripts.create({
-      audio_url: uploadResult.secure_url,
+      audio_url: input.videoUrl,
     });
 
     if (transcript.status === 'error' || !transcript.id) {
