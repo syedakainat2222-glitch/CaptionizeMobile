@@ -56,25 +56,25 @@ const srtTimeToSeconds = (time: string): number => {
 
 // Helper function to stream download a file and return it as a Base64 encoded string
 async function downloadAndEncode(url: string): Promise<string> {
-    const response = await fetch(url);
-    if (!response.ok || !response.body) {
-        throw new Error(`Failed to download video from Cloudinary: ${response.statusText}`);
-    }
-    
-    // @ts-ignore
-    const reader = response.body.getReader();
-    const chunks: Uint8Array[] = [];
+  const response = await fetch(url);
+  if (!response.ok || !response.body) {
+    throw new Error(`Failed to download video from Cloudinary: ${response.statusText}`);
+  }
 
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-            break;
-        }
-        chunks.push(value);
+  // @ts-ignore
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
     }
-    
-    const buffer = Buffer.concat(chunks);
-    return buffer.toString('base64');
+    chunks.push(value);
+  }
+
+  const buffer = Buffer.concat(chunks);
+  return buffer.toString('base64');
 }
 
 const burnInSubtitlesFlow = ai.defineFlow(
@@ -88,16 +88,16 @@ const burnInSubtitlesFlow = ai.defineFlow(
     const subtitleOverlays = subtitles.map(subtitle => {
       const startOffset = srtTimeToSeconds(subtitle.startTime);
       const endOffset = srtTimeToSeconds(subtitle.endTime);
-      
+
       return {
         overlay: {
-            font_family: "Arial",
-            font_size: 48,
-            text: subtitle.text,
+          font_family: "Arial",
+          font_size: 48,
+          text: encodeURIComponent(subtitle.text), // ✅ safely encode subtitle text
         },
-        color: 'white',
-        background: 'rgba:0,0,0,0.5',
-        gravity: 'south',
+        color: "white",
+        background: "rgba:0,0,0,0.5",
+        gravity: "south",
         y: 20,
         start_offset: startOffset.toFixed(2),
         end_offset: endOffset.toFixed(2),
@@ -105,7 +105,6 @@ const burnInSubtitlesFlow = ai.defineFlow(
     });
 
     // Generate the final video URL with all subtitle overlays
-    // This uses the SDK's built-in URL generator which handles encoding correctly.
     const transformedVideoUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: subtitleOverlays,
@@ -117,10 +116,10 @@ const burnInSubtitlesFlow = ai.defineFlow(
     if (!transformedVideoUrl) {
       throw new Error('Failed to generate transformed video URL from Cloudinary.');
     }
-    
+
     // Download the video from the generated URL and encode it to Base64
     const videoBase64 = await downloadAndEncode(transformedVideoUrl);
-    
+
     // Return as a data URI
     return {
       videoWithSubtitlesUrl: `data:video/mp4;base64,${videoBase64}`,
