@@ -18,10 +18,11 @@ export async function POST(request: Request) {
       subtitles,
     });
 
-    if (!result.videoWithSubtitlesUrl) {
+    if (!result || !result.videoWithSubtitlesUrl) {
       throw new Error('The video processing flow did not return a URL.');
     }
     
+    // Pass the final URL directly to the frontend
     return NextResponse.json({ videoUrl: result.videoWithSubtitlesUrl });
 
   } catch (error) {

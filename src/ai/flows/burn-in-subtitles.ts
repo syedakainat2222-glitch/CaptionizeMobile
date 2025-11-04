@@ -33,7 +33,7 @@ const BurnInSubtitlesInputSchema = z.object({
 export type BurnInSubtitlesInput = z.infer<typeof BurnInSubtitlesInputSchema>;
 
 const BurnInSubtitlesOutputSchema = z.object({
-  videoWithSubtitlesUrl: z.string().describe('The data URI of the new video file with subtitles burned in.'),
+  videoWithSubtitlesUrl: z.string().describe('The public URL of the new video file with subtitles burned in.'),
 });
 
 export type BurnInSubtitlesOutput = z.infer<typeof BurnInSubtitlesOutputSchema>;
@@ -52,29 +52,6 @@ const srtTimeToSeconds = (time: string): number => {
   const milliseconds = parseInt(secondsParts[1], 10);
   return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
 };
-
-// Helper function to stream download a file and return it as a Base64 encoded string
-async function downloadAndEncode(url: string): Promise<string> {
-  const response = await fetch(url);
-  if (!response.ok || !response.body) {
-    throw new Error(`Failed to download video from Cloudinary: ${response.statusText}`);
-  }
-
-  // @ts-ignore
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    chunks.push(value);
-  }
-
-  const buffer = Buffer.concat(chunks);
-  return buffer.toString('base64');
-}
 
 const burnInSubtitlesFlow = ai.defineFlow(
   {
@@ -98,30 +75,28 @@ const burnInSubtitlesFlow = ai.defineFlow(
         background: "rgba:0,0,0,0.5",
         gravity: "south",
         y: 20,
-        start_offset: startOffset.toFixed(2), // MUST be a string
-        end_offset: endOffset.toFixed(2),     // MUST be a string
+        start_offset: startOffset.toFixed(2),
+        end_offset: endOffset.toFixed(2),
       };
     });
 
     // Generate the final video URL with all subtitle overlays
+    // The SDK handles all encoding and construction.
     const transformedVideoUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: subtitleOverlays,
       format: 'mp4',
     });
-
-    console.log("Generated Cloudinary URL for download:", transformedVideoUrl);
+    
+    console.log("Generated Cloudinary URL:", transformedVideoUrl);
 
     if (!transformedVideoUrl) {
       throw new Error('Failed to generate transformed video URL from Cloudinary.');
     }
 
-    // Download the video from the generated URL and encode it to Base64
-    const videoBase64 = await downloadAndEncode(transformedVideoUrl);
-
-    // Return as a data URI
+    // Return the public URL directly. The browser will handle the download.
     return {
-      videoWithSubtitlesUrl: `data:video/mp4;base64,${videoBase64}`,
+      videoWithSubtitlesUrl: transformedVideoUrl,
     };
   }
 );
