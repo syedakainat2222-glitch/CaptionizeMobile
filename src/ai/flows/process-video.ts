@@ -80,6 +80,7 @@ const processVideoFlow = ai.defineFlow(
     
     const transcript = await assemblyai.transcripts.create({
       audio_url: videoUrl,
+      language_detection: true, // Enable automatic language detection
     });
 
     if (transcript.status === 'error' || !transcript.id) {

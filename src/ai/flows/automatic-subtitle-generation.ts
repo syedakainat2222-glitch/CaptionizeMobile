@@ -42,6 +42,7 @@ const generateSubtitlesFlow = ai.defineFlow(
     // Transcribe the video using AssemblyAI from the provided URL
     const transcript = await assemblyai.transcripts.create({
       audio_url: input.videoUrl,
+      language_detection: true, // Enable automatic language detection
     });
 
     if (transcript.status === 'error' || !transcript.id) {
