@@ -12,7 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import {AssemblyAI} from 'assemblyai';
 
-const apiKey = process.env.NEXT_PUBLIC_ASSEMBLYAI_API_KEY;
+const apiKey = process.env.ASSEMBLYAI_API_KEY;
 
 // NOTE: Do not check in your API key to source control.
 // This is done here for demonstration purposes only.
@@ -38,7 +38,7 @@ export type GenerateSubtitlesOutput = z.infer<typeof GenerateSubtitlesOutputSche
 
 export async function generateSubtitles(input: GenerateSubtitlesInput): Promise<GenerateSubtitlesOutput> {
   if (!apiKey) {
-    throw new Error('AssemblyAI API key is not configured. Please add NEXT_PUBLIC_ASSEMBLYAI_API_KEY to your environment variables.');
+    throw new Error('AssemblyAI API key is not configured. Please add ASSEMBLYAI_API_KEY to your environment variables.');
   }
   return generateSubtitlesFlow(input);
 }
