@@ -112,8 +112,7 @@ export async function POST(request: NextRequest) {
     try {
       console.log('=== METHOD 1: EAGER TRANSFORMATIONS ===');
       
-      // Process first 10 subtitles for reliability (adjust as needed)
-      const subtitlesToProcess = subtitles.slice(0, 10);
+      const subtitlesToProcess = subtitles; // FIX: Process all subtitles
       console.log(`Processing ${subtitlesToProcess.length} subtitles with eager transformation`);
       
       // Create a single transformation with multiple overlays
