@@ -26,6 +26,7 @@ const LANGUAGES = [
   { value: 'ja', label: 'Japanese' },
   { value: 'ko', label: 'Korean' },
   { value: 'zh', label: 'Chinese' },
+  { value: 'ur', label: 'Urdu' },
 ];
 
 type VideoUploadProps = {
