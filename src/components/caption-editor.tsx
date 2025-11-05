@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import VideoUpload from '@/components/video-upload';
 import EditorView from '@/components/editor-view';
-import { generateSubtitles } from '@/ai/flows/automatic-subtitle-generation';
 import { useToast } from '@/hooks/use-toast';
 import { parseSrt, type Subtitle } from '@/lib/srt';
 import { aiSuggestedCorrections } from '@/ai/flows/ai-suggested-corrections';
@@ -13,6 +12,7 @@ import { fetchVideoLibrary, addVideo, updateVideo, deleteVideo } from '@/lib/vid
 import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
+import { processVideo } from '@/ai/flows/process-video';
 
 type CorrectionDialogState = {
   open: boolean;
@@ -87,34 +87,18 @@ export default function CaptionEditor() {
       reader.onload = async () => {
         try {
           const videoDataUri = reader.result as string;
-          
-          const uploadResponse = await fetch('/api/upload-video', {
-            method: 'POST',
-            body: JSON.stringify({ videoDataUri }),
-            headers: { 'Content-Type': 'application/json' }
-          });
-          
-          const uploadResult = await uploadResponse.json();
 
-          if (!uploadResponse.ok) {
-            throw new Error(uploadResult.error || 'Failed to upload video.');
-          }
-
-          const { videoUrl, publicId } = uploadResult;
-
-          if (!videoUrl || !publicId) {
-            throw new Error('Could not get video URL or public ID after upload.');
-          }
-
-          const result = await generateSubtitles({
-            videoUrl,
+          const result = await processVideo({
+            videoDataUri,
           });
 
-          if (!result || !result.subtitles) {
-            throw new Error('Subtitle generation returned an empty result.');
+          if (!result || !result.subtitles || !result.videoUrl || !result.publicId) {
+            throw new Error('Video processing returned an incomplete result.');
           }
 
-          const parsedSubs = parseSrt(result.subtitles);
+          const { videoUrl, publicId, subtitles } = result;
+
+          const parsedSubs = parseSrt(subtitles);
           
           const newVideoData: Omit<Video, 'id' | 'userId' | 'createdAt'> = {
             name: file.name,
