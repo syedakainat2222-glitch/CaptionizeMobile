@@ -156,7 +156,7 @@ const EditorView: FC<EditorViewProps> = ({
     }
   };
   
-  const downloadFile = async (url: string, filename: string) => {
+  const downloadFile = (url: string, filename: string) => {
     try {
       if (!url) {
         throw new Error('Download URL is empty.');
