@@ -43,7 +43,7 @@ export default function CaptionEditor() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingLibrary, setIsFetchingLibrary] = useState(true);
   const [activeSubtitleId, setActiveSubtitleId] = useState<number | null>(null);
-  const [subtitleFont, setSubtitleFont] = useState('Inter, sans-serif');
+  const [subtitleFont, setSubtitleFont] = useState('Arial, sans-serif');
   const [subtitleFontSize, setSubtitleFontSize] = useState(48);
   const { toast } = useToast();
   const [videoLibrary, setVideoLibrary] = useState<Video[]>([]);
@@ -82,10 +82,10 @@ export default function CaptionEditor() {
   useEffect(() => {
     // When currentVideo changes, update the font state
     if (currentVideo) {
-      setSubtitleFont(currentVideo.subtitleFont || 'Inter, sans-serif');
+      setSubtitleFont(currentVideo.subtitleFont || 'Arial, sans-serif');
       setSubtitleFontSize(currentVideo.subtitleFontSize || 48);
     } else {
-      setSubtitleFont('Inter, sans-serif'); // Reset to default if not set
+      setSubtitleFont('Arial, sans-serif'); // Reset to default if not set
       setSubtitleFontSize(48);
     }
   }, [currentVideo]);
@@ -119,7 +119,7 @@ export default function CaptionEditor() {
             videoUrl: videoUrl,
             publicId: publicId,
             subtitles: parsedSubs,
-            subtitleFont: 'Inter, sans-serif', // Set default font on creation
+            subtitleFont: 'Arial, sans-serif', // Set default font on creation
             subtitleFontSize: 48, // Set default font size
             updatedAt: Timestamp.now(),
           };

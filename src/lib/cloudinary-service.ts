@@ -12,16 +12,11 @@ cloudinary.config({
 // Maps the font-family from the UI to the font name Cloudinary expects.
 // Using more generic font names that Cloudinary is likely to support.
 const fontMap: { [key: string]: string } = {
-    'Inter, sans-serif': 'Inter',
-    'Roboto, sans-serif': 'Roboto',
     'Arial, sans-serif': 'Arial',
-    'Helvetica, sans-serif': 'Helvetica',
-    'Georgia, serif': 'Georgia',
     'Times New Roman, serif': 'Times_New_Roman',
-    'Verdana, sans-serif': 'Verdana',
     'Courier New, monospace': 'Courier',
-    'Lucida Console, monospace': 'Lucida',
-    'Comic Sans MS, cursive': 'Comic_Sans_MS',
+    'Georgia, serif': 'Georgia',
+    'Verdana, sans-serif': 'Verdana',
 };
 
 /**
@@ -57,7 +52,7 @@ async function uploadVttSubtitles(subtitles: Subtitle[]): Promise<string> {
 
 /**
  * Generates a Cloudinary URL for a video with burned-in subtitles.
- * This function uses the robust VTT file overlay method to avoid long URLs.
+ * This function uses the robust VTT file overlay method to avoid long URLs and character encoding issues.
  *
  * @param videoPublicId The public ID of the video in Cloudinary.
  * @param subtitles An array of all subtitles to burn into the video.
@@ -68,11 +63,11 @@ async function uploadVttSubtitles(subtitles: Subtitle[]): Promise<string> {
 export async function generateSubtitledVideoUrl(
   videoPublicId: string,
   subtitles: Subtitle[],
-  subtitleFont: string = 'Inter, sans-serif',
+  subtitleFont: string = 'Arial, sans-serif',
   subtitleFontSize: number = 48
 ): Promise<string> {
   try {
-    // 1. Upload all subtitles as a single VTT file.
+    // 1. Upload all subtitles as a single VTT file. This is the key to solving the encoding issue.
     const subtitlePublicId = await uploadVttSubtitles(subtitles);
 
     // 2. Map the UI font to a Cloudinary-compatible font name. Default to Arial.
@@ -80,7 +75,7 @@ export async function generateSubtitledVideoUrl(
 
     // 3. Build the transformation using a chained approach for robustness.
     const transformation = [
-      // First layer: Apply the subtitle file.
+      // First layer: Apply the subtitle file. Cloudinary handles rendering the text.
       {
         overlay: `subtitles:${subtitlePublicId.replace(/\//g, ':')}`, // Replace slashes with colons for correct ID formatting in overlay
       },
