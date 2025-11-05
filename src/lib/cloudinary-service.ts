@@ -21,7 +21,6 @@ const fontMap: { [key: string]: string } = {
     'Courier New, monospace': 'Courier_New',
     'Lucida Console, monospace': 'Lucida_Console',
     'Comic Sans MS, cursive': 'Comic_Sans_MS',
-    // Add other font mappings here if the UI supports more
 };
 
 /**
@@ -83,8 +82,6 @@ export async function generateSubtitledVideoUrl(
             // Apply the uploaded subtitle file using its public_id.
             // This is the core of the fix.
             overlay: `subtitles:${subtitlePublicId}`,
-        },
-        {
             // Style the subtitles.
             gravity: "south",
             y: 50,
