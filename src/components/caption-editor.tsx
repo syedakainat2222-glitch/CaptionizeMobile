@@ -1,162 +1,349 @@
 'use client';
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState, useCallback, useEffect } from 'react';
+import VideoUpload from '@/components/video-upload';
+import EditorView from '@/components/editor-view';
+import { generateSubtitles } from '@/ai/flows/automatic-subtitle-generation';
+import { useToast } from '@/hooks/use-toast';
+import { parseSrt, type Subtitle } from '@/lib/srt';
+import { aiSuggestedCorrections } from '@/ai/flows/ai-suggested-corrections';
+import CorrectionDialog from '@/components/correction-dialog';
+import VideoLibrary from './video-library';
+import { fetchVideoLibrary, addVideo, updateVideo, deleteVideo } from '@/lib/video-service';
+import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { Timestamp } from 'firebase/firestore';
+
+type CorrectionDialogState = {
+  open: boolean;
+  subtitleId: number | null;
+  suggestion: string | null;
+  explanation: string | null;
+  isLoading: boolean;
+};
+
+const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
+  if (!timestamp) {
+    return new Date();
+  }
+  if (timestamp instanceof Timestamp) {
+    return timestamp.toDate();
+  }
+  if (timestamp instanceof Date) {
+    return timestamp;
+  }
+  return new Date(timestamp);
+};
+
 
 export default function CaptionEditor() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoUrl, setVideoUrl] = useState('');
-  const [subtitles, setSubtitles] = useState<{ text: string; time: string }[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [suggestion, setSuggestion] = useState('');
+  const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
+  const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingLibrary, setIsFetchingLibrary] = useState(true);
+  const [activeSubtitleId, setActiveSubtitleId] = useState<number | null>(null);
+  const [subtitleFont, setSubtitleFont] = useState('Inter, sans-serif');
+  const { toast } = useToast();
+  const [videoLibrary, setVideoLibrary] = useState<Video[]>([]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setVideoFile(file);
-  };
+  const [correctionDialogState, setCorrectionDialogState] =
+    useState<CorrectionDialogState>({
+      open: false,
+      subtitleId: null,
+      suggestion: null,
+      explanation: null,
+      isLoading: false,
+    });
 
-  // ===============================
-  // STEP 1: UPLOAD VIDEO TO CLOUDINARY
-  // ===============================
-  const handleUpload = async () => {
-    if (!videoFile) return setError('Please select a video file first.');
-    setError('');
-    setLoading(true);
-
+  const loadVideoLibrary = useCallback(async () => {
+    setIsFetchingLibrary(true);
     try {
+      const videos = await fetchVideoLibrary();
+      setVideoLibrary(videos);
+    } catch (error) {
+      console.error("Failed to fetch video library:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not load your video library.',
+      });
+    } finally {
+      setIsFetchingLibrary(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadVideoLibrary();
+  }, [loadVideoLibrary]);
+  
+  const handleVideoSelect = useCallback(
+    async (file: File) => {
+      setVideoFile(file);
+      setIsLoading(true);
+
       const reader = new FileReader();
-      reader.onloadend = async () => {
-        const videoDataUri = reader.result;
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        try {
+          const videoDataUri = reader.result as string;
+          
+          const uploadResponse = await fetch('/api/upload-video', {
+            method: 'POST',
+            body: JSON.stringify({ videoDataUri }),
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          const uploadResult = await uploadResponse.json();
 
-        const uploadRes = await fetch('/api/upload-video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ videoDataUri }),
+          if (!uploadResponse.ok) {
+            throw new Error(uploadResult.error || 'Failed to upload video.');
+          }
+
+          const { videoUrl, publicId } = uploadResult;
+
+          if (!videoUrl || !publicId) {
+            throw new Error('Could not get video URL or public ID after upload.');
+          }
+
+          const result = await generateSubtitles({
+            videoUrl,
+          });
+
+          if (!result || !result.subtitles) {
+            throw new Error('Subtitle generation returned an empty result.');
+          }
+
+          const parsedSubs = parseSrt(result.subtitles);
+          
+          const newVideoData: Omit<Video, 'id' | 'userId' | 'createdAt'> = {
+            name: file.name,
+            videoUrl: videoUrl,
+            publicId: publicId,
+            subtitles: parsedSubs,
+            updatedAt: Timestamp.now(),
+          };
+
+          const newVideoId = await addVideo(newVideoData);
+          
+          const savedVideo: Video = {
+             ...newVideoData,
+             id: newVideoId,
+             userId: '', // This will be set by the service
+             createdAt: Timestamp.now(), 
+          }
+          
+          setCurrentVideo(savedVideo);
+          setSubtitles(savedVideo.subtitles);
+          setVideoLibrary(prevLibrary => [savedVideo, ...prevLibrary].sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
+          
+          toast({
+            title: 'Success!',
+            description: 'Subtitles generated and video saved.',
+          });
+
+        } catch (error: any) {
+          console.error('Processing failed:', error);
+          toast({
+            variant: 'destructive',
+            title: 'An error occurred.',
+            description:
+              error.message || 'Failed to process video. Please try again.',
+          });
+          setVideoFile(null);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      reader.onerror = () => {
+        console.error('Failed to read file.');
+        toast({
+          variant: 'destructive',
+          title: 'File Read Error',
+          description: 'There was an error reading the selected video file.',
         });
+        setIsLoading(false);
+        setVideoFile(null);
+      };
+    },
+    [toast]
+  );
 
-        const uploadData = await uploadRes.json();
-        if (!uploadRes.ok) throw new Error(uploadData.error || 'Upload failed');
-
-        setVideoUrl(uploadData.videoUrl);
-        console.log('Video uploaded:', uploadData.videoUrl);
-        setLoading(false);
+  const handleTimeUpdate = useCallback(
+    (time: number) => {
+      const srtTimeToSeconds = (srtTime: string) => {
+        const [h, m, s] = srtTime.split(':');
+        const [sec, ms] = s.split(',');
+        return (
+          parseInt(h) * 3600 +
+          parseInt(m) * 60 +
+          parseInt(sec) +
+          parseInt(ms) / 1000
+        );
       };
 
-      reader.readAsDataURL(videoFile);
-    } catch (err: any) {
-      console.error('Upload error:', err);
-      setError(err.message);
-      setLoading(false);
+      const activeSub = subtitles.find(
+        (sub) =>
+          time >= srtTimeToSeconds(sub.startTime) &&
+          time <= srtTimeToSeconds(sub.endTime)
+      );
+      setActiveSubtitleId(activeSub ? activeSub.id : null);
+    },
+    [subtitles]
+  );
+
+  const updateSubtitle = useCallback(async (id: number, newText: string) => {
+    const newSubtitles = subtitles.map((sub) => (sub.id === id ? { ...sub, text: newText } : sub));
+    setSubtitles(newSubtitles);
+
+    if (currentVideo) {
+      const updatedTimestamp = Timestamp.now();
+      const updateData = { 
+        subtitles: newSubtitles,
+        updatedAt: updatedTimestamp,
+      };
+      await updateVideo(currentVideo.id, updateData);
+      
+      setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? {...v, subtitles: newSubtitles, updatedAt: updatedTimestamp} : v)
+      .sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
+      
+      toast({
+        title: 'Saved!',
+        description: 'Your subtitle changes have been saved.',
+      });
     }
-  };
+  }, [subtitles, currentVideo, toast]);
 
-  // ===============================
-  // STEP 2: GENERATE SUBTITLES (AI)
-  // ===============================
-  const handleGenerateSubtitles = async () => {
-    if (!videoUrl) return setError('Please upload a video first.');
-    setError('');
-    setLoading(true);
-
-    try {
-      const genRes = await fetch('/api/generate-subtitles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl }),
+  const handleSuggestCorrection = useCallback(
+    async (subtitle: Subtitle) => {
+      setCorrectionDialogState({
+        ...correctionDialogState,
+        open: true,
+        isLoading: true,
+        subtitleId: subtitle.id,
       });
 
-      const result = await genRes.json();
-      if (!genRes.ok) throw new Error(result.error || 'Failed to generate subtitles.');
+      try {
+        const contextSubtitles = subtitles.filter(
+          (s) => s.id >= subtitle.id - 1 && s.id <= subtitle.id + 1
+        );
+        const context = contextSubtitles
+          .map((s) => s.text)
+          .join('\n');
 
-      setSubtitles(result.subtitles || []);
-      console.log('Generated subtitles:', result.subtitles);
-    } catch (err: any) {
-      console.error('Subtitle generation error:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+        const result = await aiSuggestedCorrections({
+          subtitleText: subtitle.text,
+          context: context,
+        });
+
+        if (result) {
+          setCorrectionDialogState({
+            open: true,
+            isLoading: false,
+            subtitleId: subtitle.id,
+            suggestion: result.suggestedCorrection,
+            explanation: result.explanation,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to get suggestion', error);
+        toast({
+          variant: 'destructive',
+          title: 'Suggestion Failed',
+          description: 'Could not generate a correction suggestion.',
+        });
+        setCorrectionDialogState({ ...correctionDialogState, open: false, isLoading: false, suggestion: null, explanation: null });
+      }
+    },
+    [subtitles, toast, correctionDialogState]
+  );
+
+  const handleAcceptSuggestion = useCallback(() => {
+    if (
+      correctionDialogState.subtitleId !== null &&
+      correctionDialogState.suggestion
+    ) {
+      updateSubtitle(
+        correctionDialogState.subtitleId,
+        correctionDialogState.suggestion
+      );
     }
-  };
+    setCorrectionDialogState({ ...correctionDialogState, open: false });
+  }, [correctionDialogState, updateSubtitle]);
 
-  // ===============================
-  // STEP 3: SUGGEST CORRECTIONS (AI)
-  // ===============================
-  const handleSuggestCorrection = async (subtitleText: string, context?: string) => {
+  const handleReset = useCallback(() => {
+    setCurrentVideo(null);
+    setVideoFile(null);
+    setSubtitles([]);
+    setActiveSubtitleId(null);
+    loadVideoLibrary(); // Refresh library when returning to the list
+  }, [loadVideoLibrary]);
+
+  const handleSelectVideoFromLibrary = (video: Video) => {
+    console.log("Selected video from library:", video);
+    setCurrentVideo(video);
+    setSubtitles(video.subtitles);
+  };
+  
+    const handleDeleteVideo = useCallback(async (videoId: string) => {
     try {
-      const correctionRes = await fetch('/api/suggest-correction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subtitleText, context }),
+      await deleteVideo(videoId);
+      setVideoLibrary(prev => prev.filter(v => v.id !== videoId));
+      toast({
+        title: 'Video Deleted',
+        description: 'The video has been successfully removed.',
       });
-
-      const result = await correctionRes.json();
-      if (!correctionRes.ok) throw new Error(result.error || 'Failed to get suggestion.');
-
-      setSuggestion(result.suggestion || 'No suggestion available.');
-    } catch (err: any) {
-      console.error('Correction suggestion error:', err);
-      setSuggestion(`Error: ${err.message}`);
+    } catch (error) {
+      console.error('Failed to delete video:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Delete Failed',
+        description: 'Could not delete the video. Please try again.',
+      });
     }
-  };
+  }, [toast]);
+  
+  if (isFetchingLibrary) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">🎬 Caption Editor</h1>
-
-      {/* Video Upload */}
-      <div className="mb-4">
-        <Input type="file" accept="video/*" onChange={handleFileChange} />
-        <Button onClick={handleUpload} disabled={!videoFile || loading} className="mt-2">
-          {loading ? <Loader2 className="animate-spin mr-2" /> : 'Upload Video'}
-        </Button>
-      </div>
-
-      {/* Uploaded Video Preview */}
-      {videoUrl && (
-        <div className="mb-6">
-          <video src={videoUrl} controls className="w-full rounded-lg" />
+    <div className="flex flex-1 flex-col">
+      {currentVideo ? (
+        <>
+          <EditorView
+            videoUrl={currentVideo.videoUrl}
+            videoPublicId={currentVideo.publicId}
+            videoName={currentVideo.name}
+            subtitles={subtitles}
+            activeSubtitleId={activeSubtitleId}
+            onTimeUpdate={handleTimeUpdate}
+            onUpdateSubtitle={updateSubtitle}
+            onSuggestCorrection={handleSuggestCorrection}
+            onReset={handleReset}
+            subtitleFont={subtitleFont}
+            onSubtitleFontChange={setSubtitleFont}
+          />
+          <CorrectionDialog
+            state={correctionDialogState}
+            onOpenChange={(isOpen) =>
+              setCorrectionDialogState({ ...correctionDialogState, open: isOpen })
+            }
+            onAccept={handleAcceptSuggestion}
+          />
+        </>
+      ) : (
+        <div className="flex flex-1 items-center justify-center p-4">
+          <div className="w-full max-w-6xl space-y-8">
+            <VideoUpload onVideoSelect={handleVideoSelect} isLoading={isLoading} />
+            <VideoLibrary videos={videoLibrary} onSelectVideo={handleSelectVideoFromLibrary} onDeleteVideo={handleDeleteVideo} />
+          </div>
         </div>
       )}
-
-      {/* Subtitle Generation */}
-      <div className="mb-6">
-        <Button onClick={handleGenerateSubtitles} disabled={!videoUrl || loading}>
-          {loading ? <Loader2 className="animate-spin mr-2" /> : 'Generate Subtitles'}
-        </Button>
-      </div>
-
-      {/* Subtitle Display */}
-      {subtitles.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Generated Subtitles</h2>
-          {subtitles.map((sub, i) => (
-            <div key={i} className="p-3 border rounded-lg">
-              <p className="font-medium">🕒 {sub.time}</p>
-              <p className="mb-2">{sub.text}</p>
-              <Button
-                variant="secondary"
-                onClick={() => handleSuggestCorrection(sub.text, 'subtitle context')}
-              >
-                Suggest Correction
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* AI Suggestion */}
-      {suggestion && (
-        <div className="mt-6 p-4 bg-gray-100 rounded-lg">
-          <h3 className="font-semibold">💡 Suggested Correction:</h3>
-          <p>{suggestion}</p>
-        </div>
-      )}
-
-      {/* Error Display */}
-      {error && <p className="text-red-600 mt-4">{error}</p>}
     </div>
   );
 }
