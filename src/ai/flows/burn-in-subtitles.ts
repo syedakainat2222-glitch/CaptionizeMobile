@@ -40,7 +40,8 @@ export type BurnInSubtitlesOutput = z.infer<typeof BurnInSubtitlesOutputSchema>;
 // Helper to convert SRT time to seconds
 const srtTimeToSeconds = (time: string): number => {
   const parts = time.split(':');
-  const secondsParts = parts[2].split(/[,\.]/); // handles both "," or "."
+  // Handles both comma and period as decimal separator
+  const secondsParts = parts[2].replace(',', '.').split('.'); 
   const hours = parseInt(parts[0], 10);
   const minutes = parseInt(parts[1], 10);
   const seconds = parseInt(secondsParts[0], 10);
@@ -57,24 +58,28 @@ async function burnInSubtitlesFlow({
     const startOffset = srtTimeToSeconds(subtitle.startTime);
     const endOffset = srtTimeToSeconds(subtitle.endTime);
 
-    // Sanitize text for Cloudinary overlay: escape commas and slashes
-    const sanitizedText = subtitle.text.replace(/, /g, ',,').replace(/\//g, '_');
-    
+    // Sanitize text for Cloudinary overlay: escape commas, slashes, and periods.
+    const sanitizedText = subtitle.text
+      .replace(/,/g, '\\,')
+      .replace(/\//g, '_')
+      .replace(/\./g, '\\.');
+
     return {
-        overlay: {
-            font_family: 'Arial',
-            font_size: 48,
-            text: sanitizedText,
-        },
-        color: 'white',
-        background: 'rgba:0,0,0,0.5',
-        gravity: 'south',
-        y: 20,
-        start_offset: startOffset.toFixed(2),
-        end_offset: endOffset.toFixed(2),
+      overlay: {
+        font_family: 'Inter',
+        font_size: 48,
+        text: sanitizedText,
+      },
+      color: 'white',
+      background: 'rgba:0,0,0,0.5',
+      gravity: 'south',
+      y: 20,
+      start_offset: startOffset.toFixed(2),
+      end_offset: endOffset.toFixed(2),
     };
   });
 
+  // Generate the URL with the transformation layers
   const transformedVideoUrl = cloudinary.url(videoPublicId, {
     resource_type: 'video',
     transformation: subtitleOverlays,
