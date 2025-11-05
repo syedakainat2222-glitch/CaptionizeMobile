@@ -1,4 +1,3 @@
-
 // src/app/api/burn-in/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
@@ -14,7 +13,6 @@ cloudinary.config({
 
 // Font mapping for Cloudinary
 // This map correctly associates the UI font family with the name Cloudinary expects.
-// "noto_naskh_arabic" is used for scripts that need it, like Urdu.
 const CLOUDINARY_FONTS: { [key: string]: string } = {
   'Inter, sans-serif': 'Arial',
   'Roboto, sans-serif': 'Roboto',
@@ -86,8 +84,6 @@ export async function POST(request: NextRequest) {
       subtitleFontSize = 48
     } = body;
 
-    console.log('=== NEW BURN-IN PROCESS STARTED (SRT Method) ===');
-
     if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
       return NextResponse.json(
         { success: false, error: 'Missing or invalid parameters' },
@@ -97,23 +93,22 @@ export async function POST(request: NextRequest) {
 
     // 1. Upload the subtitles as an SRT file to Cloudinary
     const srtPublicId = await uploadSrtToCloudinary(subtitles);
-    console.log('Uploaded SRT to Cloudinary with public_id:', srtPublicId);
 
-    // 2. Map the font and create the text style for Cloudinary
+    // 2. Determine the correct font to use.
     // Fallback to Arial if the font isn't in our map.
     const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
 
     // A special check for Urdu or other languages that require a specific font.
+    // This regex checks for characters in the Arabic script block.
     const hasComplexChars = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text));
     const finalFont = hasComplexChars ? 'noto_naskh_arabic' : cloudinaryFont;
-    console.log(`Using font: ${finalFont} (original: ${cloudinaryFont}, complex chars: ${hasComplexChars})`);
-
-
+    
     // 3. Generate the video URL with the subtitles layered on top
     const videoUrl = cloudinary.url(videoPublicId, {
         resource_type: 'video',
         transformation: [
             {
+                // Use the uploaded SRT file as an overlay
                 overlay: `subtitles:${srtPublicId.replace(/\//g, ':')}`,
                 font_family: finalFont,
                 font_size: subtitleFontSize,
@@ -124,15 +119,13 @@ export async function POST(request: NextRequest) {
               color: 'white',
               background: 'rgb:000000CC', // Semi-transparent black background
               gravity: 'south',
-              y: 30,
+              y: 30, // Adjust vertical position from the bottom
             }
         ],
         format: 'mp4',
         quality: 'auto'
     });
 
-    console.log('Generated final video URL:', videoUrl);
-    
     // 4. Fetch the generated video and stream it back to the client
     const videoResponse = await fetch(videoUrl);
     
@@ -140,6 +133,7 @@ export async function POST(request: NextRequest) {
       throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
     }
 
+    // Use the original video name to create the new filename
     const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
     const filename = `${baseName}-with-subtitles.mp4`;
 
