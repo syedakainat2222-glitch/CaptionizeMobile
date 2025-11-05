@@ -27,6 +27,13 @@ import { Subtitle } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 const FONT_OPTIONS = [
   'Inter, sans-serif',
@@ -41,11 +48,7 @@ const FONT_OPTIONS = [
   'Comic Sans MS, cursive',
 ];
 
-const FONT_SIZE_OPTIONS = [
-  { label: '36', value: 36 },
-  { label: '48', value: 48 },
-  { label: '60', value: 60 },
-];
+const FONT_SIZE_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 1);
 
 type EditorViewProps = {
   videoUrl: string;
@@ -287,23 +290,21 @@ a.href = url;
           </div>
           <div className="flex flex-col gap-2">
             <Label className="text-sm font-medium">Size</Label>
-             <RadioGroup
-                value={String(subtitleFontSize)}
-                onValueChange={(value) => onSubtitleFontSizeChange(Number(value))}
-                className="grid grid-cols-3 gap-2 rounded-lg bg-muted p-1"
+            <Select
+              value={String(subtitleFontSize)}
+              onValueChange={(value) => onSubtitleFontSizeChange(Number(value))}
             >
-                {FONT_SIZE_OPTIONS.map(({ label, value }) => (
-                    <Label
-                        key={value}
-                        htmlFor={`font-size-${value}`}
-                        className="flex flex-col items-center justify-center rounded-md p-2 text-sm font-medium hover:bg-background cursor-pointer data-[state=checked]:bg-background data-[state=checked]:shadow-sm"
-                        data-state={subtitleFontSize === value ? 'checked' : 'unchecked'}
-                    >
-                        <RadioGroupItem value={String(value)} id={`font-size-${value}`} className="sr-only" />
-                        {label}
-                    </Label>
+              <SelectTrigger>
+                <SelectValue placeholder="Select size" />
+              </SelectTrigger>
+              <SelectContent>
+                {FONT_SIZE_OPTIONS.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
                 ))}
-            </RadioGroup>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
