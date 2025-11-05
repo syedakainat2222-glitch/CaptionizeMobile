@@ -76,26 +76,22 @@ export async function generateSubtitledVideoUrl(
     // 2. Map the UI font to a Cloudinary-compatible font name. Default to Arial.
     const cloudinaryFont = fontMap[subtitleFont] || 'Arial';
 
-    // 3. Build the transformation. This is the most reliable way to apply subtitles.
-    // We create the overlay for the subtitles, and then a separate transformation
-    // block for the other styling.
+    // 3. Build the transformation using a chained approach for robustness.
     const transformation = [
+      // First layer: Apply the subtitle file.
       {
-        // Apply the uploaded subtitle file using its public_id.
-        overlay: `subtitles:${subtitlePublicId}`,
-        // Style the subtitles.
+        overlay: `subtitles:${subtitlePublicId.replace(/\//g, ':')}`, // Replace slashes with colons for correct ID formatting in overlay
+      },
+      // Second layer: Apply styling to the first (subtitle) layer.
+      {
+        flags: "layer_apply",
         gravity: "south",
         y: 50,
-        color: "white",
-        background: "rgba:00000080", // Semi-transparent black background
+        color: "#FFFFFFFF", // White
+        background: "#00000080", // Semi-transparent black
+        font_family: cloudinaryFont,
+        font_size: 48,
       },
-      // This transformation applies the font styling to the subtitle overlay
-      {
-        overlay: {
-          font_family: cloudinaryFont,
-          font_size: 48
-        }
-      }
     ];
 
     // 4. Generate the final, short video URL.
