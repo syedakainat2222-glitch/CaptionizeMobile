@@ -1,3 +1,4 @@
+
 // src/app/api/burn-in/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
@@ -12,32 +13,32 @@ cloudinary.config({
 });
 
 // Font mapping for Cloudinary
-// Use a font that supports Arabic script for languages like Urdu. "Noto Naskh Arabic" is a good choice.
-const CLOUDINARY_FONTS = {
-  'Inter, sans-serif': 'Noto Naskh Arabic',
-  'Roboto, sans-serif': 'Noto Naskh Arabic',
-  'Open Sans, sans-serif': 'Noto Naskh Arabic',
-  'Lato, sans-serif': 'Noto Naskh Arabic',
-  'Montserrat, sans-serif': 'Noto Naskh Arabic',
-  'Poppins, sans-serif': 'Noto Naskh Arabic',
-  'Nunito, sans-serif': 'Noto Naskh Arabic',
-  'Raleway, sans-serif': 'Noto Naskh Arabic',
-  'Source Sans 3, sans-serif': 'Noto Naskh Arabic',
-  'Ubuntu, sans-serif': 'Noto Naskh Arabic',
-  'Oswald, sans-serif': 'Noto Naskh Arabic',
-  'Exo 2, sans-serif': 'Noto Naskh Arabic',
-  'Dosis, sans-serif': 'Noto Naskh Arabic',
-  'Helvetica, sans-serif': 'Noto Naskh Arabic',
-  'Arial, sans-serif': 'Noto Naskh Arabic',
-  'Playfair Display, serif': 'Noto Naskh Arabic',
-  'Merriweather, serif': 'Noto Naskh Arabic',
-  'Lora, serif': 'Noto Naskh Arabic',
-  'PT Serif, serif': 'Noto Naskh Arabic',
-  'Georgia, serif': 'Noto Naskh Arabic',
-  'Pacifico, cursive': 'Noto Naskh Arabic',
-  'Caveat, cursive': 'Noto Naskh Arabic',
-  'Dancing Script, cursive': 'Noto Naskh Arabic',
-  'Source Code Pro, monospace': 'Courier_New'
+// Use a font that supports Arabic script for languages like Urdu. "noto_naskh_arabic" is the correct identifier.
+const CLOUDINARY_FONTS: { [key: string]: string } = {
+  'Inter, sans-serif': 'noto_naskh_arabic',
+  'Roboto, sans-serif': 'noto_naskh_arabic',
+  'Open Sans, sans-serif': 'noto_naskh_arabic',
+  'Lato, sans-serif': 'noto_naskh_arabic',
+  'Montserrat, sans-serif': 'noto_naskh_arabic',
+  'Poppins, sans-serif': 'noto_naskh_arabic',
+  'Nunito, sans-serif': 'noto_naskh_arabic',
+  'Raleway, sans-serif': 'noto_naskh_arabic',
+  'Source Sans 3, sans-serif': 'noto_naskh_arabic',
+  'Ubuntu, sans-serif': 'noto_naskh_arabic',
+  'Oswald, sans-serif': 'noto_naskh_arabic',
+  'Exo 2, sans-serif': 'noto_naskh_arabic',
+  'Dosis, sans-serif': 'noto_naskh_arabic',
+  'Helvetica, sans-serif': 'noto_naskh_arabic',
+  'Arial, sans-serif': 'noto_naskh_arabic',
+  'Playfair Display, serif': 'noto_naskh_arabic',
+  'Merriweather, serif': 'noto_naskh_arabic',
+  'Lora, serif': 'noto_naskh_arabic',
+  'PT Serif, serif': 'noto_naskh_arabic',
+  'Georgia, serif': 'noto_naskh_arabic',
+  'Pacifico, cursive': 'noto_naskh_arabic',
+  'Caveat, cursive': 'noto_naskh_arabic',
+  'Dancing Script, cursive': 'noto_naskh_arabic',
+  'Source Code Pro, monospace': 'courier' // A safe fallback for mono
 };
 
 
@@ -98,8 +99,7 @@ export async function POST(request: NextRequest) {
     console.log('Uploaded SRT to Cloudinary with public_id:', srtPublicId);
 
     // 2. Map the font and create the text style for Cloudinary
-    const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Noto Naskh Arabic';
-    const textStyle = `${cloudinaryFont}_${subtitleFontSize}`;
+    const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'noto_naskh_arabic';
 
     // 3. Generate the video URL with the subtitles layered on top
     const videoUrl = cloudinary.url(videoPublicId, {
@@ -107,7 +107,8 @@ export async function POST(request: NextRequest) {
         transformation: [
             {
                 overlay: `subtitles:${srtPublicId.replace(/\//g, ':')}`,
-                text_style: textStyle
+                font_family: cloudinaryFont,
+                font_size: subtitleFontSize,
             },
             // Apply styling to the subtitle layer
             {
