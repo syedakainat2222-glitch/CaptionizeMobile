@@ -42,9 +42,9 @@ const FONT_OPTIONS = [
 ];
 
 const FONT_SIZE_OPTIONS = [
-  { label: 'S', value: 36 },
-  { label: 'M', value: 48 },
-  { label: 'L', value: 60 },
+  { label: '36', value: 36 },
+  { label: '48', value: 48 },
+  { label: '60', value: 60 },
 ];
 
 type EditorViewProps = {
@@ -296,11 +296,10 @@ a.href = url;
                     <Label
                         key={value}
                         htmlFor={`font-size-${value}`}
-                        className="flex flex-col items-center justify-center rounded-md p-2 text-xs font-medium hover:bg-background cursor-pointer data-[state=checked]:bg-background data-[state=checked]:shadow-sm"
+                        className="flex flex-col items-center justify-center rounded-md p-2 text-sm font-medium hover:bg-background cursor-pointer data-[state=checked]:bg-background data-[state=checked]:shadow-sm"
                         data-state={subtitleFontSize === value ? 'checked' : 'unchecked'}
                     >
                         <RadioGroupItem value={String(value)} id={`font-size-${value}`} className="sr-only" />
-                        <Scaling className="h-5 w-5 mb-1" />
                         {label}
                     </Label>
                 ))}
