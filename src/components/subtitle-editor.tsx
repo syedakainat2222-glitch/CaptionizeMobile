@@ -27,7 +27,7 @@ const SubtitleEditor: FC<SubtitleEditorProps> = ({
           <div className="space-y-4">
             {subtitles.length > 0 ? (
               subtitles.map((sub) =>
-                sub ? (
+                sub ? ( // This check prevents rendering if a subtitle object is undefined
                   <SubtitleItem
                     key={sub.id}
                     subtitle={sub}

@@ -1,67 +1,284 @@
-import { memo } from 'react';
-import { Textarea } from '@/components/ui/textarea';
+import React, { memo, useRef, useEffect, useState, useCallback } from 'react';
+import {
+  ArrowLeft,
+  Download,
+  Palette,
+  FileText,
+  Loader2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sparkles } from 'lucide-react';
-import type { Subtitle } from '@/lib/srt';
-import { cn } from '@/lib/utils';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import VideoPlayer from './video-player';
+import SubtitleEditor from './subtitle-editor';
+import { Subtitle } from '@/lib/srt';
+import { useToast } from '@/hooks/use-toast';
 
-type SubtitleItemProps = {
-  subtitle: Subtitle;
-  onUpdate: (id: number, text: string) => void;
-  isActive: boolean;
-  onSuggestCorrection: () => void;
+const FONT_OPTIONS = [
+  'Inter, sans-serif',
+  'Roboto, sans-serif',
+  'Arial, sans-serif',
+  'Helvetica, sans-serif',
+  'Georgia, serif',
+  'Times New Roman, serif',
+  'Verdana, sans-serif',
+  'Courier New, monospace',
+  'Lucida Console, monospace',
+  'Comic Sans MS, cursive',
+];
+
+type EditorViewProps = {
+  videoUrl: string;
+  videoPublicId: string;
+  videoName: string;
+  subtitles: Subtitle[];
+  activeSubtitleId: number | null;
+  onTimeUpdate: (time: number) => void;
+  onUpdateSubtitle: (id: number, newText: string) => void;
+  onSuggestCorrection: (subtitle: Subtitle) => void;
+  onReset: () => void;
+  subtitleFont: string;
+  onSubtitleFontChange: (font: string) => void;
 };
 
-const SubtitleItem = ({
-  subtitle,
-  onUpdate,
-  isActive,
+const EditorView = ({
+  videoUrl,
+  videoPublicId,
+  videoName,
+  subtitles,
+  activeSubtitleId,
+  onTimeUpdate,
+  onUpdateSubtitle,
   onSuggestCorrection,
-}: SubtitleItemProps) => {
+  onReset,
+  subtitleFont,
+  onSubtitleFontChange,
+}: EditorViewProps) => {
+  const { toast } = useToast();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = useCallback(async (format: 'srt' | 'vtt') => {
+    let content = '';
+    let mimeType = '';
+    let fileExtension = '';
+
+    if (format === 'srt') {
+      const { formatSrt } = await import('@/lib/srt');
+      content = formatSrt(subtitles);
+      mimeType = 'application/x-subrip';
+      fileExtension = 'srt';
+    } else {
+      const { formatVtt } = await import('@/lib/srt');
+      content = formatVtt(subtitles);
+      mimeType = 'text/vtt';
+      fileExtension = 'vtt';
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${videoName.split('.')[0]}.${fileExtension}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Export Successful',
+      description: `Your subtitles have been downloaded as a .${fileExtension} file.`,
+    });
+  }, [subtitles, videoName, toast]);
+
+  const handleExportVideoWithSubtitles = useCallback(async () => {
+    setIsExporting(true);
+    toast({
+      title: 'Starting Export...',
+      description:
+        'Your video with subtitles is being prepared. This may take a few minutes.',
+    });
+
+    try {
+      const response = await fetch('/api/burn-in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          videoPublicId,
+          subtitles,
+          videoName,
+          subtitleFont,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || 'Failed to start the export process.'
+        );
+      }
+      
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `${videoName.split('.')[0]}-with-subtitles.mp4`; // Default
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+        if (filenameMatch && filenameMatch.length > 1) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+
+      toast({
+        title: 'Export Complete!',
+        description: `"${filename}" has been downloaded successfully.`,
+      });
+    } catch (error: any) {
+      console.error('Export failed:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Export Failed',
+        description:
+          error.message ||
+          'Could not export the video with subtitles. Please try again.',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [videoPublicId, subtitles, videoName, subtitleFont, toast]);
+
   return (
-    <div
-      className={cn(
-        'flex gap-2 rounded-lg border p-3 transition-all duration-300',
-        isActive ? 'border-primary bg-primary/5 shadow-md' : 'border-border'
-      )}
-    >
-      <div className="flex flex-col text-xs text-muted-foreground">
-        <span>{subtitle.startTime.replace(',', '.')}</span>
-        <span>{subtitle.endTime.replace(',', '.')}</span>
+    <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 p-4 flex-1">
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={onReset}>
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Back to Upload</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <FileText className="mr-2 h-4 w-4" /> Export Subtitles
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuRadioGroup>
+                  <DropdownMenuRadioItem
+                    value="srt"
+                    onClick={() => handleExport('srt')}
+                  >
+                    SRT (.srt)
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem
+                    value="vtt"
+                    onClick={() => handleExport('vtt')}
+                  >
+                    VTT (.vtt)
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleExportVideoWithSubtitles}
+                    disabled={isExporting}
+                  >
+                    {isExporting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    Export Video
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Burn subtitles into the video and download</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+        <VideoPlayer
+          videoUrl={videoUrl}
+          subtitles={subtitles}
+          onTimeUpdate={onTimeUpdate}
+          activeSubtitleId={activeSubtitleId}
+          subtitleFont={subtitleFont}
+        />
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium">Subtitle Style</label>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full justify-between">
+                <span>{subtitleFont.split(',')[0]}</span>
+                <Palette className="h-4 w-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
+              <DropdownMenuRadioGroup
+                value={subtitleFont}
+                onValueChange={onSubtitleFontChange}
+              >
+                {FONT_OPTIONS.map((font) => (
+                  <DropdownMenuRadioItem
+                    key={font}
+                    value={font}
+                    style={{ fontFamily: font }}
+                  >
+                    {font.split(',')[0]}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-      <div className="flex-grow">
-        <Textarea
-          value={subtitle.text}
-          onChange={(e) => onUpdate(subtitle.id, e.target.value)}
-          className="h-full resize-none bg-background/50"
-          rows={2}
+      <div>
+        <SubtitleEditor
+          subtitles={subtitles}
+          onUpdateSubtitle={onUpdateSubtitle}
+          activeSubtitleId={activeSubtitleId}
+          onSuggestCorrection={onSuggestCorrection}
         />
       </div>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onSuggestCorrection}
-              className="shrink-0 text-amber-500 hover:text-amber-400"
-            >
-              <Sparkles className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Suggest Correction</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
     </div>
   );
 };
 
-export default memo(SubtitleItem);
+export default memo(EditorView);
