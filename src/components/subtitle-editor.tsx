@@ -26,15 +26,17 @@ const SubtitleEditor: FC<SubtitleEditorProps> = ({
         <ScrollArea className="h-[60vh] pr-4">
           <div className="space-y-4">
             {subtitles.length > 0 ? (
-              subtitles.map((sub) => (
-                <SubtitleItem
-                  key={sub.id}
-                  subtitle={sub}
-                  onUpdate={onUpdateSubtitle}
-                  isActive={sub.id === activeSubtitleId}
-                  onSuggestCorrection={() => onSuggestCorrection(sub)}
-                />
-              ))
+              subtitles.map((sub) =>
+                sub ? (
+                  <SubtitleItem
+                    key={sub.id}
+                    subtitle={sub}
+                    onUpdate={onUpdateSubtitle}
+                    isActive={sub.id === activeSubtitleId}
+                    onSuggestCorrection={() => onSuggestCorrection(sub)}
+                  />
+                ) : null
+              )
             ) : (
               <div className="flex h-full items-center justify-center text-muted-foreground">
                 <p>No subtitles to display.</p>

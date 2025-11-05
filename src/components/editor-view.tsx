@@ -1,242 +1,67 @@
-import { FC, useState } from 'react';
-import VideoPlayer from '@/components/video-player';
-import SubtitleEditor from '@/components/subtitle-editor';
-import type { Subtitle } from '@/lib/srt';
+import { memo } from 'react';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, Upload, ArrowLeft, Loader2, Film } from 'lucide-react';
-import { formatSrt, formatVtt } from '@/lib/srt';
+import { Sparkles } from 'lucide-react';
+import type { Subtitle } from '@/lib/srt';
+import { cn } from '@/lib/utils';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import SubtitleStyler from './subtitle-styler';
-import { useToast } from '@/hooks/use-toast';
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
-
-type EditorViewProps = {
-  videoUrl: string;
-  videoPublicId?: string;
-  videoName: string;
-  subtitles: Subtitle[];
-  activeSubtitleId: number | null;
-  onTimeUpdate: (time: number) => void;
-  onUpdateSubtitle: (id: number, text: string) => void;
-  onSuggestCorrection: (subtitle: Subtitle) => void;
-  onReset: () => void;
-  subtitleFont: string;
-  onSubtitleFontChange: (font: string) => void;
+type SubtitleItemProps = {
+  subtitle: Subtitle;
+  onUpdate: (id: number, text: string) => void;
+  isActive: boolean;
+  onSuggestCorrection: () => void;
 };
 
-const FONT_OPTIONS = [
-  // Sans-serif
-  { label: 'Inter', value: 'Inter, sans-serif' },
-  { label: 'Roboto', value: 'Roboto, sans-serif' },
-  { label: 'Open Sans', value: '"Open Sans", sans-serif' },
-  { label: 'Lato', value: 'Lato, sans-serif' },
-  { label: 'Montserrat', value: 'Montserrat, sans-serif' },
-  { label: 'Poppins', value: 'Poppins, sans-serif' },
-  { label: 'Nunito', value: 'Nunito, sans-serif' },
-  { label: 'Raleway', value: 'Raleway, sans-serif' },
-  { label: 'Source Sans 3', value: '"Source Sans 3", sans-serif' },
-  { label: 'Ubuntu', value: 'Ubuntu, sans-serif' },
-  { label: 'Oswald', value: 'Oswald, sans-serif' },
-  { label: 'Exo 2', value: '"Exo 2", sans-serif' },
-  { label: 'Dosis', value: 'Dosis, sans-serif' },
-  { label: 'Helvetica', value: 'Helvetica, sans-serif' },
-  { label: 'Arial', value: 'Arial, sans-serif' },
-
-  // Serif
-  { label: 'Playfair Display', value: '"Playfair Display", serif' },
-  { label: 'Merriweather', value: 'Merriweather, serif' },
-  { label: 'Lora', value: 'Lora, serif' },
-  { label: 'PT Serif', value: '"PT Serif", serif' },
-  { label: 'Georgia', value: 'Georgia, serif' },
-
-  // Display & Handwriting
-  { label: 'Pacifico', value: 'Pacifico, cursive' },
-  { label: 'Caveat', value: 'Caveat, cursive' },
-  { label: 'Dancing Script', value: '"Dancing Script", cursive' },
-
-  // Monospace
-  { label: 'Source Code Pro', value: '"Source Code Pro", monospace' },
-];
-
-const EditorView: FC<EditorViewProps> = ({
-  videoUrl,
-  videoPublicId,
-  videoName,
-  subtitles,
-  activeSubtitleId,
-  onTimeUpdate,
-  onUpdateSubtitle,
+const SubtitleItem = ({
+  subtitle,
+  onUpdate,
+  isActive,
   onSuggestCorrection,
-  onReset,
-  subtitleFont,
-  onSubtitleFontChange,
-}) => {
-  const [isExporting, setIsExporting] = useState(false);
-  const { toast } = useToast();
-
-  const handleExport = (format: 'srt' | 'vtt') => {
-    const content =
-      format === 'srt' ? formatSrt(subtitles) : formatVtt(subtitles);
-    const blob = new Blob([content], {
-      type: 'text/plain;charset=utf-8',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `subtitles.${format}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportVideoWithSubtitles = async () => {
-    if (!videoPublicId) {
-      toast({
-        variant: 'destructive',
-        title: 'Export Failed',
-        description: 'Video public ID is missing. Cannot process video.',
-      });
-      return;
-    }
-    
-    setIsExporting(true);
-    toast({
-      title: 'Preparing Download',
-      description: 'Your video with subtitles is being prepared. This may take a moment...'
-    });
-
-    try {
-      const response = await fetch('/api/burn-in', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          videoPublicId,
-          subtitles,
-          videoName,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start video export process.');
-      }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const filename = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `${videoName.split('.')[0]}-with-subtitles.mp4`;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-
-    } catch (error) {
-       console.error('Failed to start export:', error);
-       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-       toast({
-         variant: 'destructive',
-         title: 'Export Failed',
-         description: `Could not start the video export process: ${errorMessage}`,
-       });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-  
-  const handleDownloadOriginal = () => {
-    const link = document.createElement('a');
-    link.href = videoUrl;
-    link.download = videoName;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-
-
+}: SubtitleItemProps) => {
   return (
-    <div className="container mx-auto p-4">
-      {/* SubtitleStyler is no longer needed for custom rendering */}
-      {/* <SubtitleStyler fontFamily={subtitleFont} /> */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-           <Button variant="outline" size="icon" onClick={onReset}>
-            <ArrowLeft />
-          </Button>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="font-select">Subtitle Font:</Label>
-            <Select value={subtitleFont} onValueChange={onSubtitleFontChange}>
-              <SelectTrigger id="font-select" className="w-[180px]">
-                <SelectValue placeholder="Select font" />
-              </SelectTrigger>
-              <SelectContent>
-                {FONT_OPTIONS.map((font) => (
-                  <SelectItem
-                    key={font.value}
-                    value={font.value}
-                    style={{ fontFamily: font.value }}
-                  >
-                    {font.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button variant="secondary" onClick={onReset}>
-            <Upload className="mr-2" /> Upload New Video
-          </Button>
-          <Button onClick={handleDownloadOriginal} variant="outline">
-            <Download className="mr-2" /> Download Video
-          </Button>
-          <Button onClick={() => handleExport('srt')} variant="outline">
-            <Download className="mr-2" /> Export SRT
-          </Button>
-          <Button onClick={() => handleExport('vtt')} variant="outline">
-            <Download className="mr-2" /> Export VTT
-          </Button>
-          <Button onClick={handleExportVideoWithSubtitles} disabled={isExporting || !videoPublicId}>
-            {isExporting ? (
-                <Loader2 className="mr-2 animate-spin" />
-            ) : (
-                <Film className="mr-2" />
-            )}
-            Export Video with Subtitles
-          </Button>
-        </div>
+    <div
+      className={cn(
+        'flex gap-2 rounded-lg border p-3 transition-all duration-300',
+        isActive ? 'border-primary bg-primary/5 shadow-md' : 'border-border'
+      )}
+    >
+      <div className="flex flex-col text-xs text-muted-foreground">
+        <span>{subtitle.startTime.replace(',', '.')}</span>
+        <span>{subtitle.endTime.replace(',', '.')}</span>
       </div>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <VideoPlayer
-          videoUrl={videoUrl}
-          subtitles={subtitles}
-          onTimeUpdate={onTimeUpdate}
-          activeSubtitleId={activeSubtitleId}
-          subtitleFont={subtitleFont}
-        />
-        <SubtitleEditor
-          subtitles={subtitles}
-          activeSubtitleId={activeSubtitleId}
-          onUpdateSubtitle={onUpdateSubtitle}
-          onSuggestCorrection={onSuggestCorrection}
+      <div className="flex-grow">
+        <Textarea
+          value={subtitle.text}
+          onChange={(e) => onUpdate(subtitle.id, e.target.value)}
+          className="h-full resize-none bg-background/50"
+          rows={2}
         />
       </div>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onSuggestCorrection}
+              className="shrink-0 text-amber-500 hover:text-amber-400"
+            >
+              <Sparkles className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Suggest Correction</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 };
 
-export default EditorView;
+export default memo(SubtitleItem);
