@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const videoResponse = await fetch(finalVideoUrl);
     
     if (!videoResponse.ok) {
-        // If Cloudinary returns an error (e.g., 404), this will now be caught properly.
+        // If Cloudinary returns an error (e.g., 404, 400), this will now be caught properly.
         throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
     }
 
@@ -35,10 +35,12 @@ export async function POST(request: NextRequest) {
         throw new Error('Could not get video stream from Cloudinary response.');
     }
 
-    const filename = `${(videoName || 'video').split('.')[0]}-with-subtitles.mp4`;
+    // Sanitize the base name and create a clean filename.
+    const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
+    const filename = `${baseName}-with-subtitles.mp4`;
     
     // 4. Return a streaming response to the client for download.
-    // This correctly streams the binary data of the video.
+    // This correctly streams the binary data of the video and sets the correct filename.
     return new NextResponse(videoStream, {
       status: 200,
       headers: {

@@ -132,22 +132,26 @@ a.href = url;
       
       const blob = await response.blob();
       const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = `${videoName.split('.')[0]}-with-subtitles.mp4`; // Default
+      let filename = 'video-with-subtitles.mp4'; // Default fallback
       
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
         if (filenameMatch && filenameMatch.length > 1) {
           filename = filenameMatch[1];
         }
+      } else {
+        // Fallback if the header is missing
+        filename = `${videoName.split('.')[0]}-with-subtitles.mp4`;
       }
+
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
-a.href = url;
+      a.href = url;
       a.download = filename;
       document.body.appendChild(a);
-a.click();
+      a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
