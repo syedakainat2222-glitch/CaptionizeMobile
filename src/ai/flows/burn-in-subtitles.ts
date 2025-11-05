@@ -37,32 +37,42 @@ const BurnInSubtitlesOutputSchema = z.object({
 
 export type BurnInSubtitlesOutput = z.infer<typeof BurnInSubtitlesOutputSchema>;
 
-// Helper to convert SRT time to seconds
+// Helper to convert SRT time to seconds.
 const srtTimeToSeconds = (time: string): number => {
-  const parts = time.split(':');
-  // Handles both comma and period as decimal separator
-  const secondsParts = parts[2].replace(',', '.').split('.'); 
-  const hours = parseInt(parts[0], 10);
-  const minutes = parseInt(parts[1], 10);
-  const seconds = parseInt(secondsParts[0], 10);
-  const milliseconds = parseInt(secondsParts[1], 10);
-  return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+    const parts = time.split(':');
+    const secondsAndMs = parts[2].split(',');
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    const seconds = parseInt(secondsAndMs[0], 10);
+    const milliseconds = parseInt(secondsAndMs[1], 10);
+    return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
 };
+
 
 // Main function to burn subtitles
 async function burnInSubtitlesFlow({
   videoPublicId,
   subtitles,
 }: BurnInSubtitlesInput): Promise<BurnInSubtitlesOutput> {
-  const subtitleOverlays = subtitles.map(subtitle => {
-    const startOffset = srtTimeToSeconds(subtitle.startTime);
-    const endOffset = srtTimeToSeconds(subtitle.endTime);
 
-    // Sanitize text for Cloudinary overlay: escape commas, slashes, and periods.
+  // Create an array of transformation objects for each subtitle
+  const subtitleOverlays = subtitles.map(subtitle => {
+    const startOffset = srtTimeToSeconds(subtitle.startTime).toFixed(2);
+    const endOffset = srtTimeToSeconds(subtitle.endTime).toFixed(2);
+
+    // Sanitize text for Cloudinary overlay.
+    // See: https://support.cloudinary.com/hc/en-us/articles/202521512-How-to-add-a-text-overlay-on-an-image
     const sanitizedText = subtitle.text
-      .replace(/,/g, '\\,')
-      .replace(/\//g, '_')
-      .replace(/\./g, '\\.');
+      .replace(/,/g, '%2C')  // Escape commas
+      .replace(/\//g, '%2F') // Escape slashes
+      .replace(/\?/g, '%3F') // Escape question marks
+      .replace(/&/g, '%26')  // Escape ampersands
+      .replace(/#/g, '%23')  // Escape hashes
+      .replace(/\\/g, '%5C') // Escape backslashes
+      .replace(/%/g, '%25')  // Escape percent signs
+      .replace(/'/g, '%27')  // Escape single quotes
+      .replace(/"/g, '%22'); // Escape double quotes
+      
 
     return {
       overlay: {
@@ -73,9 +83,9 @@ async function burnInSubtitlesFlow({
       color: 'white',
       background: 'rgba:0,0,0,0.5',
       gravity: 'south',
-      y: 20,
-      start_offset: startOffset.toFixed(2),
-      end_offset: endOffset.toFixed(2),
+      y: 50,
+      start_offset: startOffset,
+      end_offset: endOffset,
     };
   });
 
