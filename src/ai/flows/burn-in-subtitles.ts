@@ -76,6 +76,7 @@ async function burnInSubtitlesFlow({
     resource_type: 'video',
     transformation: subtitleOverlays,
     format: 'mp4',
+    secure: true, // Force HTTPS URL
   });
 
   console.log('Generated Cloudinary URL:', transformedVideoUrl);
