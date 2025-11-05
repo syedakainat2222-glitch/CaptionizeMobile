@@ -13,32 +13,33 @@ cloudinary.config({
 });
 
 // Font mapping for Cloudinary
-// Use a font that supports Arabic script for languages like Urdu. "noto_naskh_arabic" is the correct identifier.
+// This map correctly associates the UI font family with the name Cloudinary expects.
+// "noto_naskh_arabic" is used for scripts that need it, like Urdu.
 const CLOUDINARY_FONTS: { [key: string]: string } = {
-  'Inter, sans-serif': 'noto_naskh_arabic',
-  'Roboto, sans-serif': 'noto_naskh_arabic',
-  'Open Sans, sans-serif': 'noto_naskh_arabic',
-  'Lato, sans-serif': 'noto_naskh_arabic',
-  'Montserrat, sans-serif': 'noto_naskh_arabic',
-  'Poppins, sans-serif': 'noto_naskh_arabic',
-  'Nunito, sans-serif': 'noto_naskh_arabic',
-  'Raleway, sans-serif': 'noto_naskh_arabic',
-  'Source Sans 3, sans-serif': 'noto_naskh_arabic',
-  'Ubuntu, sans-serif': 'noto_naskh_arabic',
-  'Oswald, sans-serif': 'noto_naskh_arabic',
-  'Exo 2, sans-serif': 'noto_naskh_arabic',
-  'Dosis, sans-serif': 'noto_naskh_arabic',
-  'Helvetica, sans-serif': 'noto_naskh_arabic',
-  'Arial, sans-serif': 'noto_naskh_arabic',
-  'Playfair Display, serif': 'noto_naskh_arabic',
-  'Merriweather, serif': 'noto_naskh_arabic',
-  'Lora, serif': 'noto_naskh_arabic',
-  'PT Serif, serif': 'noto_naskh_arabic',
-  'Georgia, serif': 'noto_naskh_arabic',
-  'Pacifico, cursive': 'noto_naskh_arabic',
-  'Caveat, cursive': 'noto_naskh_arabic',
-  'Dancing Script, cursive': 'noto_naskh_arabic',
-  'Source Code Pro, monospace': 'courier' // A safe fallback for mono
+  'Inter, sans-serif': 'Arial',
+  'Roboto, sans-serif': 'Roboto',
+  'Open Sans, sans-serif': 'Open_Sans',
+  'Lato, sans-serif': 'Lato',
+  'Montserrat, sans-serif': 'Montserrat',
+  'Poppins, sans-serif': 'Poppins',
+  'Nunito, sans-serif': 'Nunito',
+  'Raleway, sans-serif': 'Raleway',
+  'Source Sans 3, sans-serif': 'Source_Sans_Pro',
+  'Ubuntu, sans-serif': 'Ubuntu',
+  'Oswald, sans-serif': 'Oswald',
+  'Exo 2, sans-serif': 'Exo',
+  'Dosis, sans-serif': 'Dosis',
+  'Helvetica, sans-serif': 'Arial',
+  'Arial, sans-serif': 'Arial',
+  'Playfair Display, serif': 'Playfair_Display',
+  'Merriweather, serif': 'Merriweather',
+  'Lora, serif': 'Lora',
+  'PT Serif, serif': 'PT_Serif',
+  'Georgia, serif': 'Georgia',
+  'Pacifico, cursive': 'Pacifico',
+  'Caveat, cursive': 'Caveat',
+  'Dancing Script, cursive': 'Dancing_Script',
+  'Source Code Pro, monospace': 'Courier'
 };
 
 
@@ -99,7 +100,14 @@ export async function POST(request: NextRequest) {
     console.log('Uploaded SRT to Cloudinary with public_id:', srtPublicId);
 
     // 2. Map the font and create the text style for Cloudinary
-    const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'noto_naskh_arabic';
+    // Fallback to Arial if the font isn't in our map.
+    const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
+
+    // A special check for Urdu or other languages that require a specific font.
+    const hasComplexChars = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text));
+    const finalFont = hasComplexChars ? 'noto_naskh_arabic' : cloudinaryFont;
+    console.log(`Using font: ${finalFont} (original: ${cloudinaryFont}, complex chars: ${hasComplexChars})`);
+
 
     // 3. Generate the video URL with the subtitles layered on top
     const videoUrl = cloudinary.url(videoPublicId, {
@@ -107,7 +115,7 @@ export async function POST(request: NextRequest) {
         transformation: [
             {
                 overlay: `subtitles:${srtPublicId.replace(/\//g, ':')}`,
-                font_family: cloudinaryFont,
+                font_family: finalFont,
                 font_size: subtitleFontSize,
             },
             // Apply styling to the subtitle layer
