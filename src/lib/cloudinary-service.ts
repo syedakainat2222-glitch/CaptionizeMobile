@@ -12,7 +12,7 @@ cloudinary.config({
 // Maps the font-family from the UI to the font name Cloudinary expects.
 // Using more generic font names that Cloudinary is likely to support.
 const fontMap: { [key: string]: string } = {
-    'Inter, sans-serif': 'Arial',
+    'Inter, sans-serif': 'Inter',
     'Roboto, sans-serif': 'Roboto',
     'Arial, sans-serif': 'Arial',
     'Helvetica, sans-serif': 'Helvetica',
