@@ -1,18 +1,13 @@
-import React, { memo, useRef, useEffect, useState, useCallback } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import {
   ArrowLeft,
   Download,
-  Palette,
   FileText,
   Loader2,
+  Palette,
+  Scaling,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,10 +15,18 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import VideoPlayer from './video-player';
 import SubtitleEditor from './subtitle-editor';
 import { Subtitle } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
+import { Label } from './ui/label';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 
 const FONT_OPTIONS = [
   'Inter, sans-serif',
@@ -38,6 +41,12 @@ const FONT_OPTIONS = [
   'Comic Sans MS, cursive',
 ];
 
+const FONT_SIZE_OPTIONS = [
+  { label: 'S', value: 36 },
+  { label: 'M', value: 48 },
+  { label: 'L', value: 60 },
+];
+
 type EditorViewProps = {
   videoUrl: string;
   videoPublicId: string;
@@ -50,6 +59,8 @@ type EditorViewProps = {
   onReset: () => void;
   subtitleFont: string;
   onSubtitleFontChange: (font: string) => void;
+  subtitleFontSize: number;
+  onSubtitleFontSizeChange: (size: number) => void;
 };
 
 const EditorView = ({
@@ -64,6 +75,8 @@ const EditorView = ({
   onReset,
   subtitleFont,
   onSubtitleFontChange,
+  subtitleFontSize,
+  onSubtitleFontSizeChange,
 }: EditorViewProps) => {
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
@@ -120,6 +133,7 @@ a.href = url;
           subtitles,
           videoName,
           subtitleFont,
+          subtitleFontSize,
         }),
       });
 
@@ -169,7 +183,7 @@ a.href = url;
     } finally {
       setIsExporting(false);
     }
-  }, [videoPublicId, subtitles, videoName, subtitleFont, toast]);
+  }, [videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize, toast]);
 
   return (
     <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 p-4 flex-1">
@@ -241,33 +255,57 @@ a.href = url;
           onTimeUpdate={onTimeUpdate}
           activeSubtitleId={activeSubtitleId}
           subtitleFont={subtitleFont}
+          subtitleFontSize={subtitleFontSize}
         />
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium">Subtitle Style</label>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full justify-between">
-                <span>{subtitleFont.split(',')[0]}</span>
-                <Palette className="h-4 w-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-              <DropdownMenuRadioGroup
-                value={subtitleFont}
-                onValueChange={onSubtitleFontChange}
-              >
-                {FONT_OPTIONS.map((font) => (
-                  <DropdownMenuRadioItem
-                    key={font}
-                    value={font}
-                    style={{ fontFamily: font }}
-                  >
-                    {font.split(',')[0]}
-                  </DropdownMenuRadioItem>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-medium">Font</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  <span>{subtitleFont.split(',')[0]}</span>
+                  <Palette className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                <DropdownMenuRadioGroup
+                  value={subtitleFont}
+                  onValueChange={onSubtitleFontChange}
+                >
+                  {FONT_OPTIONS.map((font) => (
+                    <DropdownMenuRadioItem
+                      key={font}
+                      value={font}
+                      style={{ fontFamily: font }}
+                    >
+                      {font.split(',')[0]}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-medium">Size</Label>
+             <RadioGroup
+                value={String(subtitleFontSize)}
+                onValueChange={(value) => onSubtitleFontSizeChange(Number(value))}
+                className="grid grid-cols-3 gap-2 rounded-lg bg-muted p-1"
+            >
+                {FONT_SIZE_OPTIONS.map(({ label, value }) => (
+                    <Label
+                        key={value}
+                        htmlFor={`font-size-${value}`}
+                        className="flex flex-col items-center justify-center rounded-md p-2 text-xs font-medium hover:bg-background cursor-pointer data-[state=checked]:bg-background data-[state=checked]:shadow-sm"
+                        data-state={subtitleFontSize === value ? 'checked' : 'unchecked'}
+                    >
+                        <RadioGroupItem value={String(value)} id={`font-size-${value}`} className="sr-only" />
+                        <Scaling className="h-5 w-5 mb-1" />
+                        {label}
+                    </Label>
                 ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </RadioGroup>
+          </div>
         </div>
       </div>
       <div>

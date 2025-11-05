@@ -62,12 +62,14 @@ async function uploadVttSubtitles(subtitles: Subtitle[]): Promise<string> {
  * @param videoPublicId The public ID of the video in Cloudinary.
  * @param subtitles An array of all subtitles to burn into the video.
  * @param subtitleFont The font family string selected in the UI.
+ * @param subtitleFontSize The font size selected in the UI.
  * @returns A URL to the transformed video.
  */
 export async function generateSubtitledVideoUrl(
   videoPublicId: string,
   subtitles: Subtitle[],
-  subtitleFont: string = 'Inter, sans-serif'
+  subtitleFont: string = 'Inter, sans-serif',
+  subtitleFontSize: number = 48
 ): Promise<string> {
   try {
     // 1. Upload all subtitles as a single VTT file.
@@ -90,7 +92,7 @@ export async function generateSubtitledVideoUrl(
         color: "#FFFFFFFF", // White
         background: "#00000080", // Semi-transparent black
         font_family: cloudinaryFont,
-        font_size: 48,
+        font_size: subtitleFontSize,
       },
     ];
 

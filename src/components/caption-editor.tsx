@@ -44,6 +44,7 @@ export default function CaptionEditor() {
   const [isFetchingLibrary, setIsFetchingLibrary] = useState(true);
   const [activeSubtitleId, setActiveSubtitleId] = useState<number | null>(null);
   const [subtitleFont, setSubtitleFont] = useState('Inter, sans-serif');
+  const [subtitleFontSize, setSubtitleFontSize] = useState(48);
   const { toast } = useToast();
   const [videoLibrary, setVideoLibrary] = useState<Video[]>([]);
 
@@ -79,10 +80,12 @@ export default function CaptionEditor() {
 
   useEffect(() => {
     // When currentVideo changes, update the font state
-    if (currentVideo?.subtitleFont) {
-      setSubtitleFont(currentVideo.subtitleFont);
+    if (currentVideo) {
+      setSubtitleFont(currentVideo.subtitleFont || 'Inter, sans-serif');
+      setSubtitleFontSize(currentVideo.subtitleFontSize || 48);
     } else {
       setSubtitleFont('Inter, sans-serif'); // Reset to default if not set
+      setSubtitleFontSize(48);
     }
   }, [currentVideo]);
   
@@ -115,6 +118,7 @@ export default function CaptionEditor() {
             publicId: publicId,
             subtitles: parsedSubs,
             subtitleFont: 'Inter, sans-serif', // Set default font on creation
+            subtitleFontSize: 48, // Set default font size
             updatedAt: Timestamp.now(),
           };
 
@@ -228,6 +232,29 @@ export default function CaptionEditor() {
             toast({
                 title: 'Font Saved!',
                 description: `Subtitle font changed to ${newFont.split(',')[0]}.`,
+            });
+        }
+    }, [currentVideo, toast]);
+    
+    const handleFontSizeChange = useCallback(async (newSize: number) => {
+        setSubtitleFontSize(newSize);
+        if (currentVideo) {
+            const updatedTimestamp = Timestamp.now();
+            const updateData = {
+                subtitleFontSize: newSize,
+                updatedAt: updatedTimestamp
+            };
+            await updateVideo(currentVideo.id, updateData);
+
+            setCurrentVideo(prev => prev ? { ...prev, ...updateData } : null);
+            setVideoLibrary(prev =>
+                prev.map(v => (v.id === currentVideo.id ? { ...v, ...updateData } : v))
+                .sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime())
+            );
+
+            toast({
+                title: 'Font Size Saved!',
+                description: `Subtitle font size changed to ${newSize}px.`,
             });
         }
     }, [currentVideo, toast]);
@@ -349,6 +376,8 @@ export default function CaptionEditor() {
             onReset={handleReset}
             subtitleFont={subtitleFont}
             onSubtitleFontChange={handleFontChange}
+            subtitleFontSize={subtitleFontSize}
+            onSubtitleFontSizeChange={handleFontSizeChange}
           />
           <CorrectionDialog
             state={correctionDialogState}

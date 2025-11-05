@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const { videoPublicId, subtitles, videoName, subtitleFont } = await request.json();
+    const { videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize } = await request.json();
 
     if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
       return NextResponse.json(
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     
     // 1. Delegate the complex Cloudinary logic to the dedicated service.
     // This gets a short, valid URL using the VTT file overlay method.
-    const finalVideoUrl = await generateSubtitledVideoUrl(videoPublicId, subtitles, subtitleFont);
+    const finalVideoUrl = await generateSubtitledVideoUrl(videoPublicId, subtitles, subtitleFont, subtitleFontSize);
 
     // 2. Fetch the final video on the server.
     // This acts as a proxy, ensuring the client doesn't deal with CORS or complex fetching.

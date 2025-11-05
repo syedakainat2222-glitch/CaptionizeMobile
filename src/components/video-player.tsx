@@ -12,6 +12,7 @@ type VideoPlayerProps = {
   onTimeUpdate: (time: number) => void;
   activeSubtitleId: number | null;
   subtitleFont: string;
+  subtitleFontSize: number;
 };
 
 const VideoPlayer = ({
@@ -20,6 +21,7 @@ const VideoPlayer = ({
   onTimeUpdate,
   activeSubtitleId,
   subtitleFont,
+  subtitleFontSize,
 }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [vttUrl, setVttUrl] = useState<string | null>(null);
@@ -103,9 +105,10 @@ const VideoPlayer = ({
         >
           {activeSubtitle && (
             <p
-              className="text-white text-lg md:text-2xl lg:text-3xl"
+              className="text-white"
               style={{
                 fontFamily: subtitleFont,
+                fontSize: `${subtitleFontSize}px`,
                 textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
               }}
             >

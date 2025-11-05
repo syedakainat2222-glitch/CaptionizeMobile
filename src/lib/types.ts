@@ -8,6 +8,7 @@ export type Video = {
     publicId: string; // Cloudinary public ID
     subtitles: Subtitle[];
     subtitleFont?: string; // Add optional font property
+    subtitleFontSize?: number; // Add optional font size
     userId: string;
     createdAt: Timestamp;
     updatedAt: Timestamp;
