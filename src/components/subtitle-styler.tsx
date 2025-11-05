@@ -30,7 +30,7 @@ const SubtitleStyler = ({ fontFamily }: SubtitleStylerProps) => {
     return () => {
         const styleToRemove = document.getElementById('subtitle-styler');
         if (styleToRemove) {
-            // styleToRemove.remove();
+            styleToRemove.remove();
         }
     }
   }, [fontFamily, styleContent]);
