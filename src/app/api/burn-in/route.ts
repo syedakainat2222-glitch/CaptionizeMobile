@@ -2,30 +2,31 @@
 import { burnInSubtitles, type Subtitle } from '@/ai/flows/burn-in-subtitles';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const videoPublicId = searchParams.get('videoPublicId');
-  const subtitlesParam = searchParams.get('subtitles');
-  const videoName = searchParams.get('videoName') || 'video';
-
-  if (!videoPublicId || !subtitlesParam) {
-    return NextResponse.json(
-      { error: 'Missing videoPublicId or subtitles' },
-      { status: 400 }
-    );
-  }
-
-  let subtitles: Subtitle[];
+export async function POST(request: NextRequest) {
   try {
-    subtitles = JSON.parse(subtitlesParam);
-  } catch (e) {
-    return NextResponse.json(
-      { error: 'Invalid subtitles format' },
-      { status: 400 }
-    );
-  }
+    const body = await request.json();
+    const {
+      videoPublicId,
+      subtitles,
+      videoName = 'video',
+    } = body;
 
-  try {
+    if (!videoPublicId || !subtitles) {
+      return NextResponse.json(
+        { error: 'Missing videoPublicId or subtitles' },
+        { status: 400 }
+      );
+    }
+    
+    // Quick validation on subtitles
+    if (!Array.isArray(subtitles)) {
+      return NextResponse.json(
+        { error: 'Invalid subtitles format' },
+        { status: 400 }
+      );
+    }
+
+
     const result = await burnInSubtitles({
       videoPublicId,
       subtitles,

@@ -110,19 +110,38 @@ const EditorView: FC<EditorViewProps> = ({
     setIsExporting(true);
     toast({
       title: 'Preparing Download',
-      description: 'Your video with subtitles is being prepared. The download will begin shortly.'
+      description: 'Your video with subtitles is being prepared. This may take a moment...'
     });
 
     try {
-      // Encode subtitles for URL
-      const subtitlesJson = JSON.stringify(subtitles);
-      const encodedSubtitles = encodeURIComponent(subtitlesJson);
-      
-      // Construct the download URL pointing to our API endpoint
-      const downloadUrl = `/api/burn-in?videoPublicId=${videoPublicId}&subtitles=${encodedSubtitles}&videoName=${encodeURIComponent(videoName)}`;
+      const response = await fetch('/api/burn-in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          videoPublicId,
+          subtitles,
+          videoName,
+        }),
+      });
 
-      // Trigger the download
-      window.location.href = downloadUrl;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start video export process.');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const filename = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `${videoName.split('.')[0]}-with-subtitles.mp4`;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
 
     } catch (error) {
        console.error('Failed to start export:', error);
@@ -133,8 +152,7 @@ const EditorView: FC<EditorViewProps> = ({
          description: `Could not start the video export process: ${errorMessage}`,
        });
     } finally {
-      // Give a small delay to allow the download to start before resetting the button state
-      setTimeout(() => setIsExporting(false), 3000);
+      setIsExporting(false);
     }
   };
   
