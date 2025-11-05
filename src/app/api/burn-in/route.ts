@@ -1,5 +1,5 @@
 'use server';
-import { burnInSubtitles, type Subtitle } from '@/ai/flows/burn-in-subtitles';
+import { burnInSubtitles } from '@/ai/flows/burn-in-subtitles';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
