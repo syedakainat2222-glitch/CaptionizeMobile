@@ -105,15 +105,16 @@ export async function POST(request: NextRequest) {
         resource_type: 'video',
         transformation: [
             {
-                overlay: {
-                    resource_type: 'subtitles',
-                    public_id: srtPublicId,
-                    text_style: textStyle
-                },
-                color: 'white',
-                background: 'rgb:000000CC', // Semi-transparent black background
-                gravity: 'south',
-                y: 30,
+                overlay: `subtitles:${srtPublicId.replace(/\//g, ':')}`,
+                text_style: textStyle
+            },
+            // Apply styling to the subtitle layer
+            {
+              flags: "layer_apply",
+              color: 'white',
+              background: 'rgb:000000CC', // Semi-transparent black background
+              gravity: 'south',
+              y: 30,
             }
         ],
         format: 'mp4',
@@ -132,6 +133,7 @@ export async function POST(request: NextRequest) {
     const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
     const filename = `${baseName}-with-subtitles.mp4`;
 
+    // Correctly stream the response body back to the client
     return new NextResponse(videoResponse.body, {
       status: 200,
       headers: {
