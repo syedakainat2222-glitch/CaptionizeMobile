@@ -88,6 +88,7 @@ const processVideoFlow = ai.defineFlow(
 
     if (languageCode) {
       transcriptParams.language_code = languageCode;
+      transcriptParams.language_detection = false;
     } else {
       transcriptParams.language_detection = true; // Enable automatic language detection if no code is provided
     }
@@ -98,6 +99,17 @@ const processVideoFlow = ai.defineFlow(
       throw new Error(transcript.error || 'Failed to create transcript with AssemblyAI.');
     }
     
+    // Wait for the transcript to complete
+    let transcriptResult = await assemblyai.transcripts.get(transcript.id);
+    while (transcriptResult.status !== 'completed' && transcriptResult.status !== 'error') {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      transcriptResult = await assemblyai.transcripts.get(transcript.id);
+    }
+    
+    if (transcriptResult.status === 'error') {
+      throw new Error(transcriptResult.error || 'Transcription failed.');
+    }
+
     const srt = await assemblyai.transcripts.subtitles(transcript.id, 'srt');
     
     if (!srt) {

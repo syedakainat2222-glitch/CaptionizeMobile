@@ -125,7 +125,7 @@ export default function VideoUpload({ onVideoSelect, isLoading, language, onLang
                   <SelectValue placeholder="Auto-detect" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Auto-detect</SelectItem>
+                  <SelectItem value="auto">Auto-detect</SelectItem>
                   {LANGUAGES.map((lang) => (
                     <SelectItem key={lang.value} value={lang.value}>
                       {lang.label}

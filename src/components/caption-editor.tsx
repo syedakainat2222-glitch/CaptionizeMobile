@@ -47,7 +47,7 @@ export default function CaptionEditor() {
   const [subtitleFontSize, setSubtitleFontSize] = useState(48);
   const { toast } = useToast();
   const [videoLibrary, setVideoLibrary] = useState<Video[]>([]);
-  const [language, setLanguage] = useState<string>(''); // Default to auto-detect
+  const [language, setLanguage] = useState<string>('auto'); // Default to auto-detect
 
   const [correctionDialogState, setCorrectionDialogState] =
     useState<CorrectionDialogState>({
@@ -103,7 +103,7 @@ export default function CaptionEditor() {
 
           const result = await processVideo({
             videoDataUri,
-            languageCode: language || undefined, // Pass language code, or undefined for auto-detect
+            languageCode: language === 'auto' ? undefined : language, // Pass language code, or undefined for auto-detect
           });
 
           if (!result || !result.subtitles || !result.videoUrl || !result.publicId) {
