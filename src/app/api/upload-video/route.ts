@@ -1,33 +1,37 @@
-import { v2 as cloudinary } from 'cloudinary';
-import { NextResponse } from 'next/server';
+'use server';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+import { NextResponse } from 'next/server';
+import { googleAI } from '@genkit-ai/google-genai';
+import { genkit } from 'genkit';
+
+const ai = genkit({
+  plugins: [googleAI()],
+  model: 'googleai/gemini-2.5-flash',
 });
 
 export async function POST(request: Request) {
-  const { videoDataUri } = await request.json();
-
   try {
-    // Generate a unique public_id for Cloudinary
-    const public_id = `captionize-video-${Date.now()}`;
+    const { subtitleText, context } = await request.json();
 
-    const uploadResult = await cloudinary.uploader.upload(videoDataUri, {
-      resource_type: 'video',
-      public_id: public_id,
-      overwrite: true,
-    });
-    
-    return NextResponse.json({ 
-        videoUrl: uploadResult.secure_url,
-        publicId: uploadResult.public_id 
-    });
+    if (!subtitleText) {
+      return NextResponse.json({ error: 'Missing subtitle text' }, { status: 400 });
+    }
 
-  } catch (error) {
-    console.error('Upload to cloudinary failed', error);
-    const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-    return NextResponse.json({ error: `Upload failed: ${errorMessage}` }, { status: 500 });
+    const prompt = `
+      Suggest a natural and grammatically correct correction for this subtitle line.
+      Keep tone and timing similar.
+      Context: ${context || 'none'}
+      Text: "${subtitleText}"
+    `;
+
+    const result = await ai.generate.text(prompt);
+
+    return NextResponse.json({ suggestion: result.outputText.trim() });
+  } catch (err: any) {
+    console.error('Correction suggestion failed:', err);
+    return NextResponse.json(
+      { error: err.message || 'Failed to generate suggestion' },
+      { status: 500 }
+    );
   }
 }

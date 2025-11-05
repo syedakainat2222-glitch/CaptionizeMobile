@@ -1,33 +1,48 @@
 'use server';
-import { burnInSubtitles } from '@/ai/flows/burn-in-subtitles';
+
 import { NextResponse } from 'next/server';
+import { googleAI } from '@genkit-ai/google-genai';
+import { genkit } from 'genkit';
+
+const ai = genkit({
+  plugins: [googleAI()],
+  model: 'googleai/gemini-2.5-flash',
+});
 
 export async function POST(request: Request) {
-  const { videoPublicId, subtitles } = await request.json();
-
-  if (!videoPublicId || !subtitles) {
-    return NextResponse.json(
-      { error: 'Missing videoPublicId or subtitles' },
-      { status: 400 }
-    );
-  }
-
   try {
-    const result = await burnInSubtitles({
-      videoPublicId,
-      subtitles,
-    });
+    const { videoUrl } = await request.json();
 
-    if (!result || !result.videoWithSubtitlesUrl) {
-      throw new Error('The video processing flow did not return a URL.');
+    if (!videoUrl) {
+      return NextResponse.json({ error: 'Missing video URL' }, { status: 400 });
     }
-    
-    // Pass the final URL directly to the frontend
-    return NextResponse.json({ videoUrl: result.videoWithSubtitlesUrl });
 
-  } catch (error) {
-    console.error('Failed to burn in subtitles:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return NextResponse.json({ error: `Failed to process video: ${errorMessage}` }, { status: 500 });
+    const prompt = `
+      Analyze this video and generate subtitle captions (text and timestamps).
+      Return an array of objects like:
+      [
+        { "time": "00:00:03", "text": "Hello everyone" },
+        { "time": "00:00:07", "text": "Welcome to our channel" }
+      ]
+      Video URL: ${videoUrl}
+    `;
+
+    const result = await ai.generate.text(prompt);
+
+    const parsed = (() => {
+      try {
+        return JSON.parse(result.outputText);
+      } catch {
+        return [{ time: '00:00:00', text: result.outputText }];
+      }
+    })();
+
+    return NextResponse.json({ subtitles: parsed });
+  } catch (err: any) {
+    console.error('Subtitle generation failed:', err);
+    return NextResponse.json(
+      { error: err.message || 'Failed to generate subtitles' },
+      { status: 500 }
+    );
   }
 }
