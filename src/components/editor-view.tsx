@@ -156,39 +156,22 @@ const EditorView: FC<EditorViewProps> = ({
     }
   };
   
-  const downloadFile = (url: string, filename: string) => {
-    try {
-      if (!url) {
-        throw new Error('Download URL is empty.');
-      }
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      link.target = '_blank'; // Open in new tab to avoid navigation issues
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-    } catch (error) {
-       console.error('Failed to download file:', error);
-       toast({
-         variant: 'destructive',
-         title: 'Download Failed',
-         description: 'Could not download the video file.'
-       })
-    }
-  }
-
   const handleDownloadOriginal = () => {
-    downloadFile(videoUrl, videoName);
+    const link = document.createElement('a');
+    link.href = videoUrl;
+    link.download = videoName;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
 
   return (
     <div className="container mx-auto p-4">
-      <SubtitleStyler fontFamily={subtitleFont} />
+      {/* SubtitleStyler is no longer needed for custom rendering */}
+      {/* <SubtitleStyler fontFamily={subtitleFont} /> */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
            <Button variant="outline" size="icon" onClick={onReset}>
@@ -242,6 +225,8 @@ const EditorView: FC<EditorViewProps> = ({
           videoUrl={videoUrl}
           subtitles={subtitles}
           onTimeUpdate={onTimeUpdate}
+          activeSubtitleId={activeSubtitleId}
+          subtitleFont={subtitleFont}
         />
         <SubtitleEditor
           subtitles={subtitles}

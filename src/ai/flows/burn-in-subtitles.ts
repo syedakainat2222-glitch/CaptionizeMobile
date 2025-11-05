@@ -57,18 +57,21 @@ async function burnInSubtitlesFlow({
     const startOffset = srtTimeToSeconds(subtitle.startTime);
     const endOffset = srtTimeToSeconds(subtitle.endTime);
 
+    // Sanitize text for Cloudinary overlay: escape commas and slashes
+    const sanitizedText = subtitle.text.replace(/, /g, ',,').replace(/\//g, '_');
+    
     return {
-      overlay: {
-        font_family: 'Arial',
-        font_size: 48,
-        text: subtitle.text,
-      },
-      color: 'white',
-      background: 'rgba:0,0,0,0.5',
-      gravity: 'south',
-      y: 20,
-      start_offset: startOffset.toFixed(2),
-      end_offset: endOffset.toFixed(2),
+        overlay: {
+            font_family: 'Arial',
+            font_size: 48,
+            text: sanitizedText,
+        },
+        color: 'white',
+        background: 'rgba:0,0,0,0.5',
+        gravity: 'south',
+        y: 20,
+        start_offset: startOffset.toFixed(2),
+        end_offset: endOffset.toFixed(2),
     };
   });
 
