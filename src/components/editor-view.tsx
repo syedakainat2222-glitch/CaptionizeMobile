@@ -26,7 +26,6 @@ import SubtitleEditor from './subtitle-editor';
 import { Subtitle } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from './ui/label';
-import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -36,19 +35,21 @@ import {
 } from './ui/select';
 
 const FONT_OPTIONS = [
-  'Inter, sans-serif',
-  'Roboto, sans-serif',
   'Arial, sans-serif',
   'Helvetica, sans-serif',
   'Georgia, serif',
   'Times New Roman, serif',
-  'Verdana, sans-serif',
   'Courier New, monospace',
-  'Lucida Console, monospace',
-  'Comic Sans MS, cursive',
+  'Verdana, sans-serif',
+  'Inter, sans-serif',
+  'Roboto, sans-serif',
+  'Open Sans, sans-serif',
+  'Lato, sans-serif',
+  'Montserrat, sans-serif',
+  'Poppins, sans-serif',
 ];
 
-const FONT_SIZE_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 1);
+const FONT_SIZE_OPTIONS = [24, 36, 48, 60, 72];
 
 type EditorViewProps = {
   videoUrl: string;
@@ -104,7 +105,7 @@ const EditorView = ({
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-a.href = url;
+    a.href = url;
     a.download = `${videoName.split('.')[0]}.${fileExtension}`;
     document.body.appendChild(a);
     a.click();
@@ -158,7 +159,6 @@ a.href = url;
         }
       }
 
-
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
@@ -168,7 +168,6 @@ a.href = url;
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-
 
       toast({
         title: 'Export Complete!',
@@ -266,7 +265,7 @@ a.href = url;
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full justify-between">
-                  <span>{subtitleFont.split(',')[0]}</span>
+                  <span className="truncate">{subtitleFont.split(',')[0]}</span>
                   <Palette className="h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
@@ -300,7 +299,7 @@ a.href = url;
               <SelectContent>
                 {FONT_SIZE_OPTIONS.map((size) => (
                   <SelectItem key={size} value={String(size)}>
-                    {size}
+                    {size}px
                   </SelectItem>
                 ))}
               </SelectContent>
