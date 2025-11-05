@@ -10,16 +10,17 @@ cloudinary.config({
 });
 
 // Maps the font-family from the UI to the font name Cloudinary expects.
+// Using more generic font names that Cloudinary is likely to support.
 const fontMap: { [key: string]: string } = {
-    'Inter, sans-serif': 'Inter',
+    'Inter, sans-serif': 'Arial',
     'Roboto, sans-serif': 'Roboto',
     'Arial, sans-serif': 'Arial',
     'Helvetica, sans-serif': 'Helvetica',
     'Georgia, serif': 'Georgia',
     'Times New Roman, serif': 'Times_New_Roman',
     'Verdana, sans-serif': 'Verdana',
-    'Courier New, monospace': 'Courier_New',
-    'Lucida Console, monospace': 'Lucida_Console',
+    'Courier New, monospace': 'Courier',
+    'Lucida Console, monospace': 'Lucida',
     'Comic Sans MS, cursive': 'Comic_Sans_MS',
 };
 
@@ -75,21 +76,26 @@ export async function generateSubtitledVideoUrl(
     // 2. Map the UI font to a Cloudinary-compatible font name. Default to Arial.
     const cloudinaryFont = fontMap[subtitleFont] || 'Arial';
 
-    // 3. Build the transformation using the `l_subtitles` overlay method.
-    // This creates a short, stable URL.
+    // 3. Build the transformation. This is the most reliable way to apply subtitles.
+    // We create the overlay for the subtitles, and then a separate transformation
+    // block for the other styling.
     const transformation = [
-        {
-            // Apply the uploaded subtitle file using its public_id.
-            // This is the core of the fix.
-            overlay: `subtitles:${subtitlePublicId}`,
-            // Style the subtitles.
-            gravity: "south",
-            y: 50,
-            font_family: cloudinaryFont,
-            font_size: 48,
-            color: "white",
-            background: "rgba:00000080", // Semi-transparent black background
+      {
+        // Apply the uploaded subtitle file using its public_id.
+        overlay: `subtitles:${subtitlePublicId}`,
+        // Style the subtitles.
+        gravity: "south",
+        y: 50,
+        color: "white",
+        background: "rgba:00000080", // Semi-transparent black background
+      },
+      // This transformation applies the font styling to the subtitle overlay
+      {
+        overlay: {
+          font_family: cloudinaryFont,
+          font_size: 48
         }
+      }
     ];
 
     // 4. Generate the final, short video URL.
