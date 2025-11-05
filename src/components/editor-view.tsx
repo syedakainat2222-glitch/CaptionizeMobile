@@ -139,9 +139,6 @@ a.href = url;
         if (filenameMatch && filenameMatch.length > 1) {
           filename = filenameMatch[1];
         }
-      } else {
-        // Fallback if the header is missing
-        filename = `${videoName.split('.')[0]}-with-subtitles.mp4`;
       }
 
 
