@@ -60,25 +60,16 @@ async function burnInSubtitlesFlow({
     const startOffset = srtTimeToSeconds(subtitle.startTime).toFixed(2);
     const endOffset = srtTimeToSeconds(subtitle.endTime).toFixed(2);
 
-    // Sanitize text for Cloudinary overlay.
+    // Sanitize text for Cloudinary overlay using encodeURIComponent.
+    // This is the robust way to handle all special characters, symbols, and emojis.
     // See: https://support.cloudinary.com/hc/en-us/articles/202521512-How-to-add-a-text-overlay-on-an-image
-    const sanitizedText = subtitle.text
-      .replace(/,/g, '%2C')  // Escape commas
-      .replace(/\//g, '%2F') // Escape slashes
-      .replace(/\?/g, '%3F') // Escape question marks
-      .replace(/&/g, '%26')  // Escape ampersands
-      .replace(/#/g, '%23')  // Escape hashes
-      .replace(/\\/g, '%5C') // Escape backslashes
-      .replace(/%/g, '%25')  // Escape percent signs
-      .replace(/'/g, '%27')  // Escape single quotes
-      .replace(/"/g, '%22'); // Escape double quotes
+    const sanitizedText = encodeURIComponent(subtitle.text);
       
-
     return {
       overlay: {
         font_family: 'Arial',
         font_size: 48,
-        text: encodeURIComponent(sanitizedText),
+        text: `text:${sanitizedText}`,
       },
       color: 'white',
       background: 'rgba:0,0,0,0.5',
