@@ -1,6 +1,8 @@
 // src/app/api/burn-in/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
+import { formatSrt, type Subtitle } from '@/lib/srt';
+import { Readable } from 'stream';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -26,59 +28,49 @@ const CLOUDINARY_FONTS = {
   'Dosis, sans-serif': 'Arial',
   'Helvetica, sans-serif': 'Arial',
   'Arial, sans-serif': 'Arial',
-  'Playfair Display, serif': 'Times New Roman',
-  'Merriweather, serif': 'Times New Roman',
-  'Lora, serif': 'Times New Roman',
-  'PT Serif, serif': 'Times New Roman',
+  'Playfair Display, serif': 'Times_New_Roman',
+  'Merriweather, serif': 'Times_New_Roman',
+  'Lora, serif': 'Times_New_Roman',
+  'PT Serif, serif': 'Times_New_Roman',
   'Georgia, serif': 'Georgia',
   'Pacifico, cursive': 'Arial',
   'Caveat, cursive': 'Arial',
   'Dancing Script, cursive': 'Arial',
-  'Source Code Pro, monospace': 'Courier New'
+  'Source Code Pro, monospace': 'Courier_New'
 };
 
-type Transformation = {
-  overlay: {
-    font_family: string;
-    font_size: number;
-    font_weight: string;
-    text: string;
-  };
-  color: string;
-  background: string;
-  gravity: string;
-  y: number;
-  width: string;
-  effect: string;
-  start_offset: string;
-};
 
-const srtTimeToSeconds = (time: string): number => {
-  const parts = time.split(':');
-  const secondsAndMs = parts[2].split(/[,\.]/);
-  const hours = parseInt(parts[0], 10);
-  const minutes = parseInt(parts[1], 10);
-  const seconds = parseInt(secondsAndMs[0], 10);
-  const milliseconds = parseInt(secondsAndMs[1], 10);
-  return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
-};
+/**
+ * Uploads subtitles as an SRT file to Cloudinary.
+ * @param subtitles - The array of subtitle objects.
+ * @returns The public_id of the uploaded SRT file.
+ */
+async function uploadSrtToCloudinary(subtitles: Subtitle[]): Promise<string> {
+    const srtContent = formatSrt(subtitles);
+    const srtBuffer = Buffer.from(srtContent, 'utf-8');
+    const public_id = `subtitles/captionize-${Date.now()}`;
 
-// Sanitize text for Cloudinary - handle Unicode characters properly
-const sanitizeTextForCloudinary = (text: string): string => {
-  // First remove problematic Unicode characters that cause ByteString issues
-  const cleanText = text
-    .replace(/[^\x00-\x7F]/g, char => {
-      // Keep only common safe symbols, remove other non-ASCII
-      const safeSymbols = ['❤', '♥', '→', '←', '↑', '↓', '•', '·', '…'];
-      return safeSymbols.includes(char) ? char : '';
+    return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+            {
+                resource_type: 'raw',
+                public_id: public_id,
+                format: 'srt'
+            },
+            (error, result) => {
+                if (error) {
+                    return reject(new Error(`Cloudinary SRT upload failed: ${error.message}`));
+                }
+                if (!result || !result.public_id) {
+                    return reject(new Error('Cloudinary SRT upload failed: No result or public_id returned.'));
+                }
+                resolve(result.public_id);
+            }
+        );
+        Readable.from(srtBuffer).pipe(uploadStream);
     });
+}
 
-  // Then URL encode
-  return encodeURIComponent(cleanText)
-    .replace(/'/g, "%27")
-    .replace(/\(/g, "%28")
-    .replace(/\)/g, "%29");
-};
 
 export async function POST(request: NextRequest) {
   try {
@@ -91,11 +83,7 @@ export async function POST(request: NextRequest) {
       subtitleFontSize = 48
     } = body;
 
-    console.log('=== BURN-IN PROCESS STARTED ===');
-    console.log('Video Public ID:', videoPublicId);
-    console.log('Total subtitles:', subtitles?.length);
-    console.log('Selected font:', subtitleFont);
-    console.log('Font size:', subtitleFontSize);
+    console.log('=== NEW BURN-IN PROCESS STARTED (SRT Method) ===');
 
     if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
       return NextResponse.json(
@@ -104,200 +92,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Map the selected font to Cloudinary-compatible font
+    // 1. Upload the subtitles as an SRT file to Cloudinary
+    const srtPublicId = await uploadSrtToCloudinary(subtitles);
+    console.log('Uploaded SRT to Cloudinary with public_id:', srtPublicId);
+
+    // 2. Map the font and create the text style for Cloudinary
     const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
-    console.log('Mapped to Cloudinary font:', cloudinaryFont);
+    const textStyle = `${cloudinaryFont}_${subtitleFontSize}_bold`;
 
-    // METHOD 1: Use Cloudinary's Eager Transformations (Most Reliable)
-    try {
-      console.log('=== METHOD 1: EAGER TRANSFORMATIONS ===');
-      
-      const subtitlesToProcess = subtitles; // FIX: Process all subtitles
-      console.log(`Processing ${subtitlesToProcess.length} subtitles with eager transformation`);
-      
-      // Create a single transformation with multiple overlays
-      const transformation: Transformation[] = [];
-      
-      subtitlesToProcess.forEach((subtitle, index) => {
-        const startOffset = Math.floor(srtTimeToSeconds(subtitle.startTime));
-        const duration = Math.max(1, Math.floor(srtTimeToSeconds(subtitle.endTime)) - startOffset);
-        
-        const sanitizedText = sanitizeTextForCloudinary(subtitle.text);
-
-        console.log(`Adding subtitle ${index + 1}: "${subtitle.text}" at ${startOffset}s`);
-
-        // Add each subtitle as a separate overlay in the same transformation
-        transformation.push({
-          overlay: {
-            font_family: cloudinaryFont,
-            font_size: subtitleFontSize,
-            font_weight: 'bold',
-            text: sanitizedText,
-          },
-          color: 'white',
-          background: 'rgb:000000CC',
-          gravity: 'south',
-          y: 30,
-          width: '90%',
-          effect: `du_${duration}`,
-          start_offset: startOffset.toString()
-        });
-      });
-
-      console.log('Starting eager transformation...');
-      
-      // Use explicit upload with eager transformation
-      const result = await cloudinary.uploader.explicit(videoPublicId, {
+    // 3. Generate the video URL with the subtitles layered on top
+    const videoUrl = cloudinary.url(videoPublicId, {
         resource_type: 'video',
-        type: 'upload',
-        eager: [
-          {
-            transformation: transformation,
-            format: 'mp4',
-            quality: 'auto'
-          }
+        transformation: [
+            {
+                overlay: {
+                    resource_type: 'subtitles',
+                    public_id: srtPublicId,
+                    text_style: textStyle
+                },
+                color: 'white',
+                background: 'rgb:000000CC', // Semi-transparent black background
+                gravity: 'south',
+                y: 30,
+            }
         ],
-        eager_async: false, // Wait for processing to complete
-      });
+        format: 'mp4',
+        quality: 'auto'
+    });
 
-      console.log('Eager transformation result:', result);
-
-      if (result.eager && result.eager[0] && result.eager[0].secure_url) {
-        const videoUrl = result.eager[0].secure_url;
-        console.log('Eager transformation successful:', videoUrl);
-        
-        // Fetch the processed video
-        const videoResponse = await fetch(videoUrl);
-        
-        if (!videoResponse.ok) {
-          throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
-        }
-
-        const videoStream = videoResponse.body;
-        if (!videoStream) {
-          throw new Error('Could not get video stream from Cloudinary response.');
-        }
-
-        const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
-        const filename = `${baseName}-with-subtitles.mp4`;
-
-        return new NextResponse(videoStream, {
-          status: 200,
-          headers: {
-            'Content-Type': 'video/mp4',
-            'Content-Disposition': `attachment; filename="${filename}"`,
-          },
-        });
-      } else {
-        throw new Error('Eager transformation did not return a URL');
-      }
-
-    } catch (eagerError) {
-      console.error('Eager transformation failed:', eagerError);
-      
-      // METHOD 2: Simple Single Subtitle (Fallback)
-      try {
-        console.log('=== METHOD 2: SIMPLE SINGLE SUBTITLE ===');
-        
-        const firstSubtitle = subtitles[0];
-        const sanitizedText = sanitizeTextForCloudinary(firstSubtitle.text);
-
-        // Simple URL transformation with just one subtitle
-        const simpleUrl = cloudinary.url(videoPublicId, {
-          resource_type: 'video',
-          transformation: [
-            {
-              overlay: {
-                font_family: cloudinaryFont,
-                font_size: subtitleFontSize,
-                font_weight: 'bold',
-                text: sanitizedText,
-              }
-            },
-            { color: 'white' },
-            { background: 'rgb:000000CC' },
-            { gravity: 'south' },
-            { y: 30 }
-          ],
-          format: 'mp4',
-          quality: 'auto',
-        });
-
-        console.log('Simple URL generated:', simpleUrl);
-
-        // Fetch the processed video
-        const videoResponse = await fetch(simpleUrl);
-        
-        if (!videoResponse.ok) {
-          throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
-        }
-
-        const videoStream = videoResponse.body;
-        if (!videoStream) {
-          throw new Error('Could not get video stream from Cloudinary response.');
-        }
-
-        const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
-        const filename = `${baseName}-with-subtitles.mp4`;
-
-        return new NextResponse(videoStream, {
-          status: 200,
-          headers: {
-            'Content-Type': 'video/mp4',
-            'Content-Disposition': `attachment; filename="${filename}"`,
-          },
-        });
-
-      } catch (simpleError) {
-        console.error('Simple method failed:', simpleError);
-        
-        // METHOD 3: Ultra Simple - Just add a watermark
-        console.log('=== METHOD 3: ULTRA SIMPLE WATERMARK ===');
-        
-        const watermarkUrl = cloudinary.url(videoPublicId, {
-          resource_type: 'video',
-          transformation: [
-            {
-              overlay: {
-                font_family: cloudinaryFont,
-                font_size: 20,
-                text: encodeURIComponent(`Subtitled with ${cloudinaryFont}`),
-              }
-            },
-            { color: 'white' },
-            { background: 'rgb:00000099' },
-            { gravity: 'south_east' },
-            { x: 10, y: 10 }
-          ],
-          format: 'mp4',
-        });
-
-        console.log('Watermark URL:', watermarkUrl);
-
-        // Fetch the processed video
-        const videoResponse = await fetch(watermarkUrl);
-        
-        if (!videoResponse.ok) {
-          throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
-        }
-
-        const videoStream = videoResponse.body;
-        if (!videoStream) {
-          throw new Error('Could not get video stream from Cloudinary response.');
-        }
-
-        const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
-        const filename = `${baseName}-with-subtitles.mp4`;
-
-        return new NextResponse(videoStream, {
-          status: 200,
-          headers: {
-            'Content-Type': 'video/mp4',
-            'Content-Disposition': `attachment; filename="${filename}"`,
-          },
-        });
-      }
+    console.log('Generated final video URL:', videoUrl);
+    
+    // 4. Fetch the generated video and stream it back to the client
+    const videoResponse = await fetch(videoUrl);
+    
+    if (!videoResponse.ok || !videoResponse.body) {
+      throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
     }
+
+    const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
+    const filename = `${baseName}-with-subtitles.mp4`;
+
+    return new NextResponse(videoResponse.body, {
+      status: 200,
+      headers: {
+        'Content-Type': 'video/mp4',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+    });
 
   } catch (error) {
     console.error('=== BURN-IN PROCESS FAILED ===');
