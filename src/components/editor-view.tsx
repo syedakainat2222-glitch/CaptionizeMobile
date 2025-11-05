@@ -97,97 +97,71 @@ const EditorView: FC<EditorViewProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleExportVideoWithSubtitles = async () => {
+    if (!videoPublicId) {
+      toast({
+        variant: 'destructive',
+        title: 'Export Failed',
+        description: 'Video public ID is missing. Cannot process video.',
+      });
+      return;
+    }
+    
+    setIsExporting(true);
+    toast({
+      title: 'Preparing Download',
+      description: 'Your video with subtitles is being prepared. The download will begin shortly.'
+    });
+
+    try {
+      // Encode subtitles for URL
+      const subtitlesJson = JSON.stringify(subtitles);
+      const encodedSubtitles = encodeURIComponent(subtitlesJson);
+      
+      // Construct the download URL pointing to our API endpoint
+      const downloadUrl = `/api/burn-in?videoPublicId=${videoPublicId}&subtitles=${encodedSubtitles}&videoName=${encodeURIComponent(videoName)}`;
+
+      // Trigger the download
+      window.location.href = downloadUrl;
+
+    } catch (error) {
+       console.error('Failed to start export:', error);
+       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+       toast({
+         variant: 'destructive',
+         title: 'Export Failed',
+         description: `Could not start the video export process: ${errorMessage}`,
+       });
+    } finally {
+      // Give a small delay to allow the download to start before resetting the button state
+      setTimeout(() => setIsExporting(false), 3000);
+    }
+  };
+  
   const downloadFile = async (url: string, filename: string) => {
     try {
       if (!url) {
         throw new Error('Download URL is empty.');
       }
       
-      // Fetch the video data as a blob
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch video: ${response.statusText}`);
-      }
-      const blob = await response.blob();
-      
-      // Create a temporary URL for the blob
-      const blobUrl = URL.createObjectURL(blob);
-      
-      // Create a link and trigger the download
       const link = document.createElement('a');
-      link.href = blobUrl;
+      link.href = url;
       link.download = filename;
+      link.target = '_blank'; // Open in new tab to avoid navigation issues
+      link.rel = 'noopener noreferrer';
       document.body.appendChild(link);
       link.click();
-      
-      // Clean up by removing the link and revoking the blob URL
       document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
 
     } catch (error) {
        console.error('Failed to download file:', error);
        toast({
          variant: 'destructive',
          title: 'Download Failed',
-         description: 'Could not download the processed video file.'
+         description: 'Could not download the video file.'
        })
     }
   }
-
-
-  const handleExportVideoWithSubtitles = async () => {
-    if (!videoPublicId) {
-       toast({
-         variant: 'destructive',
-         title: 'Export Failed',
-         description: 'Video public ID is missing. Cannot process video.',
-       });
-       return;
-    }
-
-    setIsExporting(true);
-    toast({
-      title: 'Starting Video Export',
-      description: 'Your video is being processed with subtitles. This may take a few minutes.'
-    });
-
-    try {
-      const response = await fetch('/api/burn-in', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoPublicId, subtitles }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to start video processing.');
-      }
-
-      if (!result.videoUrl) {
-        throw new Error('The video processing flow did not return a URL.');
-      }
-      
-      toast({
-        title: 'Processing Complete!',
-        description: 'Your video is now being downloaded.'
-      });
-
-      const processedFilename = `${videoName.split('.')[0]}-with-subtitles.mp4`;
-      await downloadFile(result.videoUrl, processedFilename);
-
-    } catch (error) {
-      console.error('Failed to export video with subtitles:', error);
-       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-      toast({
-        variant: 'destructive',
-        title: 'Export Failed',
-        description: errorMessage,
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   const handleDownloadOriginal = () => {
     downloadFile(videoUrl, videoName);
