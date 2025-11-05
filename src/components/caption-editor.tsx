@@ -76,6 +76,15 @@ export default function CaptionEditor() {
   useEffect(() => {
     loadVideoLibrary();
   }, [loadVideoLibrary]);
+
+  useEffect(() => {
+    // When currentVideo changes, update the font state
+    if (currentVideo?.subtitleFont) {
+      setSubtitleFont(currentVideo.subtitleFont);
+    } else {
+      setSubtitleFont('Inter, sans-serif'); // Reset to default if not set
+    }
+  }, [currentVideo]);
   
   const handleVideoSelect = useCallback(
     async (file: File) => {
@@ -105,6 +114,7 @@ export default function CaptionEditor() {
             videoUrl: videoUrl,
             publicId: publicId,
             subtitles: parsedSubs,
+            subtitleFont: 'Inter, sans-serif', // Set default font on creation
             updatedAt: Timestamp.now(),
           };
 
@@ -198,6 +208,31 @@ export default function CaptionEditor() {
     }
   }, [subtitles, currentVideo, toast]);
 
+    const handleFontChange = useCallback(async (newFont: string) => {
+        setSubtitleFont(newFont);
+        if (currentVideo) {
+            const updatedTimestamp = Timestamp.now();
+            const updateData = {
+                subtitleFont: newFont,
+                updatedAt: updatedTimestamp
+            };
+            await updateVideo(currentVideo.id, updateData);
+
+            // Update the font in the local state for both the current video and the library
+            setCurrentVideo(prev => prev ? { ...prev, ...updateData } : null);
+            setVideoLibrary(prev =>
+                prev.map(v => (v.id === currentVideo.id ? { ...v, ...updateData } : v))
+                .sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime())
+            );
+
+            toast({
+                title: 'Font Saved!',
+                description: `Subtitle font changed to ${newFont.split(',')[0]}.`,
+            });
+        }
+    }, [currentVideo, toast]);
+
+
   const handleSuggestCorrection = useCallback(
     async (subtitle: Subtitle) => {
       setCorrectionDialogState({
@@ -273,6 +308,9 @@ export default function CaptionEditor() {
     try {
       await deleteVideo(videoId);
       setVideoLibrary(prev => prev.filter(v => v.id !== videoId));
+      if (currentVideo?.id === videoId) {
+        handleReset();
+      }
       toast({
         title: 'Video Deleted',
         description: 'The video has been successfully removed.',
@@ -285,7 +323,7 @@ export default function CaptionEditor() {
         description: 'Could not delete the video. Please try again.',
       });
     }
-  }, [toast]);
+  }, [toast, currentVideo, handleReset]);
   
   if (isFetchingLibrary) {
     return (
@@ -310,7 +348,7 @@ export default function CaptionEditor() {
             onSuggestCorrection={handleSuggestCorrection}
             onReset={handleReset}
             subtitleFont={subtitleFont}
-            onSubtitleFontChange={setSubtitleFont}
+            onSubtitleFontChange={handleFontChange}
           />
           <CorrectionDialog
             state={correctionDialogState}
