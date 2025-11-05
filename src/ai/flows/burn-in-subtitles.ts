@@ -76,9 +76,9 @@ async function burnInSubtitlesFlow({
 
     return {
       overlay: {
-        font_family: 'Inter',
+        font_family: 'Arial',
         font_size: 48,
-        text: sanitizedText,
+        text: encodeURIComponent(sanitizedText),
       },
       color: 'white',
       background: 'rgba:0,0,0,0.5',
