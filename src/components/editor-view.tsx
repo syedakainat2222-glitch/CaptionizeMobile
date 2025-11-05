@@ -36,15 +36,19 @@ import {
 } from './ui/select';
 
 const FONT_OPTIONS = [
+  'Inter, sans-serif',
+  'Roboto, sans-serif',
   'Arial, sans-serif',
-  'Times New Roman, serif',
-  'Courier New, monospace',
+  'Helvetica, sans-serif',
   'Georgia, serif',
+  'Times New Roman, serif',
   'Verdana, sans-serif',
+  'Courier New, monospace',
+  'Lucida Console, monospace',
+  'Comic Sans MS, cursive',
 ];
 
-const FONT_SIZE_OPTIONS = [24, 36, 48, 60, 72];
-
+const FONT_SIZE_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 1);
 
 type EditorViewProps = {
   videoUrl: string;
@@ -296,7 +300,7 @@ a.href = url;
               <SelectContent>
                 {FONT_SIZE_OPTIONS.map((size) => (
                   <SelectItem key={size} value={String(size)}>
-                    {size}px
+                    {size}
                   </SelectItem>
                 ))}
               </SelectContent>
