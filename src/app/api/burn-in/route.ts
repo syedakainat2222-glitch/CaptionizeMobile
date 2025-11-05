@@ -15,17 +15,20 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Generate the URL for the video with burned-in subtitles
+    // 1. Delegate the complex Cloudinary logic to the dedicated service.
+    // This gets a short, valid URL using the VTT file overlay method.
     const finalVideoUrl = await generateSubtitledVideoUrl(videoPublicId, subtitles, subtitleFont);
 
-    // Fetch the video from Cloudinary
+    // 2. Fetch the final video on the server.
+    // This acts as a proxy, ensuring the client doesn't deal with CORS or complex fetching.
     const videoResponse = await fetch(finalVideoUrl);
     
     if (!videoResponse.ok) {
+        // If Cloudinary returns an error (e.g., 404), this will now be caught properly.
         throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
     }
 
-    // Get the video data as a ReadableStream
+    // 3. Get the video data as a ReadableStream.
     const videoStream = videoResponse.body;
 
     if (!videoStream) {
@@ -34,7 +37,8 @@ export async function POST(request: NextRequest) {
 
     const filename = `${(videoName || 'video').split('.')[0]}-with-subtitles.mp4`;
     
-    // Return a streaming response to the client
+    // 4. Return a streaming response to the client for download.
+    // This correctly streams the binary data of the video.
     return new NextResponse(videoStream, {
       status: 200,
       headers: {
