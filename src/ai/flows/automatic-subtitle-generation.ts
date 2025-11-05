@@ -12,20 +12,6 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import {AssemblyAI} from 'assemblyai';
 
-const apiKey = process.env.ASSEMBLYAI_API_KEY;
-
-// NOTE: Do not check in your API key to source control.
-// This is done here for demonstration purposes only.
-// In a real application, you would use a secret manager.
-if (!apiKey) {
-  // This check is important for production environments like Vercel
-  console.error("AssemblyAI API key is not configured.");
-}
-
-const assemblyai = new AssemblyAI({
-  apiKey: apiKey!,
-});
-
 const GenerateSubtitlesInputSchema = z.object({
   videoUrl: z.string().describe('The public URL of the video file.'),
 });
@@ -37,9 +23,6 @@ const GenerateSubtitlesOutputSchema = z.object({
 export type GenerateSubtitlesOutput = z.infer<typeof GenerateSubtitlesOutputSchema>;
 
 export async function generateSubtitles(input: GenerateSubtitlesInput): Promise<GenerateSubtitlesOutput> {
-  if (!apiKey) {
-    throw new Error('AssemblyAI API key is not configured. Please add ASSEMBLYAI_API_KEY to your environment variables.');
-  }
   return generateSubtitlesFlow(input);
 }
 
@@ -50,6 +33,12 @@ const generateSubtitlesFlow = ai.defineFlow(
     outputSchema: GenerateSubtitlesOutputSchema,
   },
   async input => {
+    const apiKey = process.env.ASSEMBLYAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('AssemblyAI API key is not configured. Please add ASSEMBLYAI_API_KEY to your environment variables.');
+    }
+    const assemblyai = new AssemblyAI({ apiKey });
+    
     // Transcribe the video using AssemblyAI from the provided URL
     const transcript = await assemblyai.transcripts.create({
       audio_url: input.videoUrl,
