@@ -46,7 +46,22 @@ const processVideoFlow = ai.defineFlow(
     outputSchema: ProcessVideoOutputSchema,
   },
   async ({ videoDataUri }) => {
-    // 1. Upload to Cloudinary
+    // 1. Verify all environment variables are present
+    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+      throw new Error('Cloudinary Cloud Name is not configured. Please add CLOUDINARY_CLOUD_NAME to your environment variables.');
+    }
+    if (!process.env.CLOUDINARY_API_KEY) {
+      throw new Error('Cloudinary API Key is not configured. Please add CLOUDINARY_API_KEY to your environment variables.');
+    }
+    if (!process.env.CLOUDINARY_API_SECRET) {
+      throw new Error('Cloudinary API Secret is not configured. Please add CLOUDINARY_API_SECRET to your environment variables.');
+    }
+    const assemblyaiApiKey = process.env.ASSEMBLYAI_API_KEY;
+    if (!assemblyaiApiKey) {
+      throw new Error('AssemblyAI API key is not configured. Please add ASSEMBLYAI_API_KEY to your environment variables.');
+    }
+
+    // 2. Upload to Cloudinary
     const public_id = `captionize-video-${Date.now()}`;
     const uploadResult = await cloudinary.uploader.upload(videoDataUri, {
       resource_type: 'video',
@@ -60,12 +75,8 @@ const processVideoFlow = ai.defineFlow(
 
     const videoUrl = uploadResult.secure_url;
 
-    // 2. Generate Subtitles with AssemblyAI
-    const apiKey = process.env.ASSEMBLYAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('AssemblyAI API key is not configured. Please add ASSEMBLYAI_API_KEY to your environment variables.');
-    }
-    const assemblyai = new AssemblyAI({ apiKey });
+    // 3. Generate Subtitles with AssemblyAI
+    const assemblyai = new AssemblyAI({ apiKey: assemblyaiApiKey });
     
     const transcript = await assemblyai.transcripts.create({
       audio_url: videoUrl,
@@ -81,7 +92,7 @@ const processVideoFlow = ai.defineFlow(
         throw new Error('Failed to generate SRT subtitles from transcript.');
     }
 
-    // 3. Return all results
+    // 4. Return all results
     return {
       videoUrl: videoUrl,
       publicId: uploadResult.public_id,
