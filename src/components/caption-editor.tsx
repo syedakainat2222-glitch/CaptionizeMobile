@@ -47,6 +47,7 @@ export default function CaptionEditor() {
   const [subtitleFontSize, setSubtitleFontSize] = useState(48);
   const { toast } = useToast();
   const [videoLibrary, setVideoLibrary] = useState<Video[]>([]);
+  const [language, setLanguage] = useState<string>(''); // Default to auto-detect
 
   const [correctionDialogState, setCorrectionDialogState] =
     useState<CorrectionDialogState>({
@@ -102,6 +103,7 @@ export default function CaptionEditor() {
 
           const result = await processVideo({
             videoDataUri,
+            languageCode: language || undefined, // Pass language code, or undefined for auto-detect
           });
 
           if (!result || !result.subtitles || !result.videoUrl || !result.publicId) {
@@ -164,7 +166,7 @@ export default function CaptionEditor() {
         setVideoFile(null);
       };
     },
-    [toast]
+    [toast, language]
   );
 
   const handleTimeUpdate = useCallback(
@@ -390,7 +392,12 @@ export default function CaptionEditor() {
       ) : (
         <div className="flex flex-1 items-center justify-center p-4">
           <div className="w-full max-w-6xl space-y-8">
-            <VideoUpload onVideoSelect={handleVideoSelect} isLoading={isLoading} />
+            <VideoUpload
+              onVideoSelect={handleVideoSelect}
+              isLoading={isLoading}
+              language={language}
+              onLanguageChange={setLanguage}
+            />
             <VideoLibrary videos={videoLibrary} onSelectVideo={handleSelectVideoFromLibrary} onDeleteVideo={handleDeleteVideo} />
           </div>
         </div>

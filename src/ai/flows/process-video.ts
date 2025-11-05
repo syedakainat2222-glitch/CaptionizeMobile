@@ -5,7 +5,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
 import { AssemblyAI } from 'assemblyai';
 
@@ -21,6 +21,10 @@ const ProcessVideoInputSchema = z.object({
     .describe(
       'A video file as a data URI, including MIME type and Base64 encoding.'
     ),
+  languageCode: z
+    .string()
+    .optional()
+    .describe('The BCP-47 language code for transcription (e.g., "en-US", "es").'),
 });
 export type ProcessVideoInput = z.infer<typeof ProcessVideoInputSchema>;
 
@@ -45,7 +49,7 @@ const processVideoFlow = ai.defineFlow(
     inputSchema: ProcessVideoInputSchema,
     outputSchema: ProcessVideoOutputSchema,
   },
-  async ({ videoDataUri }) => {
+  async ({ videoDataUri, languageCode }) => {
     // 1. Verify all environment variables are present
     if (!process.env.CLOUDINARY_CLOUD_NAME) {
       throw new Error('Cloudinary Cloud Name is not configured. Please add CLOUDINARY_CLOUD_NAME to your environment variables.');
@@ -78,10 +82,17 @@ const processVideoFlow = ai.defineFlow(
     // 3. Generate Subtitles with AssemblyAI
     const assemblyai = new AssemblyAI({ apiKey: assemblyaiApiKey });
     
-    const transcript = await assemblyai.transcripts.create({
-      audio_url: videoUrl,
-      language_detection: true, // Enable automatic language detection
-    });
+    const transcriptParams: { audio_url: string; language_code?: string, language_detection?: boolean } = {
+      audio_url: videoUrl
+    };
+
+    if (languageCode) {
+      transcriptParams.language_code = languageCode;
+    } else {
+      transcriptParams.language_detection = true; // Enable automatic language detection if no code is provided
+    }
+
+    const transcript = await assemblyai.transcripts.create(transcriptParams);
 
     if (transcript.status === 'error' || !transcript.id) {
       throw new Error(transcript.error || 'Failed to create transcript with AssemblyAI.');
