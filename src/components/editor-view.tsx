@@ -6,7 +6,6 @@ import {
   FileText,
   Loader2,
   Palette,
-  Scaling,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,7 +26,6 @@ import SubtitleEditor from './subtitle-editor';
 import { Subtitle } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from './ui/label';
-import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -35,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import { Input } from './ui/input';
 
 // Only include fonts that will actually work in Cloudinary video exports
 const FONT_OPTIONS = [
@@ -69,6 +68,14 @@ const FONT_OPTIONS = [
 
 const FONT_SIZE_OPTIONS = [24, 36, 48, 60, 72, 84, 96];
 
+const COLOR_PALETTE = [
+  { name: 'White', value: '#FFFFFF' },
+  { name: 'Yellow', value: '#FFFF00' },
+  { name: 'Cyan', value: '#00FFFF' },
+  { name: 'Green', value: '#00FF00' },
+  { name: 'Orange', value: '#FFA500' },
+];
+
 type EditorViewProps = {
   videoUrl: string;
   videoPublicId: string;
@@ -83,6 +90,8 @@ type EditorViewProps = {
   onSubtitleFontChange: (font: string) => void;
   subtitleFontSize: number;
   onSubtitleFontSizeChange: (size: number) => void;
+  subtitleColor: string;
+  onSubtitleColorChange: (color: string) => void;
 };
 
 const EditorView = ({
@@ -99,6 +108,8 @@ const EditorView = ({
   onSubtitleFontChange,
   subtitleFontSize,
   onSubtitleFontSizeChange,
+  subtitleColor,
+  onSubtitleColorChange,
 }: EditorViewProps) => {
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
@@ -155,30 +166,26 @@ const EditorView = ({
           videoName,
           subtitleFont,
           subtitleFontSize,
+          subtitleColor, // Pass color to API
         }),
       });
 
-      // Check content type to handle both success (video) and error (JSON) responses
       const contentType = response.headers.get('content-type');
       
       if (!response.ok) {
-        // It's an error response - parse as JSON
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to start the export process.');
       }
 
       if (contentType && contentType.includes('application/json')) {
-        // Unexpected JSON response on success
         const data = await response.json();
         if (!data.success) {
           throw new Error(data.error || 'Export failed.');
         }
       }
 
-      // It should be a video response
       const blob = await response.blob();
       
-      // Validate that we actually got a video
       if (!blob.type.includes('video')) {
         const errorText = await blob.text();
         try {
@@ -205,11 +212,10 @@ const EditorView = ({
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
-a.click();
+      a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      // Show success message with font info
       const fontName = subtitleFont.split(',')[0];
       toast({
         title: 'Export Complete!',
@@ -225,7 +231,7 @@ a.click();
     } finally {
       setIsExporting(false);
     }
-  }, [videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize, toast]);
+  }, [videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize, subtitleColor, toast]);
 
   return (
     <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 p-4 flex-1">
@@ -298,8 +304,9 @@ a.click();
           activeSubtitleId={activeSubtitleId}
           subtitleFont={subtitleFont}
           subtitleFontSize={subtitleFontSize}
+          subtitleColor={subtitleColor}
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div className="flex flex-col gap-2">
             <Label className="text-sm font-medium">Font</Label>
             <DropdownMenu>
@@ -344,6 +351,38 @@ a.click();
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-medium">Color</Label>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex-1 justify-start gap-2">
+                    <div className="h-4 w-4 rounded-full border" style={{ backgroundColor: subtitleColor }}></div>
+                    <span className="truncate">{subtitleColor}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuRadioGroup value={subtitleColor} onValueChange={onSubtitleColorChange}>
+                    {COLOR_PALETTE.map((color) => (
+                      <DropdownMenuRadioItem key={color.value} value={color.value}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-4 rounded-full border" style={{ backgroundColor: color.value }}></div>
+                          <span>{color.name}</span>
+                        </div>
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Input
+                type="color"
+                value={subtitleColor}
+                onChange={(e) => onSubtitleColorChange(e.target.value)}
+                className="h-10 w-10 p-1"
+                aria-label="Custom color picker"
+              />
+            </div>
           </div>
         </div>
       </div>

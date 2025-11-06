@@ -13,6 +13,7 @@ type VideoPlayerProps = {
   activeSubtitleId: number | null;
   subtitleFont: string;
   subtitleFontSize: number;
+  subtitleColor: string;
 };
 
 const VideoPlayer = ({
@@ -22,14 +23,13 @@ const VideoPlayer = ({
   activeSubtitleId,
   subtitleFont,
   subtitleFontSize,
+  subtitleColor,
 }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [vttUrl, setVttUrl] = useState<string | null>(null);
 
   const activeSubtitle = subtitles.find((sub) => sub.id === activeSubtitleId);
 
-  // This effect handles creating a VTT file for native captions,
-  // which can be useful as a fallback or for accessibility tools.
   useEffect(() => {
     let objectUrl: string | null = null;
     if (subtitles.length > 0) {
@@ -45,7 +45,6 @@ const VideoPlayer = ({
     };
   }, [subtitles]);
 
-  // This effect registers the timeupdate event listener.
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!videoElement) return;
@@ -63,10 +62,8 @@ const VideoPlayer = ({
     };
   }, [onTimeUpdate]);
 
-  // When metadata is loaded, ensure tracks are hidden as we are custom rendering.
   const handleLoadedMetadata = () => {
     if (videoRef.current && videoRef.current.textTracks.length > 0) {
-      // Hide native captions, as we're rendering our own.
       videoRef.current.textTracks[0].mode = 'hidden';
     }
   };
@@ -105,10 +102,10 @@ const VideoPlayer = ({
         >
           {activeSubtitle && (
             <p
-              className="text-white"
               style={{
                 fontFamily: subtitleFont,
                 fontSize: `${subtitleFontSize}px`,
+                color: subtitleColor,
                 textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
               }}
             >

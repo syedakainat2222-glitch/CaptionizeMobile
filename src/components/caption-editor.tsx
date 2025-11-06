@@ -45,6 +45,7 @@ export default function CaptionEditor() {
   const [activeSubtitleId, setActiveSubtitleId] = useState<number | null>(null);
   const [subtitleFont, setSubtitleFont] = useState('Arial, sans-serif');
   const [subtitleFontSize, setSubtitleFontSize] = useState(48);
+  const [subtitleColor, setSubtitleColor] = useState('#FFFFFF'); // Add color state
   const { toast } = useToast();
   const [videoLibrary, setVideoLibrary] = useState<Video[]>([]);
   const [language, setLanguage] = useState<string>('auto'); // Default to auto-detect
@@ -84,9 +85,11 @@ export default function CaptionEditor() {
     if (currentVideo) {
       setSubtitleFont(currentVideo.subtitleFont || 'Arial, sans-serif');
       setSubtitleFontSize(currentVideo.subtitleFontSize || 48);
+      setSubtitleColor(currentVideo.subtitleColor || '#FFFFFF'); // Load color or default to white
     } else {
       setSubtitleFont('Arial, sans-serif'); // Reset to default if not set
       setSubtitleFontSize(48);
+      setSubtitleColor('#FFFFFF'); // Reset to default
     }
   }, [currentVideo]);
   
@@ -121,6 +124,7 @@ export default function CaptionEditor() {
             subtitles: parsedSubs,
             subtitleFont: 'Arial, sans-serif', // Set default font on creation
             subtitleFontSize: 48, // Set default font size
+            subtitleColor: '#FFFFFF', // Set default color on creation
             updatedAt: Timestamp.now(),
           };
 
@@ -261,6 +265,29 @@ export default function CaptionEditor() {
         }
     }, [currentVideo, toast]);
 
+    const handleColorChange = useCallback(async (newColor: string) => {
+      setSubtitleColor(newColor);
+      if (currentVideo) {
+          const updatedTimestamp = Timestamp.now();
+          const updateData = {
+              subtitleColor: newColor,
+              updatedAt: updatedTimestamp
+          };
+          await updateVideo(currentVideo.id, updateData);
+
+          setCurrentVideo(prev => prev ? { ...prev, ...updateData } : null);
+          setVideoLibrary(prev =>
+              prev.map(v => (v.id === currentVideo.id ? { ...v, ...updateData } : v))
+              .sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime())
+          );
+
+          toast({
+              title: 'Color Saved!',
+              description: `Subtitle color has been updated.`,
+          });
+      }
+    }, [currentVideo, toast]);
+
 
   const handleSuggestCorrection = useCallback(
     async (subtitle: Subtitle) => {
@@ -380,6 +407,8 @@ export default function CaptionEditor() {
             onSubtitleFontChange={handleFontChange}
             subtitleFontSize={subtitleFontSize}
             onSubtitleFontSizeChange={handleFontSizeChange}
+            subtitleColor={subtitleColor}
+            onSubtitleColorChange={handleColorChange}
           />
           <CorrectionDialog
             state={correctionDialogState}

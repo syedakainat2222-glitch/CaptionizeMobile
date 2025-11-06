@@ -85,7 +85,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const { videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize } = await request.json();
+    const { videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize, subtitleColor } = await request.json();
 
     if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
       return NextResponse.json(
@@ -112,18 +112,18 @@ export async function POST(request: NextRequest) {
         transformation: [
             {
                 // Apply the uploaded SRT file as a subtitle layer.
-                // The font family and size are specified here directly.
+                // The font family, size, and color are specified here directly.
                 overlay: {
                     resource_type: 'subtitles',
                     public_id: srtPublicId,
                     font_family: finalFont,
                     font_size: subtitleFontSize,
                 },
+                color: subtitleColor || 'white', // Add color parameter
             },
             // Apply styling to the subtitle layer created above.
             {
               flags: "layer_apply",
-              color: 'white',
               background: 'rgb:000000CC', // Semi-transparent black background
               gravity: 'south',
               y: 30, // Adjust vertical position from the bottom
