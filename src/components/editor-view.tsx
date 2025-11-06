@@ -35,21 +35,36 @@ import {
 } from './ui/select';
 
 const FONT_OPTIONS = [
+  // Sans-serif
   'Arial, sans-serif',
-  'Helvetica, sans-serif',
-  'Georgia, serif',
-  'Times New Roman, serif',
-  'Courier New, monospace',
-  'Verdana, sans-serif',
   'Inter, sans-serif',
   'Roboto, sans-serif',
   'Open Sans, sans-serif',
   'Lato, sans-serif',
   'Montserrat, sans-serif',
   'Poppins, sans-serif',
+  'Oswald, sans-serif',
+  'Bebas Neue, sans-serif',
+  'Anton, sans-serif',
+  'Comfortaa, sans-serif',
+  // Serif
+  'Georgia, serif',
+  'Times New Roman, serif',
+  'Playfair Display, serif',
+  'Merriweather, serif',
+  'Lora, serif',
+  // Monospace
+  'Courier New, monospace',
+  'Source Code Pro, monospace',
+  // Cursive & Decorative
+  'Pacifico, cursive',
+  'Dancing Script, cursive',
+  'Caveat, cursive',
+  'Lobster, cursive',
+  'Righteous, sans-serif'
 ];
 
-const FONT_SIZE_OPTIONS = [24, 36, 48, 60, 72];
+const FONT_SIZE_OPTIONS = [24, 36, 48, 60, 72, 84, 96];
 
 type EditorViewProps = {
   videoUrl: string;
@@ -269,7 +284,7 @@ const EditorView = ({
                   <Palette className="h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
+              <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-96 overflow-y-auto">
                 <DropdownMenuRadioGroup
                   value={subtitleFont}
                   onValueChange={onSubtitleFontChange}

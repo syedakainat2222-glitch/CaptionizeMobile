@@ -23,27 +23,28 @@ const CLOUDINARY_FONTS: { [key: string]: string } = {
   'Lato, sans-serif': 'Lato',
   'Montserrat, sans-serif': 'Montserrat',
   'Poppins, sans-serif': 'Poppins',
-  'Nunito, sans-serif': 'Nunito',
-  'Raleway, sans-serif': 'Raleway',
-  'Source Sans 3, sans-serif': 'Source_Sans_Pro',
-  'Ubuntu, sans-serif': 'Ubuntu',
   'Oswald, sans-serif': 'Oswald',
-  'Exo 2, sans-serif': 'Exo',
-  'Dosis, sans-serif': 'Dosis',
+  'Bebas Neue, sans-serif': 'Bebas_Neue',
+  'Anton, sans-serif': 'Anton',
+  'Comfortaa, sans-serif': 'Comfortaa',
+
   // Serif
+  'Georgia, serif': 'Georgia',
+  'Times New Roman, serif': 'Times_New_Roman',
   'Playfair Display, serif': 'Playfair_Display',
   'Merriweather, serif': 'Merriweather',
   'Lora, serif': 'Lora',
-  'PT Serif, serif': 'PT_Serif',
-  'Georgia, serif': 'Georgia',
-  'Times New Roman, serif': 'Times_New_Roman',
+  
+  // Monospace
+  'Courier New, monospace': 'Courier',
+  'Source Code Pro, monospace': 'Source_Code_Pro',
+
   // Cursive & Decorative
   'Pacifico, cursive': 'Pacifico',
-  'Caveat, cursive': 'Caveat',
   'Dancing Script, cursive': 'Dancing_Script',
-  // Monospace
-  'Source Code Pro, monospace': 'Source_Code_Pro',
-  'Courier New, monospace': 'Courier'
+  'Caveat, cursive': 'Caveat',
+  'Lobster, cursive': 'Lobster',
+  'Righteous, sans-serif': 'Righteous',
 };
 
 
