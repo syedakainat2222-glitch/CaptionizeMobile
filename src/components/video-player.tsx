@@ -14,6 +14,11 @@ type VideoPlayerProps = {
   subtitleFont: string;
   subtitleFontSize: number;
   subtitleColor: string;
+  subtitleBackgroundColor: string;
+  subtitleOutlineColor: string;
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
 };
 
 const VideoPlayer = ({
@@ -24,6 +29,11 @@ const VideoPlayer = ({
   subtitleFont,
   subtitleFontSize,
   subtitleColor,
+  subtitleBackgroundColor,
+  subtitleOutlineColor,
+  isBold,
+  isItalic,
+  isUnderline,
 }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [vttUrl, setVttUrl] = useState<string | null>(null);
@@ -68,6 +78,23 @@ const VideoPlayer = ({
     }
   };
 
+  const createTextShadow = () => {
+    if (!subtitleOutlineColor || subtitleOutlineColor === 'transparent') {
+      return '2px 2px 4px rgba(0,0,0,0.7)';
+    }
+    const color = subtitleOutlineColor;
+    return `
+      -2px -2px 0 ${color},  
+       2px -2px 0 ${color},
+      -2px  2px 0 ${color},
+       2px  2px 0 ${color},
+      -2px  0px 0 ${color},
+       2px  0px 0 ${color},
+       0px -2px 0 ${color},
+       0px  2px 0 ${color}
+    `;
+  };
+
   return (
     <Card className="overflow-hidden shadow-lg relative">
       <div className="aspect-video w-full bg-black relative">
@@ -101,16 +128,24 @@ const VideoPlayer = ({
           style={{ pointerEvents: 'none' }}
         >
           {activeSubtitle && (
-            <p
+            <span
               style={{
+                backgroundColor: subtitleBackgroundColor,
                 fontFamily: subtitleFont,
                 fontSize: `${subtitleFontSize}px`,
                 color: subtitleColor,
-                textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                fontWeight: isBold ? 'bold' : 'normal',
+                fontStyle: isItalic ? 'italic' : 'normal',
+                textDecoration: isUnderline ? 'underline' : 'none',
+                textShadow: createTextShadow(),
+                padding: '0.2em 0.4em',
+                borderRadius: '0.25em',
+                boxDecorationBreak: 'clone',
+                WebkitBoxDecorationBreak: 'clone',
               }}
             >
               {activeSubtitle.text}
-            </p>
+            </span>
           )}
         </div>
       </div>

@@ -9,7 +9,12 @@ export type Video = {
     subtitles: Subtitle[];
     subtitleFont?: string;
     subtitleFontSize?: number;
-    subtitleColor?: string; // Add optional color property
+    subtitleColor?: string;
+    subtitleBackgroundColor?: string;
+    subtitleOutlineColor?: string;
+    isBold?: boolean;
+    isItalic?: boolean;
+    isUnderline?: boolean;
     userId: string;
     createdAt: Timestamp;
     updatedAt: Timestamp;

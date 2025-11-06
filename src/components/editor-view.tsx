@@ -6,6 +6,12 @@ import {
   FileText,
   Loader2,
   Palette,
+  Bold,
+  Italic,
+  Underline,
+  Type,
+  Baseline,
+  Square,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,8 +40,12 @@ import {
   SelectValue,
 } from './ui/select';
 import { Input } from './ui/input';
+import { Toggle } from './ui/toggle';
+import { Slider } from './ui/slider';
+import type { Video } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
-// Only include fonts that will actually work in Cloudinary video exports
+
 const FONT_OPTIONS = [
   // Sans-serif
   'Arial, sans-serif',
@@ -68,13 +78,22 @@ const FONT_OPTIONS = [
 
 const FONT_SIZE_OPTIONS = [24, 36, 48, 60, 72, 84, 96];
 
-const COLOR_PALETTE = [
-  { name: 'White', value: '#FFFFFF' },
-  { name: 'Yellow', value: '#FFFF00' },
-  { name: 'Cyan', value: '#00FFFF' },
-  { name: 'Green', value: '#00FF00' },
-  { name: 'Orange', value: '#FFA500' },
-];
+const generateColorPalette = () => {
+    const baseColors = [
+      { name: 'White', value: '#FFFFFF' }, { name: 'Black', value: '#000000' },
+      { name: 'Yellow', value: '#FFFF00' }, { name: 'Cyan', value: '#00FFFF' },
+      { name: 'Magenta', value: '#FF00FF' }, { name: 'Red', value: '#FF0000' },
+      { name: 'Green', value: '#00FF00' }, { name: 'Blue', value: '#0000FF' }
+    ];
+    const shades = [
+        { name: 'Light Gray', value: '#CCCCCC' }, { name: 'Gray', value: '#888888' },
+        { name: 'Dark Gray', value: '#444444' }, { name: 'Soft Yellow', value: '#FFFFAA' },
+        { name: 'Light Blue', value: '#ADD8E6' }, { name: 'Pale Green', value: '#98FB98' },
+        { name: 'Light Pink', value: '#FFB6C1' }, { name: 'Orange', value: '#FFA500' }
+    ];
+    return [...baseColors, ...shades];
+};
+const COLOR_PALETTE = generateColorPalette();
 
 type EditorViewProps = {
   videoUrl: string;
@@ -87,12 +106,68 @@ type EditorViewProps = {
   onSuggestCorrection: (subtitle: Subtitle) => void;
   onReset: () => void;
   subtitleFont: string;
-  onSubtitleFontChange: (font: string) => void;
   subtitleFontSize: number;
-  onSubtitleFontSizeChange: (size: number) => void;
   subtitleColor: string;
-  onSubtitleColorChange: (color: string) => void;
+  subtitleBackgroundColor: string;
+  subtitleOutlineColor: string;
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
+  onStyleChange: (update: Partial<Video>) => void;
 };
+
+const ColorPicker = ({
+    label,
+    icon: Icon,
+    color,
+    onColorChange,
+    includeTransparent = false,
+}: {
+    label: string,
+    icon: React.ElementType,
+    color: string,
+    onColorChange: (color: string) => void,
+    includeTransparent?: boolean,
+}) => (
+    <div className="flex flex-col gap-2">
+        <Label className="text-sm font-medium flex items-center gap-2">
+            <Icon className="h-4 w-4" /> {label}
+        </Label>
+        <div className="flex items-center gap-2">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="flex-1 justify-start gap-2">
+                        <div className="h-4 w-4 rounded-full border relative" style={{ backgroundColor: color === 'transparent' ? 'white' : color }}>
+                          {color === 'transparent' && <div className="absolute inset-0 bg-red-500 transform rotate-45" style={{ mixBlendMode: 'multiply' }}></div>}
+                        </div>
+                        <span className="truncate">{color}</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="max-h-60 overflow-y-auto">
+                    <DropdownMenuRadioGroup value={color} onValueChange={onColorChange}>
+                        {includeTransparent && <DropdownMenuRadioItem value="transparent">Transparent</DropdownMenuRadioItem>}
+                        {COLOR_PALETTE.map((c) => (
+                            <DropdownMenuRadioItem key={c.value} value={c.value}>
+                                <div className="flex items-center gap-2">
+                                    <div className="h-4 w-4 rounded-full border" style={{ backgroundColor: c.value }}></div>
+                                    <span>{c.name}</span>
+                                </div>
+                            </DropdownMenuRadioItem>
+                        ))}
+                    </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <Input
+                type="color"
+                value={color === 'transparent' ? '#000000' : color}
+                onChange={(e) => onColorChange(e.target.value)}
+                className="h-10 w-10 p-1"
+                aria-label={`Custom ${label.toLowerCase()} color`}
+            />
+        </div>
+    </div>
+);
+
 
 const EditorView = ({
   videoUrl,
@@ -105,11 +180,14 @@ const EditorView = ({
   onSuggestCorrection,
   onReset,
   subtitleFont,
-  onSubtitleFontChange,
   subtitleFontSize,
-  onSubtitleFontSizeChange,
   subtitleColor,
-  onSubtitleColorChange,
+  subtitleBackgroundColor,
+  subtitleOutlineColor,
+  isBold,
+  isItalic,
+  isUnderline,
+  onStyleChange,
 }: EditorViewProps) => {
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
@@ -157,45 +235,30 @@ const EditorView = ({
     try {
       const response = await fetch('/api/burn-in', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           videoPublicId,
           subtitles,
           videoName,
           subtitleFont,
           subtitleFontSize,
-          subtitleColor, // Pass color to API
+          subtitleColor,
+          subtitleBackgroundColor,
+          subtitleOutlineColor,
+          isBold,
+          isItalic,
+          isUnderline,
         }),
       });
-
-      const contentType = response.headers.get('content-type');
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start the export process.');
-      }
-
-      if (contentType && contentType.includes('application/json')) {
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || 'Export failed.');
-        }
+        throw new Error(
+          errorData.error || 'Failed to start the export process.'
+        );
       }
 
       const blob = await response.blob();
-      
-      if (!blob.type.includes('video')) {
-        const errorText = await blob.text();
-        try {
-          const errorData = JSON.parse(errorText);
-          throw new Error(errorData.error || 'Server returned an error.');
-        } catch {
-          throw new Error('Server returned non-video content. Please try again.');
-        }
-      }
-
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = 'video-with-subtitles.mp4';
       
@@ -212,14 +275,13 @@ const EditorView = ({
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
-      a.click();
+a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      const fontName = subtitleFont.split(',')[0];
       toast({
         title: 'Export Complete!',
-        description: `"${filename}" has been downloaded successfully with ${fontName} font.`,
+        description: `"${filename}" has been downloaded successfully.`,
       });
     } catch (error: any) {
       console.error('Export failed:', error);
@@ -231,7 +293,8 @@ const EditorView = ({
     } finally {
       setIsExporting(false);
     }
-  }, [videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize, subtitleColor, toast]);
+  }, [videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize, subtitleColor, subtitleBackgroundColor, subtitleOutlineColor, isBold, isItalic, isUnderline, toast]);
+
 
   return (
     <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 p-4 flex-1">
@@ -259,16 +322,10 @@ const EditorView = ({
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuRadioGroup>
-                  <DropdownMenuRadioItem
-                    value="srt"
-                    onClick={() => handleExport('srt')}
-                  >
+                  <DropdownMenuRadioItem value="srt" onClick={() => handleExport('srt')}>
                     SRT (.srt)
                   </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem
-                    value="vtt"
-                    onClick={() => handleExport('vtt')}
-                  >
+                  <DropdownMenuRadioItem value="vtt" onClick={() => handleExport('vtt')}>
                     VTT (.vtt)
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
@@ -278,15 +335,8 @@ const EditorView = ({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleExportVideoWithSubtitles}
-                    disabled={isExporting}
-                  >
-                    {isExporting ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="mr-2 h-4 w-4" />
-                    )}
+                  <Button onClick={handleExportVideoWithSubtitles} disabled={isExporting}>
+                    {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                     Export Video
                   </Button>
                 </TooltipTrigger>
@@ -305,85 +355,72 @@ const EditorView = ({
           subtitleFont={subtitleFont}
           subtitleFontSize={subtitleFontSize}
           subtitleColor={subtitleColor}
+          subtitleBackgroundColor={subtitleBackgroundColor}
+          subtitleOutlineColor={subtitleOutlineColor}
+          isBold={isBold}
+          isItalic={isItalic}
+          isUnderline={isUnderline}
         />
-        <div className="grid grid-cols-3 gap-4">
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Font</Label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-between">
-                  <span className="truncate">{subtitleFont.split(',')[0]}</span>
-                  <Palette className="h-4 w-4 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-96 overflow-y-auto">
-                <DropdownMenuRadioGroup
-                  value={subtitleFont}
-                  onValueChange={onSubtitleFontChange}
-                >
-                  {FONT_OPTIONS.map((font) => (
-                    <DropdownMenuRadioItem
-                      key={font}
-                      value={font}
-                      style={{ fontFamily: font }}
-                    >
-                      {font.split(',')[0]}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Size</Label>
-            <Select
-              value={String(subtitleFontSize)}
-              onValueChange={(value) => onSubtitleFontSizeChange(Number(value))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select size" />
-              </SelectTrigger>
-              <SelectContent>
-                {FONT_SIZE_OPTIONS.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size}px
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Color</Label>
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex-1 justify-start gap-2">
-                    <div className="h-4 w-4 rounded-full border" style={{ backgroundColor: subtitleColor }}></div>
-                    <span className="truncate">{subtitleColor}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuRadioGroup value={subtitleColor} onValueChange={onSubtitleColorChange}>
-                    {COLOR_PALETTE.map((color) => (
-                      <DropdownMenuRadioItem key={color.value} value={color.value}>
-                        <div className="flex items-center gap-2">
-                          <div className="h-4 w-4 rounded-full border" style={{ backgroundColor: color.value }}></div>
-                          <span>{color.name}</span>
-                        </div>
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Input
-                type="color"
-                value={subtitleColor}
-                onChange={(e) => onSubtitleColorChange(e.target.value)}
-                className="h-10 w-10 p-1"
-                aria-label="Custom color picker"
-              />
+        <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                    <Label className="text-sm font-medium flex items-center gap-2"><Type className="h-4 w-4" /> Font</Label>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between">
+                                <span className="truncate">{subtitleFont.split(',')[0]}</span>
+                                <Palette className="h-4 w-4 opacity-50" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-96 overflow-y-auto">
+                            <DropdownMenuRadioGroup value={subtitleFont} onValueChange={(v) => onStyleChange({ subtitleFont: v })}>
+                                {FONT_OPTIONS.map((font) => (
+                                    <DropdownMenuRadioItem key={font} value={font} style={{ fontFamily: font }}>
+                                        {font.split(',')[0]}
+                                    </DropdownMenuRadioItem>
+                                ))}
+                            </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+                <div className="flex flex-col gap-2">
+                    <Label className="text-sm font-medium flex items-center gap-2"><Baseline className="h-4 w-4" /> Size</Label>
+                    <Select value={String(subtitleFontSize)} onValueChange={(v) => onStyleChange({ subtitleFontSize: Number(v) })}>
+                        <SelectTrigger><SelectValue placeholder="Select size" /></SelectTrigger>
+                        <SelectContent>
+                            {FONT_SIZE_OPTIONS.map((size) => (
+                                <SelectItem key={size} value={String(size)}>{size}px</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
-          </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <ColorPicker label="Text" icon={Type} color={subtitleColor} onColorChange={(c) => onStyleChange({ subtitleColor: c })} />
+                <ColorPicker label="Outline" icon={Square} color={subtitleOutlineColor} onColorChange={(c) => onStyleChange({ subtitleOutlineColor: c })} includeTransparent />
+                
+                <div className="flex flex-col gap-2">
+                    <Label className="text-sm font-medium flex items-center gap-2"><Square className="h-4 w-4" /> Box</Label>
+                    <div className='flex items-center gap-2'>
+                        <Input type="color" value={subtitleBackgroundColor.slice(0, 7)} onChange={(e) => {
+                            const newOpacity = subtitleBackgroundColor.split(',')[3]?.replace(')','') || '0.5';
+                            onStyleChange({ subtitleBackgroundColor: `${e.target.value}${Math.round(parseFloat(newOpacity) * 255).toString(16).padStart(2,'0')}`});
+                        }} className="p-1 h-10 w-10" />
+                        <Slider value={[parseFloat(subtitleBackgroundColor.split(',')[3]?.replace(')','') || '0.5') * 100]} onValueChange={([val]) => {
+                           const hexColor = subtitleBackgroundColor.slice(0, 7);
+                           const newRgba = `rgba(${parseInt(hexColor.slice(1,3),16)},${parseInt(hexColor.slice(3,5),16)},${parseInt(hexColor.slice(5,7),16)},${val/100})`;
+                           onStyleChange({ subtitleBackgroundColor: newRgba });
+                        }} max={100} step={5} className="flex-1" />
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+                <Toggle pressed={isBold} onPressedChange={(p) => onStyleChange({ isBold: p })} aria-label="Toggle bold"><Bold className="h-4 w-4" /></Toggle>
+                <Toggle pressed={isItalic} onPressedChange={(p) => onStyleChange({ isItalic: p })} aria-label="Toggle italic"><Italic className="h-4 w-4" /></Toggle>
+                <Toggle pressed={isUnderline} onPressedChange={(p) => onStyleChange({ isUnderline: p })} aria-label="Toggle underline"><Underline className="h-4 w-4" /></Toggle>
+            </div>
         </div>
       </div>
       <div>

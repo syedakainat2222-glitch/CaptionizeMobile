@@ -43,9 +43,17 @@ export default function CaptionEditor() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingLibrary, setIsFetchingLibrary] = useState(true);
   const [activeSubtitleId, setActiveSubtitleId] = useState<number | null>(null);
+  
+  // Styling state
   const [subtitleFont, setSubtitleFont] = useState('Arial, sans-serif');
   const [subtitleFontSize, setSubtitleFontSize] = useState(48);
-  const [subtitleColor, setSubtitleColor] = useState('#FFFFFF'); // Add color state
+  const [subtitleColor, setSubtitleColor] = useState('#FFFFFF');
+  const [subtitleBackgroundColor, setSubtitleBackgroundColor] = useState('rgba(0,0,0,0.5)');
+  const [subtitleOutlineColor, setSubtitleOutlineColor] = useState('transparent');
+  const [isBold, setIsBold] = useState(false);
+  const [isItalic, setIsItalic] = useState(false);
+  const [isUnderline, setIsUnderline] = useState(false);
+
   const { toast } = useToast();
   const [videoLibrary, setVideoLibrary] = useState<Video[]>([]);
   const [language, setLanguage] = useState<string>('auto'); // Default to auto-detect
@@ -81,15 +89,26 @@ export default function CaptionEditor() {
   }, [loadVideoLibrary]);
 
   useEffect(() => {
-    // When currentVideo changes, update the font state
+    // When currentVideo changes, update the styling state
     if (currentVideo) {
       setSubtitleFont(currentVideo.subtitleFont || 'Arial, sans-serif');
       setSubtitleFontSize(currentVideo.subtitleFontSize || 48);
-      setSubtitleColor(currentVideo.subtitleColor || '#FFFFFF'); // Load color or default to white
+      setSubtitleColor(currentVideo.subtitleColor || '#FFFFFF');
+      setSubtitleBackgroundColor(currentVideo.subtitleBackgroundColor || 'rgba(0,0,0,0.5)');
+      setSubtitleOutlineColor(currentVideo.subtitleOutlineColor || 'transparent');
+      setIsBold(currentVideo.isBold || false);
+      setIsItalic(currentVideo.isItalic || false);
+      setIsUnderline(currentVideo.isUnderline || false);
     } else {
-      setSubtitleFont('Arial, sans-serif'); // Reset to default if not set
+      // Reset to defaults
+      setSubtitleFont('Arial, sans-serif');
       setSubtitleFontSize(48);
-      setSubtitleColor('#FFFFFF'); // Reset to default
+      setSubtitleColor('#FFFFFF');
+      setSubtitleBackgroundColor('rgba(0,0,0,0.5)');
+      setSubtitleOutlineColor('transparent');
+      setIsBold(false);
+      setIsItalic(false);
+      setIsUnderline(false);
     }
   }, [currentVideo]);
   
@@ -106,7 +125,7 @@ export default function CaptionEditor() {
 
           const result = await processVideo({
             videoDataUri,
-            languageCode: language === 'auto' ? undefined : language, // Pass language code, or undefined for auto-detect
+            languageCode: language === 'auto' ? undefined : language,
           });
 
           if (!result || !result.subtitles || !result.videoUrl || !result.publicId) {
@@ -122,9 +141,15 @@ export default function CaptionEditor() {
             videoUrl: videoUrl,
             publicId: publicId,
             subtitles: parsedSubs,
-            subtitleFont: 'Arial, sans-serif', // Set default font on creation
-            subtitleFontSize: 48, // Set default font size
-            subtitleColor: '#FFFFFF', // Set default color on creation
+            // Default styles
+            subtitleFont: 'Arial, sans-serif',
+            subtitleFontSize: 48,
+            subtitleColor: '#FFFFFF',
+            subtitleBackgroundColor: 'rgba(0,0,0,0.5)',
+            subtitleOutlineColor: 'transparent',
+            isBold: false,
+            isItalic: false,
+            isUnderline: false,
             updatedAt: Timestamp.now(),
           };
 
@@ -218,75 +243,40 @@ export default function CaptionEditor() {
     }
   }, [subtitles, currentVideo, toast]);
 
-    const handleFontChange = useCallback(async (newFont: string) => {
-        setSubtitleFont(newFont);
-        if (currentVideo) {
-            const updatedTimestamp = Timestamp.now();
-            const updateData = {
-                subtitleFont: newFont,
-                updatedAt: updatedTimestamp
-            };
-            await updateVideo(currentVideo.id, updateData);
+  const handleStyleChange = useCallback(async (update: Partial<Video>) => {
+    if (currentVideo) {
+        const updatedTimestamp = Timestamp.now();
+        const updateData = { ...update, updatedAt: updatedTimestamp };
 
-            // Update the font in the local state for both the current video and the library
-            setCurrentVideo(prev => prev ? { ...prev, ...updateData } : null);
-            setVideoLibrary(prev =>
-                prev.map(v => (v.id === currentVideo.id ? { ...v, ...updateData } : v))
-                .sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime())
-            );
+        // Update local state immediately for responsiveness
+        if (update.subtitleFont) setSubtitleFont(update.subtitleFont);
+        if (update.subtitleFontSize) setSubtitleFontSize(update.subtitleFontSize);
+        if (update.subtitleColor) setSubtitleColor(update.subtitleColor);
+        if (update.subtitleBackgroundColor) setSubtitleBackgroundColor(update.subtitleBackgroundColor);
+        if (update.subtitleOutlineColor) setSubtitleOutlineColor(update.subtitleOutlineColor);
+        if (update.isBold !== undefined) setIsBold(update.isBold);
+        if (update.isItalic !== undefined) setIsItalic(update.isItalic);
+        if (update.isUnderline !== undefined) setIsUnderline(update.isUnderline);
 
-            toast({
-                title: 'Font Saved!',
-                description: `Subtitle font changed to ${newFont.split(',')[0]}.`,
-            });
-        }
-    }, [currentVideo, toast]);
-    
-    const handleFontSizeChange = useCallback(async (newSize: number) => {
-        setSubtitleFontSize(newSize);
-        if (currentVideo) {
-            const updatedTimestamp = Timestamp.now();
-            const updateData = {
-                subtitleFontSize: newSize,
-                updatedAt: updatedTimestamp
-            };
-            await updateVideo(currentVideo.id, updateData);
+        // Update current video object
+        const newCurrentVideo = { ...currentVideo, ...updateData };
+        setCurrentVideo(newCurrentVideo);
+        
+        // Update library
+        setVideoLibrary(prev =>
+            prev.map(v => (v.id === currentVideo.id ? newCurrentVideo : v))
+            .sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime())
+        );
+        
+        // Persist to Firebase
+        await updateVideo(currentVideo.id, updateData);
 
-            setCurrentVideo(prev => prev ? { ...prev, ...updateData } : null);
-            setVideoLibrary(prev =>
-                prev.map(v => (v.id === currentVideo.id ? { ...v, ...updateData } : v))
-                .sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime())
-            );
-
-            toast({
-                title: 'Font Size Saved!',
-                description: `Subtitle font size changed to ${newSize}px.`,
-            });
-        }
-    }, [currentVideo, toast]);
-
-    const handleColorChange = useCallback(async (newColor: string) => {
-      setSubtitleColor(newColor);
-      if (currentVideo) {
-          const updatedTimestamp = Timestamp.now();
-          const updateData = {
-              subtitleColor: newColor,
-              updatedAt: updatedTimestamp
-          };
-          await updateVideo(currentVideo.id, updateData);
-
-          setCurrentVideo(prev => prev ? { ...prev, ...updateData } : null);
-          setVideoLibrary(prev =>
-              prev.map(v => (v.id === currentVideo.id ? { ...v, ...updateData } : v))
-              .sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime())
-          );
-
-          toast({
-              title: 'Color Saved!',
-              description: `Subtitle color has been updated.`,
-          });
-      }
-    }, [currentVideo, toast]);
+        toast({
+            title: 'Style Saved!',
+            description: `Your subtitle style has been updated.`,
+        });
+    }
+  }, [currentVideo, toast]);
 
 
   const handleSuggestCorrection = useCallback(
@@ -404,11 +394,14 @@ export default function CaptionEditor() {
             onSuggestCorrection={handleSuggestCorrection}
             onReset={handleReset}
             subtitleFont={subtitleFont}
-            onSubtitleFontChange={handleFontChange}
             subtitleFontSize={subtitleFontSize}
-            onSubtitleFontSizeChange={handleFontSizeChange}
             subtitleColor={subtitleColor}
-            onSubtitleColorChange={handleColorChange}
+            subtitleBackgroundColor={subtitleBackgroundColor}
+            subtitleOutlineColor={subtitleOutlineColor}
+            isBold={isBold}
+            isItalic={isItalic}
+            isUnderline={isUnderline}
+            onStyleChange={handleStyleChange}
           />
           <CorrectionDialog
             state={correctionDialogState}

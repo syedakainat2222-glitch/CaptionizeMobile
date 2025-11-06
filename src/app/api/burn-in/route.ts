@@ -48,6 +48,20 @@ const CLOUDINARY_FONTS: { [key: string]: string } = {
   'Righteous, sans-serif': 'Righteous',
 };
 
+// Function to parse rgba color and return Cloudinary compatible color and opacity
+const parseRgba = (rgba: string): { color: string; opacity: number } => {
+    if (!rgba || !rgba.startsWith('rgba')) return { color: 'rgb:000000', opacity: 50 };
+    const parts = rgba.substring(rgba.indexOf('(') + 1, rgba.lastIndexOf(')')).split(',');
+    const r = parseInt(parts[0], 10);
+    const g = parseInt(parts[1], 10);
+    const b = parseInt(parts[2], 10);
+    const a = parseFloat(parts[3]);
+    const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+    return {
+        color: `rgb:${hex.substring(1)}`,
+        opacity: Math.round(a * 100)
+    };
+};
 
 /**
  * Uploads subtitles as an SRT file to Cloudinary.
@@ -85,7 +99,12 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const { videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize, subtitleColor } = await request.json();
+    const { 
+        videoPublicId, subtitles, videoName, 
+        subtitleFont, subtitleFontSize, subtitleColor,
+        subtitleBackgroundColor, subtitleOutlineColor,
+        isBold, isItalic, isUnderline
+    } = await request.json();
 
     if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
       return NextResponse.json(
@@ -94,66 +113,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Upload the subtitles as a single, correctly formatted SRT file.
     const srtPublicId = await uploadSrtToCloudinary(subtitles);
-
-    // 2. Select the correct, Cloudinary-compatible font name from our verified map.
     const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
 
-    // This logic handles complex scripts (like Arabic/Urdu). If such characters are detected,
-    // we override the font to one that supports them, ensuring they don't appear as broken boxes.
     const hasComplexChars = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text));
     const finalFont = hasComplexChars ? 'noto_naskh_arabic' : cloudinaryFont;
     
-    // 3. Generate the video URL using the `l_subtitles` overlay method.
-    // This is the most robust way to burn-in subtitles.
+    const { color: boxColor, opacity: boxOpacity } = parseRgba(subtitleBackgroundColor || 'rgba(0,0,0,0.5)');
+    
+    // Build the transformation object conditionally
+    const subtitleOverlay: any = {
+        resource_type: 'subtitles',
+        public_id: srtPublicId,
+        font_family: finalFont,
+        font_size: subtitleFontSize,
+    };
+
+    if (isBold) subtitleOverlay.font_weight = 'bold';
+    if (isItalic) subtitleOverlay.font_style = 'italic';
+    if (isUnderline) subtitleOverlay.text_decoration = 'underline';
+
+    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
+        subtitleOverlay.border = `2px_solid_${subtitleOutlineColor.replace('#', 'rgb:')}`;
+    }
+
     const videoUrl = cloudinary.url(videoPublicId, {
         resource_type: 'video',
         transformation: [
-            {
-                // Apply the uploaded SRT file as a subtitle layer.
-                // The font family, size, and color are specified here directly.
-                overlay: {
-                    resource_type: 'subtitles',
-                    public_id: srtPublicId,
-                    font_family: finalFont,
-                    font_size: subtitleFontSize,
-                },
-                color: subtitleColor || 'white', // Add color parameter
-            },
-            // Apply styling to the subtitle layer created above.
+            { overlay: subtitleOverlay, color: subtitleColor || '#FFFFFF' },
             {
               flags: "layer_apply",
-              background: 'rgb:000000CC', // Semi-transparent black background
+              background: boxColor,
+              opacity: boxOpacity,
               gravity: 'south',
-              y: 30, // Adjust vertical position from the bottom
+              y: 30,
             }
         ],
         format: 'mp4',
         quality: 'auto'
     });
 
-    // 4. Fetch the generated video and stream it back to the client.
     const videoResponse = await fetch(videoUrl);
     
     if (!videoResponse.ok) {
-        // If Cloudinary returns an error (e.g., 404, 400), this will now be caught properly.
+        console.error('Cloudinary fetch failed. Status:', videoResponse.status);
+        const errorBody = await videoResponse.text();
+        console.error('Cloudinary error body:', errorBody);
         throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
     }
 
-    // 3. Get the video data as a ReadableStream.
     const videoStream = videoResponse.body;
-
     if (!videoStream) {
         throw new Error('Could not get video stream from Cloudinary response.');
     }
 
-    // Sanitize the base name and create a clean filename.
     const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
     const filename = `${baseName}-with-subtitles.mp4`;
     
-    // 4. Return a streaming response to the client for download.
-    // This correctly streams the binary data of the video and sets the correct filename.
     return new NextResponse(videoStream, {
       status: 200,
       headers: {
