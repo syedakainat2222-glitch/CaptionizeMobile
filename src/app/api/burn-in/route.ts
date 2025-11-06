@@ -1,3 +1,4 @@
+
 // src/app/api/burn-in/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
@@ -80,21 +81,15 @@ async function uploadSrtToCloudinary(subtitles: Subtitle[]): Promise<string> {
     });
 }
 
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { 
-      videoPublicId, 
-      subtitles, 
-      videoName = 'video',
-      subtitleFont = 'Arial, sans-serif',
-      subtitleFontSize = 48
-    } = body;
+    const { videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize } = await request.json();
 
     if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid parameters' },
+        { success: false, error: 'Missing or invalid parameters: videoPublicId and subtitles are required.' },
         { status: 400 }
       );
     }
@@ -141,16 +136,25 @@ export async function POST(request: NextRequest) {
     // 4. Fetch the generated video and stream it back to the client.
     const videoResponse = await fetch(videoUrl);
     
-    if (!videoResponse.ok || !videoResponse.body) {
-      throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
+    if (!videoResponse.ok) {
+        // If Cloudinary returns an error (e.g., 404, 400), this will now be caught properly.
+        throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
     }
 
-    // Use the original video name to create the new filename
+    // 3. Get the video data as a ReadableStream.
+    const videoStream = videoResponse.body;
+
+    if (!videoStream) {
+        throw new Error('Could not get video stream from Cloudinary response.');
+    }
+
+    // Sanitize the base name and create a clean filename.
     const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
     const filename = `${baseName}-with-subtitles.mp4`;
-
-    // Correctly stream the response body back to the client
-    return new NextResponse(videoResponse.body, {
+    
+    // 4. Return a streaming response to the client for download.
+    // This correctly streams the binary data of the video and sets the correct filename.
+    return new NextResponse(videoStream, {
       status: 200,
       headers: {
         'Content-Type': 'video/mp4',
@@ -159,14 +163,10 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('=== BURN-IN PROCESS FAILED ===');
-    console.error('Error:', error);
-    
+    console.error('=== BURN-IN PROCESS FAILED ===', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json(
-      { 
-        success: false,
-        error: `Failed to process video: ${error instanceof Error ? error.message : 'Unknown error'}`
-      },
+      { success: false, error: `Failed to process video: ${errorMessage}` },
       { status: 500 }
     );
   }

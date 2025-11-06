@@ -1,3 +1,4 @@
+
 import React, { memo, useCallback, useState } from 'react';
 import {
   ArrowLeft,
@@ -26,6 +27,7 @@ import SubtitleEditor from './subtitle-editor';
 import { Subtitle } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from './ui/label';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -34,6 +36,7 @@ import {
   SelectValue,
 } from './ui/select';
 
+// Only include fonts that will actually work in Cloudinary video exports
 const FONT_OPTIONS = [
   // Sans-serif
   'Arial, sans-serif',
@@ -137,8 +140,7 @@ const EditorView = ({
     setIsExporting(true);
     toast({
       title: 'Starting Export...',
-      description:
-        'Your video with subtitles is being prepared. This may take a few minutes.',
+      description: 'Your video with subtitles is being prepared. This may take a few minutes.',
     });
 
     try {
@@ -156,16 +158,39 @@ const EditorView = ({
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error || 'Failed to start the export process.'
-        );
-      }
+      // Check content type to handle both success (video) and error (JSON) responses
+      const contentType = response.headers.get('content-type');
       
+      if (!response.ok) {
+        // It's an error response - parse as JSON
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start the export process.');
+      }
+
+      if (contentType && contentType.includes('application/json')) {
+        // Unexpected JSON response on success
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Export failed.');
+        }
+      }
+
+      // It should be a video response
       const blob = await response.blob();
+      
+      // Validate that we actually got a video
+      if (!blob.type.includes('video')) {
+        const errorText = await blob.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || 'Server returned an error.');
+        } catch {
+          throw new Error('Server returned non-video content. Please try again.');
+        }
+      }
+
       const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = 'video-with-subtitles.mp4'; // Default fallback
+      let filename = 'video-with-subtitles.mp4';
       
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
@@ -180,22 +205,22 @@ const EditorView = ({
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
-      a.click();
+a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
+      // Show success message with font info
+      const fontName = subtitleFont.split(',')[0];
       toast({
         title: 'Export Complete!',
-        description: `"${filename}" has been downloaded successfully.`,
+        description: `"${filename}" has been downloaded successfully with ${fontName} font.`,
       });
     } catch (error: any) {
       console.error('Export failed:', error);
       toast({
         variant: 'destructive',
         title: 'Export Failed',
-        description:
-          error.message ||
-          'Could not export the video with subtitles. Please try again.',
+        description: error.message || 'Could not export the video with subtitles. Please try again.',
       });
     } finally {
       setIsExporting(false);
