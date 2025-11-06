@@ -1,4 +1,3 @@
-
 // src/app/api/burn-in/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
@@ -13,8 +12,10 @@ cloudinary.config({
 });
 
 // Font mapping for Cloudinary
-// This map correctly associates the UI font family with the name Cloudinary expects.
+// This map uses reliable, standard fonts known to work on Cloudinary's backend.
 const CLOUDINARY_FONTS: { [key: string]: string } = {
+  'Arial, sans-serif': 'Arial',
+  'Helvetica, sans-serif': 'Arial',
   'Inter, sans-serif': 'Arial',
   'Roboto, sans-serif': 'Roboto',
   'Open Sans, sans-serif': 'Open_Sans',
@@ -28,8 +29,6 @@ const CLOUDINARY_FONTS: { [key: string]: string } = {
   'Oswald, sans-serif': 'Oswald',
   'Exo 2, sans-serif': 'Exo',
   'Dosis, sans-serif': 'Dosis',
-  'Helvetica, sans-serif': 'Arial',
-  'Arial, sans-serif': 'Arial',
   'Playfair Display, serif': 'Playfair_Display',
   'Merriweather, serif': 'Merriweather',
   'Lora, serif': 'Lora',
@@ -95,16 +94,15 @@ export async function POST(request: NextRequest) {
     // 1. Upload the subtitles as an SRT file to Cloudinary
     const srtPublicId = await uploadSrtToCloudinary(subtitles);
 
-    // 2. Determine the correct font to use.
-    // Fallback to Arial if the font isn't in our map.
+    // 2. Determine the correct font to use from the map.
     const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
 
-    // A special check for Urdu or other languages that require a specific font.
-    // This regex checks for characters in the Arabic script block.
+    // 3. This logic detects complex scripts (like Arabic/Urdu) and overrides the font.
+    // This is necessary because most decorative fonts don't support these characters.
     const hasComplexChars = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text));
     const finalFont = hasComplexChars ? 'noto_naskh_arabic' : cloudinaryFont;
     
-    // 3. Generate the video URL with the subtitles layered on top
+    // 4. Generate the video URL with the subtitles layered on top
     const videoUrl = cloudinary.url(videoPublicId, {
         resource_type: 'video',
         transformation: [
@@ -127,7 +125,7 @@ export async function POST(request: NextRequest) {
         quality: 'auto'
     });
 
-    // 4. Fetch the generated video and stream it back to the client
+    // 5. Fetch the generated video and stream it back to the client
     const videoResponse = await fetch(videoUrl);
     
     if (!videoResponse.ok || !videoResponse.body) {
