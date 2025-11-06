@@ -1,143 +1,47 @@
 // src/app/api/burn-in/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
-import { formatSrt, type Subtitle } from '@/lib/srt';
-import { Readable } from 'stream';
+import { generateSubtitledVideoUrl } from '@/lib/cloudinary-service';
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-// Font mapping for Cloudinary
-// This map uses reliable, standard fonts known to work on Cloudinary's backend.
-const CLOUDINARY_FONTS: { [key: string]: string } = {
-  'Arial, sans-serif': 'Arial',
-  'Helvetica, sans-serif': 'Arial',
-  'Inter, sans-serif': 'Arial',
-  'Roboto, sans-serif': 'Roboto',
-  'Open Sans, sans-serif': 'Open_Sans',
-  'Lato, sans-serif': 'Lato',
-  'Montserrat, sans-serif': 'Montserrat',
-  'Poppins, sans-serif': 'Poppins',
-  'Nunito, sans-serif': 'Nunito',
-  'Raleway, sans-serif': 'Raleway',
-  'Source Sans 3, sans-serif': 'Source_Sans_Pro',
-  'Ubuntu, sans-serif': 'Ubuntu',
-  'Oswald, sans-serif': 'Oswald',
-  'Exo 2, sans-serif': 'Exo',
-  'Dosis, sans-serif': 'Dosis',
-  'Playfair Display, serif': 'Playfair_Display',
-  'Merriweather, serif': 'Merriweather',
-  'Lora, serif': 'Lora',
-  'PT Serif, serif': 'PT_Serif',
-  'Georgia, serif': 'Georgia',
-  'Pacifico, cursive': 'Pacifico',
-  'Caveat, cursive': 'Caveat',
-  'Dancing Script, cursive': 'Dancing_Script',
-  'Source Code Pro, monospace': 'Courier'
-};
-
-
-/**
- * Uploads subtitles as an SRT file to Cloudinary.
- * @param subtitles - The array of subtitle objects.
- * @returns The public_id of the uploaded SRT file.
- */
-async function uploadSrtToCloudinary(subtitles: Subtitle[]): Promise<string> {
-    const srtContent = formatSrt(subtitles);
-    const srtBuffer = Buffer.from(srtContent, 'utf-8');
-    const public_id = `subtitles/captionize-${Date.now()}`;
-
-    return new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-            {
-                resource_type: 'raw',
-                public_id: public_id,
-                format: 'srt'
-            },
-            (error, result) => {
-                if (error) {
-                    return reject(new Error(`Cloudinary SRT upload failed: ${error.message}`));
-                }
-                if (!result || !result.public_id) {
-                    return reject(new Error('Cloudinary SRT upload failed: No result or public_id returned.'));
-                }
-                resolve(result.public_id);
-            }
-        );
-        Readable.from(srtBuffer).pipe(uploadStream);
-    });
-}
-
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { 
-      videoPublicId, 
-      subtitles, 
-      videoName = 'video',
-      subtitleFont = 'Arial, sans-serif',
-      subtitleFontSize = 48
-    } = body;
+    const { videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize } = await request.json();
 
     if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid parameters' },
+        { success: false, error: 'Missing or invalid parameters: videoPublicId and subtitles are required.' },
         { status: 400 }
       );
     }
-
-    // 1. Upload the subtitles as an SRT file to Cloudinary
-    const srtPublicId = await uploadSrtToCloudinary(subtitles);
-
-    // 2. Determine the correct font to use from the map.
-    const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
-
-    // 3. This logic detects complex scripts (like Arabic/Urdu) and overrides the font.
-    // This is necessary because most decorative fonts don't support these characters.
-    const hasComplexChars = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text));
-    const finalFont = hasComplexChars ? 'noto_naskh_arabic' : cloudinaryFont;
     
-    // 4. Generate the video URL with the subtitles layered on top
-    const videoUrl = cloudinary.url(videoPublicId, {
-        resource_type: 'video',
-        transformation: [
-            {
-                // Use the uploaded SRT file as an overlay
-                overlay: `subtitles:${srtPublicId.replace(/\//g, ':')}`,
-                font_family: finalFont,
-                font_size: subtitleFontSize,
-            },
-            // Apply styling to the subtitle layer
-            {
-              flags: "layer_apply",
-              color: 'white',
-              background: 'rgb:000000CC', // Semi-transparent black background
-              gravity: 'south',
-              y: 30, // Adjust vertical position from the bottom
-            }
-        ],
-        format: 'mp4',
-        quality: 'auto'
-    });
+    // 1. Delegate the complex Cloudinary logic to the dedicated service.
+    // This gets a short, valid URL using the VTT file overlay method.
+    const finalVideoUrl = await generateSubtitledVideoUrl(videoPublicId, subtitles, subtitleFont, subtitleFontSize);
 
-    // 5. Fetch the generated video and stream it back to the client
-    const videoResponse = await fetch(videoUrl);
+    // 2. Fetch the final video on the server.
+    // This acts as a proxy, ensuring the client doesn't deal with CORS or complex fetching.
+    const videoResponse = await fetch(finalVideoUrl);
     
-    if (!videoResponse.ok || !videoResponse.body) {
-      throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
+    if (!videoResponse.ok) {
+        // If Cloudinary returns an error (e.g., 404, 400), this will now be caught properly.
+        throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
     }
 
-    // Use the original video name to create the new filename
+    // 3. Get the video data as a ReadableStream.
+    const videoStream = videoResponse.body;
+
+    if (!videoStream) {
+        throw new Error('Could not get video stream from Cloudinary response.');
+    }
+
+    // Sanitize the base name and create a clean filename.
     const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
     const filename = `${baseName}-with-subtitles.mp4`;
-
-    // Correctly stream the response body back to the client
-    return new NextResponse(videoResponse.body, {
+    
+    // 4. Return a streaming response to the client for download.
+    // This correctly streams the binary data of the video and sets the correct filename.
+    return new NextResponse(videoStream, {
       status: 200,
       headers: {
         'Content-Type': 'video/mp4',
@@ -146,14 +50,10 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('=== BURN-IN PROCESS FAILED ===');
-    console.error('Error:', error);
-    
+    console.error('=== BURN-IN PROCESS FAILED ===', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json(
-      { 
-        success: false,
-        error: `Failed to process video: ${error instanceof Error ? error.message : 'Unknown error'}`
-      },
+      { success: false, error: `Failed to process video: ${errorMessage}` },
       { status: 500 }
     );
   }
