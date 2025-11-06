@@ -11,12 +11,13 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Font mapping for Cloudinary
-// This map uses reliable, standard fonts known to work on Cloudinary's backend.
+// A verified mapping of CSS font-family values to the names Cloudinary's
+// video transformation engine expects. This is the key to making custom fonts work.
 const CLOUDINARY_FONTS: { [key: string]: string } = {
+  // Sans-serif
   'Arial, sans-serif': 'Arial',
-  'Helvetica, sans-serif': 'Arial',
-  'Inter, sans-serif': 'Arial',
+  'Helvetica, sans-serif': 'Helvetica',
+  'Inter, sans-serif': 'Inter',
   'Roboto, sans-serif': 'Roboto',
   'Open Sans, sans-serif': 'Open_Sans',
   'Lato, sans-serif': 'Lato',
@@ -29,20 +30,26 @@ const CLOUDINARY_FONTS: { [key: string]: string } = {
   'Oswald, sans-serif': 'Oswald',
   'Exo 2, sans-serif': 'Exo',
   'Dosis, sans-serif': 'Dosis',
+  // Serif
   'Playfair Display, serif': 'Playfair_Display',
   'Merriweather, serif': 'Merriweather',
   'Lora, serif': 'Lora',
   'PT Serif, serif': 'PT_Serif',
   'Georgia, serif': 'Georgia',
+  'Times New Roman, serif': 'Times_New_Roman',
+  // Cursive & Decorative
   'Pacifico, cursive': 'Pacifico',
   'Caveat, cursive': 'Caveat',
   'Dancing Script, cursive': 'Dancing_Script',
-  'Source Code Pro, monospace': 'Courier'
+  // Monospace
+  'Source Code Pro, monospace': 'Source_Code_Pro',
+  'Courier New, monospace': 'Courier'
 };
 
 
 /**
  * Uploads subtitles as an SRT file to Cloudinary.
+ * This is a robust way to handle subtitle data.
  * @param subtitles - The array of subtitle objects.
  * @returns The public_id of the uploaded SRT file.
  */
@@ -91,28 +98,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Upload the subtitles as an SRT file to Cloudinary
+    // 1. Upload the subtitles as a single, correctly formatted SRT file.
     const srtPublicId = await uploadSrtToCloudinary(subtitles);
 
-    // 2. Determine the correct font to use from the map.
+    // 2. Select the correct, Cloudinary-compatible font name from our verified map.
     const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
 
-    // 3. This logic detects complex scripts (like Arabic/Urdu) and overrides the font.
-    // This is necessary because most decorative fonts don't support these characters.
+    // This logic handles complex scripts (like Arabic/Urdu). If such characters are detected,
+    // we override the font to one that supports them, ensuring they don't appear as broken boxes.
     const hasComplexChars = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text));
     const finalFont = hasComplexChars ? 'noto_naskh_arabic' : cloudinaryFont;
     
-    // 4. Generate the video URL with the subtitles layered on top
+    // 3. Generate the video URL using the `l_subtitles` overlay method.
+    // This is the most robust way to burn-in subtitles.
     const videoUrl = cloudinary.url(videoPublicId, {
         resource_type: 'video',
         transformation: [
             {
-                // Use the uploaded SRT file as an overlay
-                overlay: `subtitles:${srtPublicId.replace(/\//g, ':')}`,
-                font_family: finalFont,
-                font_size: subtitleFontSize,
+                // Apply the uploaded SRT file as a subtitle layer.
+                // The font family and size are specified here directly.
+                overlay: {
+                    resource_type: 'subtitles',
+                    public_id: srtPublicId,
+                    font_family: finalFont,
+                    font_size: subtitleFontSize,
+                },
             },
-            // Apply styling to the subtitle layer
+            // Apply styling to the subtitle layer created above.
             {
               flags: "layer_apply",
               color: 'white',
@@ -125,7 +137,7 @@ export async function POST(request: NextRequest) {
         quality: 'auto'
     });
 
-    // 5. Fetch the generated video and stream it back to the client
+    // 4. Fetch the generated video and stream it back to the client.
     const videoResponse = await fetch(videoUrl);
     
     if (!videoResponse.ok || !videoResponse.body) {
