@@ -132,14 +132,22 @@ export async function POST(request: NextRequest) {
     if (isItalic) subtitleOverlay.font_style = 'italic';
     if (isUnderline) subtitleOverlay.text_decoration = 'underline';
 
+    // The main overlay containing the text with its styling
+    const textOverlay: any = {
+        overlay: subtitleOverlay,
+        color: subtitleColor || '#FFFFFF',
+    };
+
+    // Add stroke for outline if specified
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
-        subtitleOverlay.border = `2px_solid_${subtitleOutlineColor.replace('#', 'rgb:')}`;
+        textOverlay.border = `2px_solid_${subtitleOutlineColor.replace('#', 'rgb:')}`;
     }
+
 
     const videoUrl = cloudinary.url(videoPublicId, {
         resource_type: 'video',
         transformation: [
-            { overlay: subtitleOverlay, color: subtitleColor || '#FFFFFF' },
+            textOverlay,
             {
               flags: "layer_apply",
               background: boxColor,
