@@ -1,6 +1,5 @@
 
 'use client';
-import { getAuth } from "firebase/auth";
 import {
   getFirestore,
   collection,
@@ -16,31 +15,15 @@ import {
 } from "firebase/firestore";
 import { app } from "@/lib/firebase";
 import type { Video } from "./types";
-import { useUser } from "@/hooks/use-user";
 
-const auth = getAuth(app);
 const db = getFirestore(app);
-
-/**
- * Ensures Firebase Authentication and returns the current user.
- * Throws an error if the user is not authenticated.
- */
-async function getCurrentUser() {
-  await auth.authStateReady(); // Wait for auth state to be loaded
-  const user = auth.currentUser;
-  if (!user) {
-    throw new Error("Authentication required. Please sign in.");
-  }
-  return user;
-}
-
+const DEV_USER_ID = "dev-user"; // Hardcoded user ID for development
 
 /**
  * Fetch all videos for the current user
  */
 export async function fetchVideoLibrary(): Promise<Video[]> {
-  const user = await getCurrentUser();
-  const userId = user.uid;
+  const userId = DEV_USER_ID;
 
   const videosRef = collection(db, `users/${userId}/videos`);
   const q = query(videosRef, orderBy("updatedAt", "desc"));
@@ -75,8 +58,7 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
  * Fetch a single video
  */
 export async function fetchVideo(videoId: string): Promise<Video> {
-  const user = await getCurrentUser();
-  const userId = user.uid;
+  const userId = DEV_USER_ID;
 
   const videoRef = doc(db, `users/${userId}/videos/${videoId}`);
   const snapshot = await getDoc(videoRef);
@@ -93,8 +75,7 @@ export async function fetchVideo(videoId: string): Promise<Video> {
  * Add a new video
  */
 export async function addVideo(videoData: Omit<Video, 'id' | 'userId' | 'createdAt'>): Promise<string> {
-  const user = await getCurrentUser();
-  const userId = user.uid;
+  const userId = DEV_USER_ID;
 
   const videosRef = collection(db, `users/${userId}/videos`);
   const docRef = await addDoc(videosRef, {
@@ -111,8 +92,7 @@ export async function addVideo(videoData: Omit<Video, 'id' | 'userId' | 'created
  * Update existing video
  */
 export async function updateVideo(videoId: string, updateData: Partial<Omit<Video, 'id'>>) {
-  const user = await getCurrentUser();
-  const userId = user.uid;
+  const userId = DEV_USER_ID;
 
   const videoRef = doc(db, `users/${userId}/videos/${videoId}`);
   // Always include updatedAt on any update
@@ -123,8 +103,7 @@ export async function updateVideo(videoId: string, updateData: Partial<Omit<Vide
  * Delete video
  */
 export async function deleteVideo(videoId: string) {
-  const user = await getCurrentUser();
-  const userId = user.uid;
+  const userId = DEV_USER_ID;
 
   const videoRef = doc(db, `users/${userId}/videos/${videoId}`);
   await deleteDoc(videoRef);

@@ -13,6 +13,7 @@ import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { processVideo } from '@/ai/flows/process-video';
+import { useUser } from '@/hooks/use-user';
 
 type CorrectionDialogState = {
   open: boolean;
@@ -37,6 +38,7 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
 
 
 export default function CaptionEditor() {
+  const { user, loading: userLoading } = useUser();
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
@@ -68,6 +70,7 @@ export default function CaptionEditor() {
     });
 
   const loadVideoLibrary = useCallback(async () => {
+    if (!user) return;
     setIsFetchingLibrary(true);
     try {
       const videos = await fetchVideoLibrary();
@@ -82,11 +85,13 @@ export default function CaptionEditor() {
     } finally {
       setIsFetchingLibrary(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   useEffect(() => {
-    loadVideoLibrary();
-  }, [loadVideoLibrary]);
+    if (user && !userLoading) {
+      loadVideoLibrary();
+    }
+  }, [loadVideoLibrary, user, userLoading]);
 
   useEffect(() => {
     // When currentVideo changes, update the styling state
@@ -371,7 +376,7 @@ export default function CaptionEditor() {
     }
   }, [toast, currentVideo, handleReset]);
   
-  if (isFetchingLibrary) {
+  if (userLoading || (isFetchingLibrary && user)) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -420,7 +425,7 @@ export default function CaptionEditor() {
               language={language}
               onLanguageChange={setLanguage}
             />
-            <VideoLibrary videos={videoLibrary} onSelectVideo={handleSelectVideoFromLibrary} onDeleteVideo={handleDeleteVideo} />
+            {user && <VideoLibrary videos={videoLibrary} onSelectVideo={handleSelectVideoFromLibrary} onDeleteVideo={handleDeleteVideo} />}
           </div>
         </div>
       )}

@@ -1,4 +1,5 @@
 import CaptionEditor from '@/components/caption-editor';
+import { UserProvider } from '@/hooks/use-user';
 import Link from 'next/link';
 
 export default function Home() {
@@ -12,7 +13,9 @@ export default function Home() {
             </Link>
           </nav>
         </div>
-        <CaptionEditor />
+        <UserProvider>
+          <CaptionEditor />
+        </UserProvider>
       </div>
     </main>
   );
