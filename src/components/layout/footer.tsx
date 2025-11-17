@@ -10,7 +10,7 @@ const Footer = () => {
           <span>&copy; {new Date().getFullYear()} Captionize. All rights reserved.</span>
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <Link href="#" className="hover:text-foreground">
+          <Link href="/privacy" className="hover:text-foreground">
             Privacy Policy
           </Link>
           <Link href="#" className="hover:text-foreground">
