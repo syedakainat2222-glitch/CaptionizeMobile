@@ -2,7 +2,7 @@
 // src/app/api/burn-in/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
-import { formatSrt, type Subtitle } from '@/lib/srt';
+import { formatVtt, type Subtitle } from '@/lib/srt';
 import { Readable } from 'stream';
 
 // Configure Cloudinary
@@ -52,22 +52,22 @@ const parseRgba = (rgba: string): { color: string; opacity: number } => {
   return { color: `rgb:${hex.substring(1)}`, opacity: Math.round(a * 100) };
 };
 
-// Upload SRT file to Cloudinary
-async function uploadSrtToCloudinary(subtitles: Subtitle[]): Promise<string> {
-  const srtContent = formatSrt(subtitles);
-  const srtBuffer = Buffer.from(srtContent, 'utf-8');
+// Upload VTT file to Cloudinary
+async function uploadVttToCloudinary(subtitles: Subtitle[]): Promise<string> {
+  const vttContent = formatVtt(subtitles);
+  const vttBuffer = Buffer.from(vttContent, 'utf-8');
   const public_id = `subtitles/captionize-${Date.now()}`;
 
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
-      { resource_type: 'raw', public_id, format: 'srt' },
+      { resource_type: 'raw', public_id, format: 'vtt' },
       (error, result) => {
-        if (error) return reject(new Error(`Cloudinary SRT upload failed: ${error.message}`));
-        if (!result?.public_id) return reject(new Error('Cloudinary SRT upload failed: no public_id.'));
+        if (error) return reject(new Error(`Cloudinary VTT upload failed: ${error.message}`));
+        if (!result?.public_id) return reject(new Error('Cloudinary VTT upload failed: no public_id.'));
         resolve(result.public_id);
       }
     );
-    Readable.from(srtBuffer).pipe(uploadStream);
+    Readable.from(vttBuffer).pipe(uploadStream);
   });
 }
 
@@ -96,55 +96,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const srtPublicId = await uploadSrtToCloudinary(subtitles);
+    const vttPublicId = await uploadVttToCloudinary(subtitles);
 
     const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
     const hasComplexChars = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text));
     const finalFont = hasComplexChars ? 'noto_naskh_arabic' : cloudinaryFont;
     
-    const { color: boxColor, opacity: boxOpacity } = parseRgba(subtitleBackgroundColor || 'rgba(0,0,0,0.5)');
+    const { color: boxColorHex, opacity: boxOpacity } = parseRgba(subtitleBackgroundColor || 'rgba(0,0,0,0.5)');
+    const background = `${boxColorHex}_${boxOpacity}`;
 
-    const transformations = [];
+    let textStyle = `${finalFont}_${subtitleFontSize}`;
+    if (isBold) textStyle += '_bold';
+    if (isItalic) textStyle += '_italic';
+    if (isUnderline) textStyle += '_underline';
+    
+    const stroke = subtitleOutlineColor && subtitleOutlineColor !== 'transparent' ? `bo_2px_solid_${subtitleOutlineColor.replace('#', 'rgb:')}` : '';
 
-    // Base subtitle overlay
-    const subtitleOverlay: any = {
-        resource_type: 'subtitles',
-        public_id: srtPublicId,
-        font_family: finalFont,
-        font_size: subtitleFontSize,
-    };
-    if (isBold) subtitleOverlay.font_weight = 'bold';
-    if (isItalic) subtitleOverlay.font_style = 'italic';
-    if (isUnderline) subtitleOverlay.text_decoration = 'underline';
-    
-    const textLayer: any = {
-        overlay: subtitleOverlay,
-        color: subtitleColor || '#FFFFFF',
-    };
-    
-    // Add outline using border (stroke) effect
-    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
-      // Cloudinary 'border' acts as a stroke for text overlays
-      textLayer.border = `2px_solid_${subtitleOutlineColor.replace('#', 'rgb:')}`;
-    }
-    
-    transformations.push(textLayer);
-
-    // Apply background box to the text layer
-    transformations.push({
-      flags: 'layer_apply',
-      background: boxColor,
-      opacity: boxOpacity,
-      gravity: 'south',
-      y: 30,
-    });
+    const transformationStr = `l_subtitles:${vttPublicId.replace(/\//g, ':')}.vtt,co_${subtitleColor.replace('#', 'rgb:')},b_${background},${stroke},g_south,y_30,style_text:${textStyle}/`;
 
     const videoUrl = cloudinary.url(videoPublicId, {
-      resource_type: 'video',
-      transformation: transformations,
-      format: 'mp4',
-      quality: 'auto',
+        resource_type: 'video',
+        transformation: [{raw_transformation: transformationStr}],
+        format: 'mp4',
+        quality: 'auto',
     });
+
 
     const videoResponse = await fetch(videoUrl);
     if (!videoResponse.ok) {

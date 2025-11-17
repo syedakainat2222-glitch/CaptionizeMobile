@@ -1,5 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
+  },
+  api: {
+    bodyParser: {
+      sizeLimit: '100mb',
+    },
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -28,6 +38,16 @@ const nextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    config.resolve.fallback = {
+     fs: false,
+     net: false, 
+     tls: false,
+     child_process: false,
+   };
+
+   return config;
+ },
 };
 
 module.exports = nextConfig;
