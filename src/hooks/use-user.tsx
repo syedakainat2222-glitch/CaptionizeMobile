@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -25,21 +26,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUser({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-        });
-      } else {
-        // For this prototype, we'll create a mock anonymous user if no one is logged in.
-        // In a real app, you might redirect to a login page.
-        setUser({
-          uid: `dev-user-${Date.now()}`,
-          email: 'dev@example.com',
-          displayName: 'Dev User'
-        });
-      }
+      setUser(user);
       setLoading(false);
     });
 

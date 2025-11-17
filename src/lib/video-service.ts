@@ -1,5 +1,6 @@
+
 'use client';
-import { getAuth, signInAnonymously } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import {
   getFirestore,
   collection,
@@ -15,25 +16,30 @@ import {
 } from "firebase/firestore";
 import { app } from "@/lib/firebase";
 import type { Video } from "./types";
+import { useUser } from "@/hooks/use-user";
 
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 /**
- * Ensures Firebase Authentication (anonymous if needed)
+ * Ensures Firebase Authentication and returns the current user.
+ * Throws an error if the user is not authenticated.
  */
-async function ensureAuth() {
-  if (!auth.currentUser) {
-    await signInAnonymously(auth);
+async function getCurrentUser() {
+  await auth.authStateReady(); // Wait for auth state to be loaded
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("Authentication required. Please sign in.");
   }
-  return auth.currentUser!;
+  return user;
 }
+
 
 /**
  * Fetch all videos for the current user
  */
 export async function fetchVideoLibrary(): Promise<Video[]> {
-  const user = await ensureAuth();
+  const user = await getCurrentUser();
   const userId = user.uid;
 
   const videosRef = collection(db, `users/${userId}/videos`);
@@ -52,6 +58,15 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
       userId: data.userId ?? userId,
       createdAt: data.createdAt ?? Timestamp.now(),
       updatedAt: data.updatedAt ?? Timestamp.now(),
+      // Include style properties with defaults
+      subtitleFont: data.subtitleFont || 'Arial, sans-serif',
+      subtitleFontSize: data.subtitleFontSize || 48,
+      subtitleColor: data.subtitleColor || '#FFFFFF',
+      subtitleBackgroundColor: data.subtitleBackgroundColor || 'rgba(0,0,0,0.5)',
+      subtitleOutlineColor: data.subtitleOutlineColor || 'transparent',
+      isBold: data.isBold || false,
+      isItalic: data.isItalic || false,
+      isUnderline: data.isUnderline || false,
     } as Video;
   });
 }
@@ -60,7 +75,7 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
  * Fetch a single video
  */
 export async function fetchVideo(videoId: string): Promise<Video> {
-  const user = await ensureAuth();
+  const user = await getCurrentUser();
   const userId = user.uid;
 
   const videoRef = doc(db, `users/${userId}/videos/${videoId}`);
@@ -78,7 +93,7 @@ export async function fetchVideo(videoId: string): Promise<Video> {
  * Add a new video
  */
 export async function addVideo(videoData: Omit<Video, 'id' | 'userId' | 'createdAt'>): Promise<string> {
-  const user = await ensureAuth();
+  const user = await getCurrentUser();
   const userId = user.uid;
 
   const videosRef = collection(db, `users/${userId}/videos`);
@@ -96,7 +111,7 @@ export async function addVideo(videoData: Omit<Video, 'id' | 'userId' | 'created
  * Update existing video
  */
 export async function updateVideo(videoId: string, updateData: Partial<Omit<Video, 'id'>>) {
-  const user = await ensureAuth();
+  const user = await getCurrentUser();
   const userId = user.uid;
 
   const videoRef = doc(db, `users/${userId}/videos/${videoId}`);
@@ -108,7 +123,7 @@ export async function updateVideo(videoId: string, updateData: Partial<Omit<Vide
  * Delete video
  */
 export async function deleteVideo(videoId: string) {
-  const user = await ensureAuth();
+  const user = await getCurrentUser();
   const userId = user.uid;
 
   const videoRef = doc(db, `users/${userId}/videos/${videoId}`);
