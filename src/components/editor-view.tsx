@@ -233,29 +233,36 @@ const EditorView = ({
     });
 
     try {
+      const payload = {
+        videoPublicId,
+        subtitles,
+        videoName,
+        subtitleFont,
+        subtitleFontSize,
+        subtitleColor,
+        subtitleBackgroundColor,
+        subtitleOutlineColor,
+        isBold,
+        isItalic,
+        isUnderline,
+      };
+
       const response = await fetch('/api/burn-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoPublicId,
-          subtitles,
-          videoName,
-          subtitleFont,
-          subtitleFontSize,
-          subtitleColor,
-          subtitleBackgroundColor,
-          subtitleOutlineColor,
-          isBold,
-          isItalic,
-          isUnderline,
-        }),
+        body: JSON.stringify(payload),
       });
-      
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error || 'Failed to start the export process.'
-        );
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.indexOf('application/json') !== -1) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'The server returned an error.');
+        } else {
+          const errorText = await response.text();
+          console.error("Server returned non-JSON response:", errorText);
+          throw new Error('The server returned an unexpected response. Please check the server logs.');
+        }
       }
 
       const blob = await response.blob();
@@ -275,7 +282,7 @@ const EditorView = ({
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
-a.click();
+      a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 

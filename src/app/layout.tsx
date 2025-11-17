@@ -3,6 +3,8 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseProvider } from '@/firebase/provider';
 import { UserProvider } from '@/hooks/use-user';
+import Header from '@/components/layout/header';
+import Footer from '@/components/layout/footer';
 
 export const metadata: Metadata = {
   title: 'Captionize',
@@ -24,10 +26,14 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="font-body antialiased">
+      <body className="font-body antialiased flex flex-col min-h-screen">
         <FirebaseProvider>
           <UserProvider>
-            {children}
+            <Header />
+            <div className="flex-1">
+              {children}
+            </div>
+            <Footer />
           </UserProvider>
         </FirebaseProvider>
         <Toaster />

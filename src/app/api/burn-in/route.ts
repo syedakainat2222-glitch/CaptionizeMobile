@@ -12,6 +12,15 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// IMPORTANT: Set the body size limit for this route
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '100mb', // Set the desired limit here
+    },
+  },
+};
+
 // Mapping of CSS fonts to Cloudinary fonts
 const CLOUDINARY_FONTS: { [key: string]: string } = {
   'Arial, sans-serif': 'Arial',
@@ -41,35 +50,44 @@ const CLOUDINARY_FONTS: { [key: string]: string } = {
 };
 
 // Parse rgba color to Cloudinary format
-const parseRgba = (rgba: string): { color: string; opacity: number } => {
-  if (!rgba || !rgba.startsWith('rgba')) return { color: 'rgb:000000', opacity: 50 };
-  const parts = rgba.substring(rgba.indexOf('(') + 1, rgba.lastIndexOf(')')).split(',');
-  const r = parseInt(parts[0], 10);
-  const g = parseInt(parts[1], 10);
-  const b = parseInt(parts[2], 10);
-  const a = parseFloat(parts[3]);
-  const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-  return { color: `rgb:${hex.substring(1)}`, opacity: Math.round(a * 100) };
+const parseRgba = (rgba: string): string => {
+    if (!rgba || !rgba.startsWith('rgba')) return 'rgb:00000080';
+    const parts = rgba.substring(rgba.indexOf('(') + 1, rgba.lastIndexOf(')')).split(',');
+    const r = parseInt(parts[0], 10);
+    const g = parseInt(parts[1], 10);
+    const b = parseInt(parts[2], 10);
+    const a = parseFloat(parts[3]);
+    const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+    return `rgb:${hex.substring(1)}${Math.round(a * 100)}`;
 };
 
-// Upload VTT file to Cloudinary
+// Upload VTT file to Cloudinary and return its public_id
 async function uploadVttToCloudinary(subtitles: Subtitle[]): Promise<string> {
   const vttContent = formatVtt(subtitles);
   const vttBuffer = Buffer.from(vttContent, 'utf-8');
   const public_id = `subtitles/captionize-${Date.now()}`;
 
-  return new Promise((resolve, reject) => {
+  const uploadResult = await new Promise<{ public_id?: string; error?: any }>((resolve) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       { resource_type: 'raw', public_id, format: 'vtt' },
       (error, result) => {
-        if (error) return reject(new Error(`Cloudinary VTT upload failed: ${error.message}`));
-        if (!result?.public_id) return reject(new Error('Cloudinary VTT upload failed: no public_id.'));
-        resolve(result.public_id);
+        if (error) resolve({ error });
+        else resolve(result || {});
       }
     );
     Readable.from(vttBuffer).pipe(uploadStream);
   });
+
+  if (uploadResult.error) {
+    throw new Error(`Cloudinary VTT upload failed: ${uploadResult.error.message}`);
+  }
+  if (!uploadResult.public_id) {
+    throw new Error('Cloudinary VTT upload failed: no public_id returned.');
+  }
+  return uploadResult.public_id;
 }
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const dynamic = 'force-dynamic';
 
@@ -91,36 +109,42 @@ export async function POST(request: NextRequest) {
 
     if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid parameters: videoPublicId and subtitles are required.' },
+        { success: false, error: 'Missing or invalid parameters' },
         { status: 400 }
       );
     }
 
     const vttPublicId = await uploadVttToCloudinary(subtitles);
+    await delay(3000); // Give Cloudinary time to process VTT
 
     const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
-    const hasComplexChars = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text));
-    const finalFont = hasComplexChars ? 'noto_naskh_arabic' : cloudinaryFont;
-    
-    const { color: boxColorHex, opacity: boxOpacity } = parseRgba(subtitleBackgroundColor || 'rgba(0,0,0,0.5)');
-    const background = `${boxColorHex}_${boxOpacity}`;
+    const finalFont = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text)) ? 'noto_naskh_arabic' : cloudinaryFont;
 
-    let textStyle = `${finalFont}_${subtitleFontSize}`;
-    if (isBold) textStyle += '_bold';
-    if (isItalic) textStyle += '_italic';
-    if (isUnderline) textStyle += '_underline';
-    
-    const stroke = subtitleOutlineColor && subtitleOutlineColor !== 'transparent' ? `bo_2px_solid_${subtitleOutlineColor.replace('#', 'rgb:')}` : '';
-
-    const transformationStr = `l_subtitles:${vttPublicId.replace(/\//g, ':')}.vtt,co_${subtitleColor.replace('#', 'rgb:')},b_${background},${stroke},g_south,y_30,style_text:${textStyle}/`;
+    const transformation = [
+      {
+        overlay: {
+          resource_type: 'subtitles',
+          public_id: vttPublicId,
+          font_family: finalFont,
+          font_size: subtitleFontSize,
+          font_weight: isBold ? 'bold' : 'normal',
+          font_style: isItalic ? 'italic' : 'normal',
+          text_decoration: isUnderline ? 'underline' : 'none',
+        },
+        color: subtitleColor,
+        background: parseRgba(subtitleBackgroundColor),
+        border: subtitleOutlineColor && subtitleOutlineColor !== 'transparent' ? `2px_solid_${subtitleOutlineColor.replace('#','rgb:')}` : undefined,
+        gravity: 'south',
+        y: 30,
+      },
+    ];
 
     const videoUrl = cloudinary.url(videoPublicId, {
         resource_type: 'video',
-        transformation: [{raw_transformation: transformationStr}],
+        transformation: transformation,
         format: 'mp4',
         quality: 'auto',
     });
-
 
     const videoResponse = await fetch(videoUrl);
     if (!videoResponse.ok) {
