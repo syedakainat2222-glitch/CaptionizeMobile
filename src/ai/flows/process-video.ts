@@ -1,56 +1,52 @@
 'use server';
 
-import { flow } from '@genkit-ai/core';
 import { z } from 'zod';
-import { v2 as cloudinary } from 'cloudinary';
 import { automaticSubtitleGeneration } from './automatic-subtitle-generation';
+import { detectLanguage } from './detect-language';
+import { v2 as cloudinary } from 'cloudinary';
 
+// Configure Cloudinary
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dh6aa9yoa',
+    api_key: process.env.CLOUDINARY_API_KEY || '925498661764494',
+    api_secret: process.env.CLOUDINARY_API_SECRET || 'wrwEgDvJ-MFxEleWyBa0VFzDDoU',
 });
 
-export const ProcessVideoInputSchema = z.object({
-  cloudinaryPublicId: z.string().describe('The public ID of the video on Cloudinary.'),
-  languageCode: z.string().optional().describe('The language of the video.'),
-});
-
-export const ProcessVideoOutputSchema = z.object({
-  videoUrl: z.string().describe('The public URL of the processed video.'),
-  publicId: z.string().describe('The public ID of the video on Cloudinary.'),
-  subtitles: z.string().describe('The generated subtitles in SRT format.'),
-});
-
-export const processVideo = flow(
-  {
-    name: 'processVideo',
-    inputSchema: ProcessVideoInputSchema,
-    outputSchema: ProcessVideoOutputSchema,
-  },
-  async (input) => {
-    // 1. Get video URL from Cloudinary
-    const videoUrl = cloudinary.url(input.cloudinaryPublicId, {
-      resource_type: 'video',
-      // An eager transformation to create a downloadable mp3 can speed up AssemblyAI
-      // but for simplicity we will use the direct video url.
+export async function processVideo(input: { cloudinaryPublicId: string; languageCode?: string }) {
+    // Validate input
+    const ProcessVideoInputSchema = z.object({
+        cloudinaryPublicId: z.string().min(1, "Cloudinary public ID is required"),
+        languageCode: z.string().optional(),
     });
+
+    const validatedInput = ProcessVideoInputSchema.parse(input);
+    
+    // Debug log to check the public ID
+    console.log('Cloudinary Public ID:', validatedInput.cloudinaryPublicId);
+    
+    const videoUrl = cloudinary.url(validatedInput.cloudinaryPublicId, {
+        resource_type: 'video',
+        secure: true, // Always use secure URLs
+    });
+
+    console.log('Generated Cloudinary URL:', videoUrl);
 
     if (!videoUrl) {
-      throw new Error(`Could not get video URL for publicId: ${input.cloudinaryPublicId}`);
+        throw new Error('Failed to generate video URL from Cloudinary.');
     }
 
-    // 2. Generate subtitles using AssemblyAI
-    const subtitlesSrt = await automaticSubtitleGeneration({
-      videoUrl: videoUrl,
-      languageCode: input.languageCode,
+    let languageCode = validatedInput.languageCode;
+    if (!languageCode || languageCode === 'auto') {
+        languageCode = await detectLanguage({ videoUrl });
+    }
+
+    const subtitles = await automaticSubtitleGeneration({
+        videoUrl,
+        languageCode,
     });
 
-    // 3. Return all necessary data
     return {
-      videoUrl: videoUrl,
-      publicId: input.cloudinaryPublicId,
-      subtitles: subtitlesSrt,
+        subtitles,
+        videoUrl, // Return the videoUrl so you can save it to Firestore
     };
-  }
-);
+}

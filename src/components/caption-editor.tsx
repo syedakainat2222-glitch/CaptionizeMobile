@@ -126,16 +126,16 @@ export default function CaptionEditor() {
           languageCode: language === 'auto' ? undefined : language,
         });
 
-        if (!flowResult || !flowResult.subtitles) {
-          throw new Error('Video processing returned an incomplete result.');
+        if (!flowResult || !flowResult.subtitles || !flowResult.videoUrl) {
+          throw new Error('Video processing returned an incomplete result. Missing subtitles or videoUrl.');
         }
 
         const parsedSubs = parseSrt(flowResult.subtitles);
         
         const newVideoData: Omit<Video, 'id' | 'userId' | 'createdAt'> = {
           name: result.fileName,
-          videoUrl: flowResult.videoUrl, // Use URL from flow result
-          publicId: flowResult.publicId, // Use publicId from flow result
+          videoUrl: flowResult.videoUrl, // Use the URL from the flow result
+          publicId: result.publicId,
           subtitles: parsedSubs,
           // Default styles
           subtitleFont: 'Arial, sans-serif',
@@ -154,7 +154,7 @@ export default function CaptionEditor() {
         const savedVideo: Video = {
            ...newVideoData,
            id: newVideoId,
-           userId: '', // This will be set by the service
+           userId: user!.uid, 
            createdAt: Timestamp.now(), 
         }
         
@@ -179,7 +179,7 @@ export default function CaptionEditor() {
         setIsLoading(false);
       }
     },
-    [toast, language]
+    [toast, language, user]
   );
 
   const handleTimeUpdate = useCallback(
@@ -218,7 +218,7 @@ export default function CaptionEditor() {
       await updateVideo(currentVideo.id, updateData);
       
       setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? {...v, subtitles: newSubtitles, updatedAt: updatedTimestamp} : v)
-      .sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
+      .sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedat).getTime()));
       
       toast({
         title: 'Saved!',

@@ -56,6 +56,12 @@ const Header: FC = () => {
             </h1>
           </Link>
           <nav className="hidden md:flex items-center gap-4 text-sm font-medium">
+            <Link href="/features" className="text-muted-foreground hover:text-foreground transition-colors">
+              Features
+            </Link>
+            <Link href="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">
+              Pricing
+            </Link>
             <Link href="/professional" className="text-muted-foreground hover:text-foreground transition-colors">
               Professional
             </Link>
