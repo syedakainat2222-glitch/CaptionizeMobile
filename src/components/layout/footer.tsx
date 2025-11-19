@@ -8,7 +8,16 @@ const Footer = () => {
           <span className="font-semibold text-foreground">Captionize</span>
           <span>&copy; {new Date().getFullYear()} All rights reserved.</span>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2">
+          <Link href="/about" className="transition-colors hover:text-foreground">
+            About
+          </Link>
+          <Link href="/contact" className="transition-colors hover:text-foreground">
+            Contact
+          </Link>
+          <Link href="/faq" className="transition-colors hover:text-foreground">
+            FAQ
+          </Link>
           <Link href="/terms" className="transition-colors hover:text-foreground">
             Terms of Service
           </Link>
