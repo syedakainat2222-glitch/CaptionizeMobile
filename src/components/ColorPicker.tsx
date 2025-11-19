@@ -52,7 +52,7 @@ const ColorPicker = ({
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="flex-1 justify-start gap-2">
                         <div className="h-4 w-4 rounded-full border relative" style={{ backgroundColor: color === 'transparent' ? 'white' : color }}>
-                          {color === 'transparent' && <div className="absolute inset-0 bg-red-500 transform rotate-45" style={{ mixBlendMode: 'multiply' }}></div>}
+                          {color === 'transparent' && <div className="absolute inset-0 bg-red-500" style={{clipPath: 'polygon(0 0, 100% 0, 0 100%)', transform: 'scale(1.4) rotate(45deg)'}}></div>}
                         </div>
                         <span className="truncate">{color}</span>
                     </Button>

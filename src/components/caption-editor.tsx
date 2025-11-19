@@ -39,7 +39,6 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
 
 export default function CaptionEditor() {
   const { user, loading: userLoading } = useUser();
-  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -118,87 +117,67 @@ export default function CaptionEditor() {
   }, [currentVideo]);
   
   const handleVideoSelect = useCallback(
-    async (file: File) => {
-      setVideoFile(file);
+    async (result: { publicId: string; fileName: string; secureUrl: string }) => {
       setIsLoading(true);
 
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        try {
-          const videoDataUri = reader.result as string;
+      try {
+        const flowResult = await processVideo({
+          cloudinaryPublicId: result.publicId,
+          languageCode: language === 'auto' ? undefined : language,
+        });
 
-          const result = await processVideo({
-            videoDataUri,
-            languageCode: language === 'auto' ? undefined : language,
-          });
-
-          if (!result || !result.subtitles || !result.videoUrl || !result.publicId) {
-            throw new Error('Video processing returned an incomplete result.');
-          }
-
-          const { videoUrl, publicId, subtitles } = result;
-
-          const parsedSubs = parseSrt(subtitles);
-          
-          const newVideoData: Omit<Video, 'id' | 'userId' | 'createdAt'> = {
-            name: file.name,
-            videoUrl: videoUrl,
-            publicId: publicId,
-            subtitles: parsedSubs,
-            // Default styles
-            subtitleFont: 'Arial, sans-serif',
-            subtitleFontSize: 48,
-            subtitleColor: '#FFFFFF',
-            subtitleBackgroundColor: 'rgba(0,0,0,0.5)',
-            subtitleOutlineColor: 'transparent',
-            isBold: false,
-            isItalic: false,
-            isUnderline: false,
-            updatedAt: Timestamp.now(),
-          };
-
-          const newVideoId = await addVideo(newVideoData);
-          
-          const savedVideo: Video = {
-             ...newVideoData,
-             id: newVideoId,
-             userId: '', // This will be set by the service
-             createdAt: Timestamp.now(), 
-          }
-          
-          setCurrentVideo(savedVideo);
-          setSubtitles(savedVideo.subtitles);
-          setVideoLibrary(prevLibrary => [savedVideo, ...prevLibrary].sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
-          
-          toast({
-            title: 'Success!',
-            description: 'Subtitles generated and video saved.',
-          });
-
-        } catch (error: any) {
-          console.error('Processing failed:', error);
-          toast({
-            variant: 'destructive',
-            title: 'An error occurred.',
-            description:
-              error.message || 'Failed to process video. Please try again.',
-          });
-          setVideoFile(null);
-        } finally {
-          setIsLoading(false);
+        if (!flowResult || !flowResult.subtitles) {
+          throw new Error('Video processing returned an incomplete result.');
         }
-      };
-      reader.onerror = () => {
-        console.error('Failed to read file.');
+
+        const parsedSubs = parseSrt(flowResult.subtitles);
+        
+        const newVideoData: Omit<Video, 'id' | 'userId' | 'createdAt'> = {
+          name: result.fileName,
+          videoUrl: flowResult.videoUrl, // Use URL from flow result
+          publicId: flowResult.publicId, // Use publicId from flow result
+          subtitles: parsedSubs,
+          // Default styles
+          subtitleFont: 'Arial, sans-serif',
+          subtitleFontSize: 48,
+          subtitleColor: '#FFFFFF',
+          subtitleBackgroundColor: 'rgba(0,0,0,0.5)',
+          subtitleOutlineColor: 'transparent',
+          isBold: false,
+          isItalic: false,
+          isUnderline: false,
+          updatedAt: Timestamp.now(),
+        };
+
+        const newVideoId = await addVideo(newVideoData);
+        
+        const savedVideo: Video = {
+           ...newVideoData,
+           id: newVideoId,
+           userId: '', // This will be set by the service
+           createdAt: Timestamp.now(), 
+        }
+        
+        setCurrentVideo(savedVideo);
+        setSubtitles(savedVideo.subtitles);
+        setVideoLibrary(prevLibrary => [savedVideo, ...prevLibrary].sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
+        
+        toast({
+          title: 'Success!',
+          description: 'Subtitles generated and video saved.',
+        });
+
+      } catch (error: any) {
+        console.error('Processing failed:', error);
         toast({
           variant: 'destructive',
-          title: 'File Read Error',
-          description: 'There was an error reading the selected video file.',
+          title: 'An error occurred.',
+          description:
+            error.message || 'Failed to process video. Please try again.',
         });
+      } finally {
         setIsLoading(false);
-        setVideoFile(null);
-      };
+      }
     },
     [toast, language]
   );
@@ -343,7 +322,6 @@ export default function CaptionEditor() {
 
   const handleReset = useCallback(() => {
     setCurrentVideo(null);
-    setVideoFile(null);
     setSubtitles([]);
     setActiveSubtitleId(null);
     loadVideoLibrary(); // Refresh library when returning to the list

@@ -44,6 +44,7 @@ import { Toggle } from './ui/toggle';
 import { Slider } from './ui/slider';
 import type { Video } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import ColorPicker from './ColorPicker';
 
 
 const FONT_OPTIONS = [
@@ -78,23 +79,6 @@ const FONT_OPTIONS = [
 
 const FONT_SIZE_OPTIONS = [24, 36, 48, 60, 72, 84, 96];
 
-const generateColorPalette = () => {
-    const baseColors = [
-      { name: 'White', value: '#FFFFFF' }, { name: 'Black', value: '#000000' },
-      { name: 'Yellow', value: '#FFFF00' }, { name: 'Cyan', value: '#00FFFF' },
-      { name: 'Magenta', value: '#FF00FF' }, { name: 'Red', value: '#FF0000' },
-      { name: 'Green', value: '#00FF00' }, { name: 'Blue', value: '#0000FF' }
-    ];
-    const shades = [
-        { name: 'Light Gray', value: '#CCCCCC' }, { name: 'Gray', value: '#888888' },
-        { name: 'Dark Gray', value: '#444444' }, { name: 'Soft Yellow', value: '#FFFFAA' },
-        { name: 'Light Blue', value: '#ADD8E6' }, { name: 'Pale Green', value: '#98FB98' },
-        { name: 'Light Pink', value: '#FFB6C1' }, { name: 'Orange', value: '#FFA500' }
-    ];
-    return [...baseColors, ...shades];
-};
-const COLOR_PALETTE = generateColorPalette();
-
 type EditorViewProps = {
   videoUrl: string;
   videoPublicId: string;
@@ -115,59 +99,6 @@ type EditorViewProps = {
   isUnderline: boolean;
   onStyleChange: (update: Partial<Video>) => void;
 };
-
-const ColorPicker = ({
-    label,
-    icon: Icon,
-    color,
-    onColorChange,
-    includeTransparent = false,
-}: {
-    label: string,
-    icon: React.ElementType,
-    color: string,
-    onColorChange: (color: string) => void,
-    includeTransparent?: boolean,
-}) => (
-    <div className="flex flex-col gap-2">
-        <Label className="text-sm font-medium flex items-center gap-2">
-            <Icon className="h-4 w-4" /> {label}
-        </Label>
-        <div className="flex items-center gap-2">
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex-1 justify-start gap-2">
-                        <div className="h-4 w-4 rounded-full border relative" style={{ backgroundColor: color === 'transparent' ? 'white' : color }}>
-                          {color === 'transparent' && <div className="absolute inset-0 bg-red-500 transform rotate-45" style={{ mixBlendMode: 'multiply' }}></div>}
-                        </div>
-                        <span className="truncate">{color}</span>
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="max-h-60 overflow-y-auto">
-                    <DropdownMenuRadioGroup value={color} onValueChange={onColorChange}>
-                        {includeTransparent && <DropdownMenuRadioItem value="transparent">Transparent</DropdownMenuRadioItem>}
-                        {COLOR_PALETTE.map((c) => (
-                            <DropdownMenuRadioItem key={c.value} value={c.value}>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-4 w-4 rounded-full border" style={{ backgroundColor: c.value }}></div>
-                                    <span>{c.name}</span>
-                                </div>
-                            </DropdownMenuRadioItem>
-                        ))}
-                    </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-            </DropdownMenu>
-            <Input
-                type="color"
-                value={color === 'transparent' ? '#000000' : color}
-                onChange={(e) => onColorChange(e.target.value)}
-                className="h-10 w-10 p-1"
-                aria-label={`Custom ${label.toLowerCase()} color`}
-            />
-        </div>
-    </div>
-);
-
 
 const EditorView = ({
   videoUrl,
@@ -412,11 +343,14 @@ const EditorView = ({
                     <div className='flex items-center gap-2'>
                         <Input type="color" value={subtitleBackgroundColor.slice(0, 7)} onChange={(e) => {
                             const newOpacity = subtitleBackgroundColor.split(',')[3]?.replace(')','') || '0.5';
-                            onStyleChange({ subtitleBackgroundColor: `${e.target.value}${Math.round(parseFloat(newOpacity) * 255).toString(16).padStart(2,'0')}`});
+                            onStyleChange({ subtitleBackgroundColor: `rgba(${parseInt(e.target.value.slice(1,3),16)},${parseInt(e.target.value.slice(3,5),16)},${parseInt(e.target.value.slice(5,7),16)},${parseFloat(newOpacity)})`});
                         }} className="p-1 h-10 w-10" />
                         <Slider value={[parseFloat(subtitleBackgroundColor.split(',')[3]?.replace(')','') || '0.5') * 100]} onValueChange={([val]) => {
-                           const hexColor = subtitleBackgroundColor.slice(0, 7);
-                           const newRgba = `rgba(${parseInt(hexColor.slice(1,3),16)},${parseInt(hexColor.slice(3,5),16)},${parseInt(hexColor.slice(5,7),16)},${val/100})`;
+                           const hexColor = subtitleBackgroundColor.startsWith('rgba') ? `#${parseInt(subtitleBackgroundColor.split(',')[0].replace('rgba(','')).toString(16).padStart(2,'0')}${parseInt(subtitleBackgroundColor.split(',')[1]).toString(16).padStart(2,'0')}${parseInt(subtitleBackgroundColor.split(',')[2]).toString(16).padStart(2,'0')}` : subtitleBackgroundColor.slice(0, 7);
+                           const r = parseInt(hexColor.slice(1,3),16);
+                           const g = parseInt(hexColor.slice(3,5),16);
+                           const b = parseInt(hexColor.slice(5,7),16);
+                           const newRgba = `rgba(${r},${g},${b},${val/100})`;
                            onStyleChange({ subtitleBackgroundColor: newRgba });
                         }} max={100} step={5} className="flex-1" />
                     </div>
