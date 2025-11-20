@@ -263,6 +263,48 @@ export default function CaptionEditor() {
     }
   }, [currentVideo, toast]);
 
+  const handleTranslate = useCallback(async (targetLanguage: string) => {
+    if (!currentVideo) return;
+    
+    setIsLoading(true);
+    try {
+      // Call our working API route
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          subtitles, 
+          targetLanguage 
+        }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Translation failed');
+      }
+  
+      const { subtitles: translatedSubtitles } = await response.json();
+      
+      // Update the subtitles
+      handleUpdateSubtitles(translatedSubtitles);
+      
+      toast({
+        title: 'Translation Complete!',
+        description: `Subtitles translated to ${targetLanguage}`,
+      });
+      
+    } catch (error: any) {
+      console.error('Translation failed:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Translation Failed',
+        description: error.message || 'Could not translate subtitles',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentVideo, subtitles, handleUpdateSubtitles, toast]);
+
   const handleStyleChange = useCallback(async (update: Partial<Video>) => {
     if (currentVideo) {
         const updatedTimestamp = Timestamp.now();
@@ -432,6 +474,7 @@ export default function CaptionEditor() {
             isItalic={isItalic}
             isUnderline={isUnderline}
             onStyleChange={handleStyleChange}
+            onTranslate={handleTranslate}
           />
           <CorrectionDialog
             state={correctionDialogState}
