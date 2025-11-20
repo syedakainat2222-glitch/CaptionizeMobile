@@ -5,6 +5,7 @@ import { FirebaseProvider } from '@/firebase/provider';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Providers } from './providers';
+import { AuthProvider } from '@/firebase/auth-provider';
 
 export const metadata: Metadata = {
   title: 'Captionize',
@@ -28,13 +29,15 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased flex flex-col min-h-screen">
         <FirebaseProvider>
-          <Providers>
-            <Header />
-            <div className="flex-1">
-              {children}
-            </div>
-            <Footer />
-          </Providers>
+          <AuthProvider>
+            <Providers>
+              <Header />
+              <div className="flex-1">
+                {children}
+              </div>
+              <Footer />
+            </Providers>
+          </AuthProvider>
         </FirebaseProvider>
         <Toaster />
       </body>

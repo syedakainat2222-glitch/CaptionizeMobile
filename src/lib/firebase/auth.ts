@@ -1,7 +1,7 @@
 
 import {
   onAuthStateChanged as onFirebaseAuthStateChanged,
-  signInWithPopup,
+  signInWithRedirect,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   type Auth,
@@ -26,20 +26,10 @@ export function onAuthStateChanged(authInstance: Auth, callback: (user: User | n
   });
 }
 
-export async function signInWithGoogle(): Promise<User | null> {
+export async function signInWithGoogle(): Promise<void> {
     const provider = new GoogleAuthProvider();
     try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
-         if (user) {
-            return {
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName,
-                photoURL: user.photoURL,
-            };
-        }
-        return null;
+        await signInWithRedirect(auth, provider);
     } catch (error) {
         console.error("Error during Google sign-in:", error);
         throw error;
