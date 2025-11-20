@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
       {
         overlay: {
           resource_type: 'subtitles',
+      format: 'vtt',
           public_id: vttPublicId,
           font_family: finalFont,
           font_size: subtitleFontSize,
