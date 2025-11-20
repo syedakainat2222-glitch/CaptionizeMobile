@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseProvider } from '@/firebase/provider';
-import Header from '@/components/layout/header';
+import { Header } from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Providers } from './providers';
 import { AuthProvider } from '@/firebase/auth-provider';
