@@ -5,14 +5,12 @@ import VideoUpload from '@/components/video-upload';
 import EditorView from '@/components/editor-view';
 import { useToast } from '@/hooks/use-toast';
 import { parseSrt, type Subtitle } from '@/lib/srt';
-import { aiSuggestedCorrections } from '@/ai/flows/ai-suggested-corrections';
 import CorrectionDialog from '@/components/correction-dialog';
 import VideoLibrary from './video-library';
 import { fetchVideoLibrary, addVideo, updateVideo, deleteVideo } from '@/lib/video-service';
 import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
-import { processVideo } from '@/ai/flows/process-video';
 import { useUser } from '@/hooks/use-user';
 
 type CorrectionDialogState = {
@@ -95,6 +93,7 @@ export default function CaptionEditor() {
   useEffect(() => {
     // When currentVideo changes, update the styling state
     if (currentVideo) {
+      setSubtitles(currentVideo.subtitles);
       setSubtitleFont(currentVideo.subtitleFont || 'Arial, sans-serif');
       setSubtitleFontSize(currentVideo.subtitleFontSize || 48);
       setSubtitleColor(currentVideo.subtitleColor || '#FFFFFF');
@@ -105,6 +104,7 @@ export default function CaptionEditor() {
       setIsUnderline(currentVideo.isUnderline || false);
     } else {
       // Reset to defaults
+      setSubtitles([]);
       setSubtitleFont('Arial, sans-serif');
       setSubtitleFontSize(48);
       setSubtitleColor('#FFFFFF');
@@ -121,10 +121,22 @@ export default function CaptionEditor() {
       setIsLoading(true);
 
       try {
-        const flowResult = await processVideo({
-          cloudinaryPublicId: result.publicId,
-          languageCode: language === 'auto' ? undefined : language,
+        const response = await fetch('/api/process', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            cloudinaryPublicId: result.publicId,
+            languageCode: language === 'auto' ? undefined : language,
+          }),
         });
+
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+
+        const flowResult = await response.json();
 
         if (!flowResult || !flowResult.subtitles || !flowResult.videoUrl) {
           throw new Error('Video processing returned an incomplete result. Missing subtitles or videoUrl.');
@@ -159,7 +171,6 @@ export default function CaptionEditor() {
         }
         
         setCurrentVideo(savedVideo);
-        setSubtitles(savedVideo.subtitles);
         setVideoLibrary(prevLibrary => [savedVideo, ...prevLibrary].sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
         
         toast({
@@ -218,7 +229,7 @@ export default function CaptionEditor() {
       await updateVideo(currentVideo.id, updateData);
       
       setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? {...v, subtitles: newSubtitles, updatedAt: updatedTimestamp} : v)
-      .sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedat).getTime()));
+      .sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
       
       toast({
         title: 'Saved!',
@@ -226,6 +237,31 @@ export default function CaptionEditor() {
       });
     }
   }, [subtitles, currentVideo, toast]);
+
+  const handleUpdateSubtitles = useCallback(async (newSubtitles: Subtitle[]) => {
+    if (currentVideo) {
+      const updatedTimestamp = Timestamp.now();
+      const newCurrentVideo = { 
+        ...currentVideo, 
+        subtitles: newSubtitles,
+        updatedAt: updatedTimestamp,
+      };
+
+      setCurrentVideo(newCurrentVideo);
+      await updateVideo(currentVideo.id, { 
+        subtitles: newSubtitles,
+        updatedAt: updatedTimestamp,
+      });
+
+      setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? newCurrentVideo : v)
+      .sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
+
+      toast({
+        title: 'Saved!',
+        description: 'Your translated subtitles have been saved.',
+      });
+    }
+  }, [currentVideo, toast]);
 
   const handleStyleChange = useCallback(async (update: Partial<Video>) => {
     if (currentVideo) {
@@ -280,10 +316,22 @@ export default function CaptionEditor() {
           .map((s) => s.text)
           .join('\n');
 
-        const result = await aiSuggestedCorrections({
-          subtitleText: subtitle.text,
-          context: context,
+        const response = await fetch('/api/corrections', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            subtitleText: subtitle.text,
+            context: context,
+          }),
         });
+
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+
+        const result = await response.json();
 
         if (result) {
           setCorrectionDialogState({
@@ -322,7 +370,6 @@ export default function CaptionEditor() {
 
   const handleReset = useCallback(() => {
     setCurrentVideo(null);
-    setSubtitles([]);
     setActiveSubtitleId(null);
     loadVideoLibrary(); // Refresh library when returning to the list
   }, [loadVideoLibrary]);
@@ -330,7 +377,6 @@ export default function CaptionEditor() {
   const handleSelectVideoFromLibrary = (video: Video) => {
     console.log("Selected video from library:", video);
     setCurrentVideo(video);
-    setSubtitles(video.subtitles);
   };
   
     const handleDeleteVideo = useCallback(async (videoId: string) => {
@@ -371,7 +417,8 @@ export default function CaptionEditor() {
             videoPublicId={currentVideo.publicId}
             videoName={currentVideo.name}
             subtitles={subtitles}
-            activeSubtitleId={activeSubtitleId}
+            onUpdateSubtitles={handleUpdateSubtitles}
+            activeSubtitleId={ activeSubtitleId}
             onTimeUpdate={handleTimeUpdate}
             onUpdateSubtitle={updateSubtitle}
             onSuggestCorrection={handleSuggestCorrection}
