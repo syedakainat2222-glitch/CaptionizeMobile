@@ -28,6 +28,10 @@ export function onAuthStateChanged(authInstance: Auth, callback: (user: User | n
 
 export async function signInWithGoogle(): Promise<void> {
     const provider = new GoogleAuthProvider();
+    // Force account selection every time, which can help resolve issues in iframe environments.
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
     try {
         await signInWithPopup(auth, provider);
     } catch (error) {

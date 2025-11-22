@@ -17,16 +17,21 @@ export default function SignInPage() {
     }
   }, [user, router]);
 
-  const handleSignIn = async () => {
+  // Using .then/.catch to be more robust against pop-up blockers in strict environments.
+  const handleSignIn = () => {
     setIsLoading(true);
     setError(null);
-    try {
-      await signInWithGoogle();
-    } catch (error: any) {
-      setError(error.message);
-      console.error(error);
-      setIsLoading(false);
-    }
+    signInWithGoogle()
+      .catch((error: any) => {
+        // Don't show an error if the user intentionally closes the pop-up.
+        if (error.code !== 'auth/popup-closed-by-user') {
+          setError(error.message);
+          console.error(error);
+        }
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   };
 
   if (user === undefined || user) {
