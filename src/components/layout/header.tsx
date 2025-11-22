@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -11,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogIn, LogOut } from 'lucide-react';
+import { LogIn, LogOut, Film } from 'lucide-react';
 import Link from 'next/link';
 import { signOut } from '@/lib/firebase/auth';
 import { useAuth } from '@/hooks/use-auth';
@@ -31,9 +32,10 @@ export const Header = () => {
 
   return (
     <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
-      <div className="container flex h-14 items-center">
-        <Link href="/" className="mr-6 flex items-center space-x-2">
-          <span className="font-bold sm:inline-block">Captionize</span>
+      <div className="container flex h-16 items-center">
+        <Link href="/" className="mr-6 flex items-center space-x-2 group">
+          <Film className="h-6 w-6 text-primary transition-transform group-hover:scale-110" />
+          <span className="font-bold text-lg tracking-tight text-foreground sm:inline-block">Captionize</span>
         </Link>
         <nav className="flex items-center space-x-6 text-sm font-medium">
           {/* Add nav links here if needed */}
