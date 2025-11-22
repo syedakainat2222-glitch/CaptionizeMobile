@@ -1,14 +1,14 @@
 
 import {
   onAuthStateChanged as onFirebaseAuthStateChanged,
-  signInWithRedirect,
+  signInWithPopup,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   type Auth,
   type User as FirebaseUser,
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import type { User } from "@/lib/types";
+import { auth } from "../firebase";
+import type { User } from "../types";
 
 export function onAuthStateChanged(authInstance: Auth, callback: (user: User | null) => void) {
   return onFirebaseAuthStateChanged(authInstance, (user: FirebaseUser | null) => {
@@ -29,7 +29,7 @@ export function onAuthStateChanged(authInstance: Auth, callback: (user: User | n
 export async function signInWithGoogle(): Promise<void> {
     const provider = new GoogleAuthProvider();
     try {
-        await signInWithRedirect(auth, provider);
+        await signInWithPopup(auth, provider);
     } catch (error) {
         console.error("Error during Google sign-in:", error);
         throw error;

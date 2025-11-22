@@ -34,23 +34,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // ---- Detect Firebase Studio Preview ----
-    const isStudio =
-      typeof window !== 'undefined' &&
-      typeof (window as any).__FIREBASE_DEFAULTS__ !== 'undefined';
-
-    if (isStudio) {
-      console.warn('Running inside Firebase Studio Preview → Auth disabled.');
-      setUser({
-        uid: 'studio-user',
-        email: 'studio@example.com',
-        displayName: 'Studio User',
-        photoURL: null,
-      });
-      setLoading(false);
-      return;
-    }
-
     // ---- Normal Firebase Auth ----
     const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
       setUser(mapFirebaseUser(fbUser));

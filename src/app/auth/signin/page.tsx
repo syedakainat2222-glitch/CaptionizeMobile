@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithGoogle } from '@/lib/firebase/auth';
-import { useAuth } from '@/hooks/use-auth';
+import { signInWithGoogle } from '../../../lib/firebase/auth';
+import { useAuth } from '../../../hooks/use-auth';
 
 export default function SignInPage() {
   const { user } = useAuth();
