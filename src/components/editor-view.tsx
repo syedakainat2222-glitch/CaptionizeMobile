@@ -144,11 +144,8 @@ const EditorView = ({
       if (!response.ok) {
         let errorData = { error: 'An unknown server error occurred.' };
         try {
-          // Try to parse a JSON error response from the server
           errorData = await response.json();
         } catch (e) {
-          // If parsing fails, the response was not JSON.
-          // We can use the status text as a fallback.
           errorData.error = `Server responded with ${response.status}: ${response.statusText}`;
         }
         throw new Error(errorData.error || 'The server returned an unexpected error.');
