@@ -1,3 +1,5 @@
+'use client';
+
 import React, { memo, useCallback, useState } from 'react';
 import {
   ArrowLeft,
@@ -22,7 +24,7 @@ import {
 } from '@/components/ui/tooltip';
 import VideoPlayer from './video-player';
 import SubtitleEditor from './subtitle-editor';
-import { parseSrt, Subtitle } from '@/lib/srt';
+import { Subtitle } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
 import type { Video } from '@/lib/types';
 import TranslationDialog from '@/features/translate/TranslationDialog';
@@ -48,6 +50,7 @@ type EditorViewProps = {
   isItalic: boolean;
   isUnderline: boolean;
   onStyleChange: (update: Partial<Video>) => void;
+  onTranslate: (targetLanguage: string) => void;
 };
 
 const EditorView = ({
@@ -70,10 +73,10 @@ const EditorView = ({
   isItalic,
   isUnderline,
   onStyleChange,
+  onTranslate,
 }: EditorViewProps) => {
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
-  const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
 
   const handleExport = useCallback(async (format: 'srt' | 'vtt') => {
@@ -81,13 +84,13 @@ const EditorView = ({
     let mimeType = '';
     let fileExtension = '';
 
+    const { formatSrt, formatVtt } = await import('@/lib/srt');
+
     if (format === 'srt') {
-      const { formatSrt } = await import('@/lib/srt');
       content = formatSrt(subtitles);
       mimeType = 'application/x-subrip';
       fileExtension = 'srt';
     } else {
-      const { formatVtt } = await import('@/lib/srt');
       content = formatVtt(subtitles);
       mimeType = 'text/vtt';
       fileExtension = 'vtt';
@@ -186,42 +189,6 @@ const EditorView = ({
     }
   }, [videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize, subtitleColor, subtitleBackgroundColor, subtitleOutlineColor, isBold, isItalic, isUnderline, toast]);
 
-  const handleTranslate = async (targetLanguage: string) => {
-    setIsTranslating(true);
-    setIsTranslationDialogOpen(false);
-    toast({ title: 'Translating subtitles...' });
-
-    try {
-      const response = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subtitles, targetLanguage }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Translation failed');
-      }
-
-      const { subtitles: newSubtitles } = await response.json();
-      onUpdateSubtitles(newSubtitles);
-
-      toast({
-        title: 'Translation Complete',
-        description: `Subtitles have been translated to ${targetLanguage}.`,
-      });
-    } catch (error: any) {
-      console.error('Translation failed:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Translation Failed',
-        description: error.message || 'Could not translate subtitles.',
-      });
-    } finally {
-      setIsTranslating(false);
-    }
-  };
-
 
   return (
     <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 p-4 flex-1">
@@ -241,7 +208,7 @@ const EditorView = ({
           </TooltipProvider>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setIsTranslationDialogOpen(true)} disabled={isTranslating}>
+            <Button variant="outline" onClick={() => setIsTranslationDialogOpen(true)} disabled={isExporting}>
               <Languages className="mr-2 h-4 w-4" />
               Translate
             </Button>
@@ -315,8 +282,8 @@ const EditorView = ({
       <TranslationDialog
         open={isTranslationDialogOpen}
         onOpenChange={setIsTranslationDialogOpen}
-        onTranslate={handleTranslate}
-        isTranslating={isTranslating}
+        onTranslate={onTranslate}
+        isTranslating={isExporting}
       />
     </div>
   );

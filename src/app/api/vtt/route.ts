@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
 
     let subtitles: Subtitle[];
     try {
+      // The parameter is URL-encoded, so Next.js/Vercel should handle decoding automatically
       const parsed = JSON.parse(subtitlesParam);
       const validation = subtitleSchema.safeParse(parsed);
       if (!validation.success) {
@@ -30,7 +31,10 @@ export async function GET(request: NextRequest) {
       }
       subtitles = validation.data;
     } catch (e) {
-      return new NextResponse('Invalid JSON in subtitles parameter', { status: 400 });
+        const error = e instanceof Error ? e.message : "Unknown error";
+        console.error("Failed to parse subtitles param:", error);
+        console.log("Received subtitles param:", subtitlesParam.substring(0, 200) + "...");
+        return new NextResponse(`Invalid JSON in subtitles parameter: ${error}`, { status: 400 });
     }
 
     const vttContent = formatVtt(subtitles);
@@ -39,7 +43,9 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'text/vtt; charset=utf-8',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
     });
   } catch (error) {

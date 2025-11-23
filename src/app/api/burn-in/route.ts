@@ -87,8 +87,6 @@ async function uploadVttToCloudinary(subtitles: Subtitle[]): Promise<string> {
   return uploadResult.public_id;
 }
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
@@ -113,9 +111,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
+    
     const vttPublicId = await uploadVttToCloudinary(subtitles);
-    await delay(3000); // Give Cloudinary time to process VTT
 
     const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
     const finalFont = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text)) ? 'noto_naskh_arabic' : cloudinaryFont;
@@ -124,30 +121,52 @@ export async function POST(request: NextRequest) {
       {
         overlay: {
           resource_type: 'subtitles',
-      format: 'vtt',
           public_id: vttPublicId,
-          font_family: finalFont,
-          font_size: subtitleFontSize,
-          font_weight: isBold ? 'bold' : 'normal',
-          font_style: isItalic ? 'italic' : 'normal',
-          text_decoration: isUnderline ? 'underline' : 'none',
         },
-        color: subtitleColor,
-        background: parseRgba(subtitleBackgroundColor),
-        border: subtitleOutlineColor && subtitleOutlineColor !== 'transparent' ? `2px_solid_${subtitleOutlineColor.replace('#','rgb:')}` : undefined,
+      },
+      {
+        effect: `subtitles:font_${finalFont}:font_size_${subtitleFontSize}:${isBold ? 'font_weight_bold:' : ''}${isItalic ? 'font_style_italic:' : ''}${isUnderline ? 'text_decoration_underline:' : ''}color_${subtitleColor.replace('#', 'rgb:')}:background_${parseRgba(subtitleBackgroundColor)}:outline_color_${subtitleOutlineColor.replace('#','rgb:')}`,
         gravity: 'south',
         y: 30,
       },
     ];
-
-    const videoUrl = cloudinary.url(videoPublicId, {
-        resource_type: 'video',
-        transformation: transformation,
-        format: 'mp4',
-        quality: 'auto',
+    
+    const signedUrl = cloudinary.url(`${videoPublicId}.mp4`, {
+      resource_type: 'video',
+      transformation: transformation,
+      sign_url: true,
+      // Eager transformation to get the result immediately
+      // This is being deprecated, but let's keep it for now as a fallback
+    });
+    
+    // We are now going to explicitly generate the video
+    // This gives us better control over async operations.
+    const resultUrl = await new Promise<string>((resolve, reject) => {
+        cloudinary.uploader.explicit(videoPublicId, {
+            type: 'upload',
+            resource_type: 'video',
+            eager: [{
+                format: 'mp4',
+                transformation: transformation
+            }],
+            eager_async: false, // We want to wait for the result
+        }, (error, result) => {
+            if (error) {
+                console.error("Cloudinary explicit generation failed:", error);
+                return reject(error);
+            }
+            if (result && result.eager && result.eager[0]) {
+                resolve(result.eager[0].secure_url);
+            } else {
+                // Fallback to the older method if explicit fails without error
+                console.warn("Cloudinary explicit generation did not return eager URL, falling back to signed URL.");
+                resolve(signedUrl);
+            }
+        });
     });
 
-    const videoResponse = await fetch(videoUrl);
+
+    const videoResponse = await fetch(resultUrl);
     if (!videoResponse.ok) {
       const errorBody = await videoResponse.text();
       console.error('Cloudinary fetch failed:', videoResponse.status, errorBody);

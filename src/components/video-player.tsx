@@ -44,9 +44,16 @@ const VideoPlayer = ({
     const generateVttUrl = () => {
       if (subtitles.length > 0) {
         const params = new URLSearchParams();
-        params.set('subtitles', JSON.stringify(subtitles));
-        const url = `/api/vtt?${params.toString()}`;
-        setVttUrl(url);
+        try {
+          const subtitlesJson = JSON.stringify(subtitles);
+          params.set('subtitles', subtitlesJson);
+          const url = `/api/vtt?${params.toString()}`;
+          setVttUrl(url);
+        } catch (e) {
+            console.error("Failed to stringify subtitles for VTT URL:", e);
+            setVttUrl(null);
+        }
+
       } else {
         setVttUrl(null);
       }
@@ -64,12 +71,23 @@ const VideoPlayer = ({
 
     videoElement.addEventListener('timeupdate', handleTimeUpdateEvent);
 
+    // This forces the track to re-evaluate when the VTT URL changes
+    if (vttUrl) {
+        // Find the existing track element
+        let trackElement = videoElement.querySelector('track');
+        if (trackElement) {
+            trackElement.src = vttUrl;
+        }
+        videoElement.load(); // This reloads the video and its tracks
+    }
+
+
     return () => {
       if (videoElement) {
         videoElement.removeEventListener('timeupdate', handleTimeUpdateEvent);
       }
     };
-  }, [onTimeUpdate]);
+  }, [onTimeUpdate, vttUrl]);
 
   const handleLoadedMetadata = () => {
     if (videoRef.current && videoRef.current.textTracks.length > 0) {
