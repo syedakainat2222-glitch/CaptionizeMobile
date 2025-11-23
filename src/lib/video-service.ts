@@ -24,6 +24,13 @@ const db = getFirestore(app);
 // Use a hardcoded user ID for development since auth is paused.
 const DEV_USER_ID = "dev-user";
 
+const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
+  if (!timestamp) return new Date();
+  if (timestamp instanceof Timestamp) return timestamp.toDate();
+  if (timestamp instanceof Date) return timestamp;
+  return new Date(timestamp);
+};
+
 /**
  * Fetch all videos for the current user
  */
@@ -36,10 +43,11 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
   
     try {
         const videosRef = collection(db, `videos`);
-        const q = query(videosRef, where("userId", "==", userId), orderBy("updatedAt", "desc"));
+        // Query only by userId to avoid needing a composite index
+        const q = query(videosRef, where("userId", "==", userId));
         const snapshot = await getDocs(q);
 
-        return snapshot.docs.map((doc) => {
+        const videos = snapshot.docs.map((doc) => {
             const data = doc.data();
             return {
                 id: doc.id,
@@ -60,6 +68,10 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
                 isUnderline: data.isUnderline || false,
             } as Video;
         });
+
+        // Sort on the client-side
+        return videos.sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime());
+
     } catch (e: any) {
         if (e.code === 'permission-denied') {
             const error = new FirestorePermissionError({
