@@ -142,16 +142,18 @@ const EditorView = ({
       });
 
       if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.indexOf('application/json') !== -1) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'The server returned an error.');
-        } else {
-          const errorText = await response.text();
-          console.error("Server returned non-JSON response:", errorText);
-          throw new Error('The server returned an unexpected response. Please check the server logs.');
+        let errorData = { error: 'An unknown server error occurred.' };
+        try {
+          // Try to parse a JSON error response from the server
+          errorData = await response.json();
+        } catch (e) {
+          // If parsing fails, the response was not JSON.
+          // We can use the status text as a fallback.
+          errorData.error = `Server responded with ${response.status}: ${response.statusText}`;
         }
+        throw new Error(errorData.error || 'The server returned an unexpected error.');
       }
+
 
       const blob = await response.blob();
       const contentDisposition = response.headers.get('Content-Disposition');
@@ -170,7 +172,7 @@ const EditorView = ({
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
-      a.click();
+a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
