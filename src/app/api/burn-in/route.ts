@@ -18,15 +18,9 @@ export const config = {
   },
 };
 
-// Upload VTT file to Cloudinary and return its public_id
+// This function that handles VTT uploading will not be touched.
 async function uploadVttToCloudinary(subtitles: Subtitle[]): Promise<string> {
   const vttContent = formatVtt(subtitles);
-  
-  // DEBUG: Log the VTT content
-  console.log('=== VTT CONTENT BEING UPLOADED ===');
-  console.log(vttContent);
-  console.log('=== END VTT CONTENT ===');
-  
   const vttBuffer = Buffer.from(vttContent, 'utf-8');
   const public_id = `subtitles/captionize-${Date.now()}`;
 
@@ -48,7 +42,6 @@ async function uploadVttToCloudinary(subtitles: Subtitle[]): Promise<string> {
     throw new Error('Cloudinary VTT upload failed: no public_id returned.');
   }
   
-  console.log('VTT uploaded successfully with public_id:', uploadResult.public_id);
   return uploadResult.public_id;
 }
 
@@ -58,13 +51,14 @@ export async function POST(request: NextRequest) {
       videoPublicId,
       subtitles,
       videoName,
+      subtitleFont,
+      subtitleFontSize,
+      subtitleColor,
+      subtitleBackgroundColor,
+      isBold,
+      isItalic,
+      isUnderline,
     } = await request.json();
-
-    console.log('Received parameters for burn-in:', {
-      videoPublicId,
-      subtitlesCount: subtitles?.length,
-      videoName,
-    });
 
     if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
       return NextResponse.json(
@@ -73,27 +67,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload VTT file
     const vttPublicId = await uploadVttToCloudinary(subtitles);
 
-    // Simple transformation - Cloudinary handles basic subtitles best
+    // Parse the primary font name and format it for Cloudinary
+    const primaryFont = subtitleFont.split(',')[0].trim();
+    const cloudinaryFont = primaryFont.replace(/ /g, '_');
+    let textDecoration = 'none';
+    if (isUnderline) textDecoration = 'underline';
+
     const transformation = [
       {
         overlay: {
           resource_type: 'subtitles',
-          public_id: vttPublicId
-        }
+          public_id: vttPublicId,
+          font_family: cloudinaryFont,
+          font_size: subtitleFontSize,
+          font_weight: isBold ? 'bold' : 'normal',
+          font_style: isItalic ? 'italic' : 'normal',
+          text_decoration: textDecoration,
+        },
+      },
+      {
+        background: subtitleBackgroundColor,
+        color: subtitleColor,
       },
       {
         flags: 'layer_apply',
         gravity: 'south',
-        y: 30
-      }
+        y: 30,
+      },
     ];
 
-    console.log('Using transformation:', transformation);
-
-    // Generate the URL using cloudinary.url()
     const videoUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: transformation,
@@ -101,18 +105,10 @@ export async function POST(request: NextRequest) {
       quality: 'auto',
     });
 
-    console.log('Generated Cloudinary URL:', videoUrl);
-
-    // Fetch the processed video
     const videoResponse = await fetch(videoUrl);
     if (!videoResponse.ok) {
       const errorText = await videoResponse.text();
-      console.error('Cloudinary fetch failed:', {
-        status: videoResponse.status,
-        statusText: videoResponse.statusText,
-        errorBody: errorText
-      });
-      throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
+      throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}, Body: ${errorText}`);
     }
 
     const videoArrayBuffer = await videoResponse.arrayBuffer();
