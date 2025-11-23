@@ -9,7 +9,7 @@ export const Header = () => {
       <div className="container flex h-16 items-center">
         <Link href="/" className="mr-6 flex items-center space-x-2 group">
           <Clapperboard className="h-7 w-7 text-primary transition-transform group-hover:rotate-[-5deg]" />
-          <span className="font-bold text-xl tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-foreground/90 to-foreground sm:inline-block">
+          <span className="font-bold text-xl tracking-tighter text-primary sm:inline-block">
             Captionize
           </span>
         </Link>

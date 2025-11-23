@@ -61,13 +61,6 @@ const SubtitleStyler = ({
       }
     `;
 
-    return () => {
-      const styleElement = document.getElementById(styleId);
-      if (styleElement) {
-        // In a real app you might want to be more careful about removing this
-        // but for now, we'll leave it.
-      }
-    };
   }, [
     subtitleFont,
     subtitleFontSize,

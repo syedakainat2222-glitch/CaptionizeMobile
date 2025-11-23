@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Video } from '@/lib/types';
 import TranslationDialog from '@/features/translate/TranslationDialog';
 import StyleControls from './StyleControls';
+import SubtitleStyler from './subtitle-styler';
 
 type EditorViewProps = {
   videoUrl: string;
@@ -235,6 +236,16 @@ const EditorView = ({
 
   return (
     <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 p-4 flex-1">
+       <SubtitleStyler
+        subtitleFont={subtitleFont}
+        subtitleFontSize={subtitleFontSize}
+        subtitleColor={subtitleColor}
+        subtitleBackgroundColor={subtitleBackgroundColor}
+        subtitleOutlineColor={subtitleOutlineColor}
+        isBold={isBold}
+        isItalic={isItalic}
+        isUnderline={isUnderline}
+      />
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <TooltipProvider>
@@ -297,14 +308,6 @@ const EditorView = ({
           subtitles={subtitles}
           onTimeUpdate={onTimeUpdate}
           activeSubtitleId={activeSubtitleId}
-          subtitleFont={subtitleFont}
-          subtitleFontSize={subtitleFontSize}
-          subtitleColor={subtitleColor}
-          subtitleBackgroundColor={subtitleBackgroundColor}
-          subtitleOutlineColor={subtitleOutlineColor}
-          isBold={isBold}
-          isItalic={isItalic}
-          isUnderline={isUnderline}
         />
         <StyleControls
             subtitleFont={subtitleFont}
