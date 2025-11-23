@@ -1,4 +1,3 @@
-// src/app/api/burn-in/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt, type Subtitle } from '@/lib/srt';
@@ -19,49 +18,15 @@ export const config = {
   },
 };
 
-// Mapping of CSS fonts to Cloudinary fonts
-const CLOUDINARY_FONTS: { [key: string]: string } = {
-  'Arial, sans-serif': 'Arial',
-  'Helvetica, sans-serif': 'Helvetica',
-  'Inter, sans-serif': 'Inter',
-  'Roboto, sans-serif': 'Roboto',
-  'Open Sans, sans-serif': 'Open_Sans',
-  'Lato, sans-serif': 'Lato',
-  'Montserrat, sans-serif': 'Montserrat',
-  'Poppins, sans-serif': 'Poppins',
-  'Oswald, sans-serif': 'Oswald',
-  'Bebas Neue, sans-serif': 'Bebas_Neue',
-  'Anton, sans-serif': 'Anton',
-  'Comfortaa, sans-serif': 'Comfortaa',
-  'Georgia, serif': 'Georgia',
-  'Times New Roman, serif': 'Times_New_Roman',
-  'Playfair Display, serif': 'Playfair_Display',
-  'Merriweather, serif': 'Merriweather',
-  'Lora, serif': 'Lora',
-  'Courier New, monospace': 'Courier',
-  'Source Code Pro, monospace': 'Source_Code_Pro',
-  'Pacifico, cursive': 'Pacifico',
-  'Dancing Script, cursive': 'Dancing_Script',
-  'Caveat, cursive': 'Caveat',
-  'Lobster, cursive': 'Lobster',
-  'Righteous, sans-serif': 'Righteous',
-};
-
-// Parse rgba color to Cloudinary format
-const parseRgba = (rgba: string): string => {
-  if (!rgba || !rgba.startsWith('rgba')) return 'rgb:00000080';
-  const parts = rgba.substring(rgba.indexOf('(') + 1, rgba.lastIndexOf(')')).split(',');
-  const r = parseInt(parts[0], 10);
-  const g = parseInt(parts[1], 10);
-  const b = parseInt(parts[2], 10);
-  const a = parseFloat(parts[3]);
-  const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-  return `rgb:${hex.substring(1)}${Math.round(a * 100)}`;
-};
-
 // Upload VTT file to Cloudinary and return its public_id
 async function uploadVttToCloudinary(subtitles: Subtitle[]): Promise<string> {
   const vttContent = formatVtt(subtitles);
+  
+  // DEBUG: Log the VTT content
+  console.log('=== VTT CONTENT BEING UPLOADED ===');
+  console.log(vttContent);
+  console.log('=== END VTT CONTENT ===');
+  
   const vttBuffer = Buffer.from(vttContent, 'utf-8');
   const public_id = `subtitles/captionize-${Date.now()}`;
 
@@ -82,6 +47,8 @@ async function uploadVttToCloudinary(subtitles: Subtitle[]): Promise<string> {
   if (!uploadResult.public_id) {
     throw new Error('Cloudinary VTT upload failed: no public_id returned.');
   }
+  
+  console.log('VTT uploaded successfully with public_id:', uploadResult.public_id);
   return uploadResult.public_id;
 }
 
@@ -91,15 +58,13 @@ export async function POST(request: NextRequest) {
       videoPublicId,
       subtitles,
       videoName,
-      subtitleFont,
-      subtitleFontSize,
-      subtitleColor,
-      subtitleBackgroundColor,
-      subtitleOutlineColor,
-      isBold,
-      isItalic,
-      isUnderline,
     } = await request.json();
+
+    console.log('Received parameters for burn-in:', {
+      videoPublicId,
+      subtitlesCount: subtitles?.length,
+      videoName,
+    });
 
     if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
       return NextResponse.json(
@@ -108,55 +73,59 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload VTT file first
+    // Upload VTT file
     const vttPublicId = await uploadVttToCloudinary(subtitles);
 
-    const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
-    const finalFont = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text)) ? 'noto_naskh_arabic' : cloudinaryFont;
-
-    // Build the transformation
+    // Simple transformation - Cloudinary handles basic subtitles best
     const transformation = [
       {
         overlay: {
           resource_type: 'subtitles',
-          public_id: vttPublicId,
-        },
+          public_id: vttPublicId
+        }
       },
       {
-        effect: `subtitles:font_${finalFont}:font_size_${subtitleFontSize}:${isBold ? 'font_weight_bold:' : ''}${isItalic ? 'font_style_italic:' : ''}${isUnderline ? 'text_decoration_underline:' : ''}color_${subtitleColor.replace('#', 'rgb:')}:background_${parseRgba(subtitleBackgroundColor)}:outline_color_${subtitleOutlineColor.replace('#','rgb:')}`,
+        flags: 'layer_apply',
         gravity: 'south',
-        y: 30,
-      },
+        y: 30
+      }
     ];
 
-    // Generate the URL with transformations
-    const resultUrl = cloudinary.url(videoPublicId, {
+    console.log('Using transformation:', transformation);
+
+    // Generate the URL using cloudinary.url()
+    const videoUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: transformation,
       format: 'mp4',
+      quality: 'auto',
     });
 
-    console.log('Generated Cloudinary URL:', resultUrl);
+    console.log('Generated Cloudinary URL:', videoUrl);
 
     // Fetch the processed video
-    const videoResponse = await fetch(resultUrl);
+    const videoResponse = await fetch(videoUrl);
     if (!videoResponse.ok) {
-      const errorBody = await videoResponse.text();
-      console.error('Cloudinary fetch failed:', videoResponse.status, errorBody);
+      const errorText = await videoResponse.text();
+      console.error('Cloudinary fetch failed:', {
+        status: videoResponse.status,
+        statusText: videoResponse.statusText,
+        errorBody: errorText
+      });
       throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
     }
 
-    const videoBuffer = await videoResponse.arrayBuffer();
+    const videoArrayBuffer = await videoResponse.arrayBuffer();
 
     const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
     const filename = `${baseName}-with-subtitles.mp4`;
     
-    return new NextResponse(videoBuffer, {
+    return new NextResponse(videoArrayBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'video/mp4',
         'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': videoBuffer.byteLength.toString(),
+        'Content-Length': videoArrayBuffer.byteLength.toString(),
       },
     });
 

@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState, memo } from 'react';
 import { Card } from '@/components/ui/card';
 import type { Subtitle } from '@/lib/srt';
-import { cn } from '@/lib/utils';
+import { formatVtt } from '@/lib/srt';
 
 type VideoPlayerProps = {
   videoUrl: string;
@@ -24,41 +24,23 @@ const VideoPlayer = ({
   videoUrl,
   subtitles,
   onTimeUpdate,
-  activeSubtitleId,
-  subtitleFont,
-  subtitleFontSize,
-  subtitleColor,
-  subtitleBackgroundColor,
-  subtitleOutlineColor,
-  isBold,
-  isItalic,
-  isUnderline,
 }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [vttUrl, setVttUrl] = useState<string | null>(null);
 
-  const activeSubtitle = subtitles.find((sub) => sub.id === activeSubtitleId);
-
   useEffect(() => {
-    // Generate VTT URL from our new API endpoint
-    const generateVttUrl = () => {
-      if (subtitles.length > 0) {
-        const params = new URLSearchParams();
-        try {
-          const subtitlesJson = JSON.stringify(subtitles);
-          params.set('subtitles', subtitlesJson);
-          const url = `/api/vtt?${params.toString()}`;
-          setVttUrl(url);
-        } catch (e) {
-            console.error("Failed to stringify subtitles for VTT URL:", e);
-            setVttUrl(null);
-        }
+    if (subtitles.length > 0) {
+      const vttContent = formatVtt(subtitles);
+      const blob = new Blob([vttContent], { type: 'text/vtt' });
+      const url = URL.createObjectURL(blob);
+      setVttUrl(url);
 
-      } else {
-        setVttUrl(null);
-      }
-    };
-    generateVttUrl();
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      setVttUrl(null);
+    }
   }, [subtitles]);
 
   useEffect(() => {
@@ -71,45 +53,17 @@ const VideoPlayer = ({
 
     videoElement.addEventListener('timeupdate', handleTimeUpdateEvent);
 
-    // This forces the track to re-evaluate when the VTT URL changes
-    if (vttUrl) {
-        // Find the existing track element
-        let trackElement = videoElement.querySelector('track');
-        if (trackElement) {
-            trackElement.src = vttUrl;
-        }
-        videoElement.load(); // This reloads the video and its tracks
-    }
-
-
     return () => {
       if (videoElement) {
         videoElement.removeEventListener('timeupdate', handleTimeUpdateEvent);
       }
     };
-  }, [onTimeUpdate, vttUrl]);
+  }, [onTimeUpdate]);
 
   const handleLoadedMetadata = () => {
     if (videoRef.current && videoRef.current.textTracks.length > 0) {
-      videoRef.current.textTracks[0].mode = 'hidden';
+      videoRef.current.textTracks[0].mode = 'showing';
     }
-  };
-
-  const createTextShadow = () => {
-    if (!subtitleOutlineColor || subtitleOutlineColor === 'transparent') {
-      return '2px 2px 4px rgba(0,0,0,0.7)';
-    }
-    const color = subtitleOutlineColor;
-    return `
-      -2px -2px 0 ${color},  
-       2px -2px 0 ${color},
-      -2px  2px 0 ${color},
-       2px  2px 0 ${color},
-      -2px  0px 0 ${color},
-       2px  0px 0 ${color},
-       0px -2px 0 ${color},
-       0px  2px 0 ${color}
-    `;
   };
 
   return (
@@ -135,36 +89,6 @@ const VideoPlayer = ({
           )}
           Your browser does not support the video tag.
         </video>
-
-        {/* Custom Subtitle Overlay */}
-        <div
-          className={cn(
-            'absolute bottom-5 md:bottom-10 left-1/2 -translate-x-1/2 w-full px-4 text-center transition-opacity duration-300',
-            activeSubtitle ? 'opacity-100' : 'opacity-0'
-          )}
-          style={{ pointerEvents: 'none' }}
-        >
-          {activeSubtitle && (
-            <span
-              style={{
-                backgroundColor: subtitleBackgroundColor,
-                fontFamily: subtitleFont,
-                fontSize: `${subtitleFontSize}px`,
-                color: subtitleColor,
-                fontWeight: isBold ? 'bold' : 'normal',
-                fontStyle: isItalic ? 'italic' : 'normal',
-                textDecoration: isUnderline ? 'underline' : 'none',
-                textShadow: createTextShadow(),
-                padding: '0.2em 0.4em',
-                borderRadius: '0.25em',
-                boxDecorationBreak: 'clone',
-                WebkitBoxDecorationBreak: 'clone',
-              }}
-            >
-              {activeSubtitle.text}
-            </span>
-          )}
-        </div>
       </div>
     </Card>
   );

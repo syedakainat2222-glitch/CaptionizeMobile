@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/tooltip';
 import VideoPlayer from './video-player';
 import SubtitleEditor from './subtitle-editor';
-import { Subtitle } from '@/lib/srt';
+import { Subtitle, formatVtt, formatSrt } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
 import type { Video } from '@/lib/types';
 import TranslationDialog from '@/features/translate/TranslationDialog';
@@ -77,6 +77,7 @@ const EditorView = ({
 }: EditorViewProps) => {
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
 
   const handleExport = useCallback(async (format: 'srt' | 'vtt') => {
@@ -84,33 +85,39 @@ const EditorView = ({
     let mimeType = '';
     let fileExtension = '';
 
-    const { formatSrt, formatVtt } = await import('@/lib/srt');
+    try {
+      if (format === 'srt') {
+        content = formatSrt(subtitles);
+        mimeType = 'application/x-subrip';
+        fileExtension = 'srt';
+      } else {
+        content = formatVtt(subtitles);
+        mimeType = 'text/vtt';
+        fileExtension = 'vtt';
+      }
 
-    if (format === 'srt') {
-      content = formatSrt(subtitles);
-      mimeType = 'application/x-subrip';
-      fileExtension = 'srt';
-    } else {
-      const vttResponse = await fetch(`/api/vtt?subtitles=${encodeURIComponent(JSON.stringify(subtitles))}`);
-      content = await vttResponse.text();
-      mimeType = 'text/vtt';
-      fileExtension = 'vtt';
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${videoName.split('.')[0]}.${fileExtension}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Export Successful',
+        description: `Your subtitles have been downloaded as a .${fileExtension} file.`,
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Export Failed',
+        description: 'Could not export subtitles. Please try again.',
+      });
     }
-
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${videoName.split('.')[0]}.${fileExtension}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: 'Export Successful',
-      description: `Your subtitles have been downloaded as a .${fileExtension} file.`,
-    });
   }, [subtitles, videoName, toast]);
 
   const handleExportVideoWithSubtitles = useCallback(async () => {
@@ -135,6 +142,12 @@ const EditorView = ({
         isUnderline,
       };
 
+      console.log('Sending export payload:', {
+        videoPublicId,
+        subtitlesCount: subtitles.length,
+        videoName,
+      });
+
       const response = await fetch('/api/burn-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -142,19 +155,23 @@ const EditorView = ({
       });
 
       if (!response.ok) {
-        let errorData = { error: 'An unknown server error occurred.' };
-        try {
-          // Try to parse a JSON error response from the server
-          errorData = await response.json();
-        } catch (e) {
-          // If parsing fails, use the response status text
-          errorData.error = `Server responded with ${response.status}: ${response.statusText}`;
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'The server returned an error.');
+        } else {
+          const errorText = await response.text();
+          console.error("Server returned non-JSON response:", errorText);
+          throw new Error(`Failed to process video. Status: ${response.status}`);
         }
-        throw new Error(errorData.error || 'The server returned an unexpected error.');
       }
 
-
       const blob = await response.blob();
+      
+      if (blob.size === 0) {
+        throw new Error('Received empty video file from server.');
+      }
+
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = 'video-with-subtitles.mp4';
       
@@ -182,13 +199,14 @@ const EditorView = ({
     } catch (error: any) {
       console.error('Export failed:', error);
   
-      // More specific error messages
       let errorMessage = 'Could not export the video with subtitles. Please try again.';
       
       if (error.message?.includes('Failed to fetch')) {
         errorMessage = 'Network error: Could not connect to the server. Please check your connection.';
       } else if (error.message?.includes('Cloudinary')) {
         errorMessage = 'Video processing service error. Please try again.';
+      } else if (error.message?.includes('empty video file')) {
+        errorMessage = 'The exported video file was empty. Please try again.';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -203,6 +221,17 @@ const EditorView = ({
     }
   }, [videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize, subtitleColor, subtitleBackgroundColor, subtitleOutlineColor, isBold, isItalic, isUnderline, toast]);
 
+  const handleTranslateClick = async (targetLanguage: string) => {
+    setIsTranslating(true);
+    setIsTranslationDialogOpen(false);
+    try {
+      await onTranslate(targetLanguage);
+    } catch (error) {
+      console.error('Translation failed:', error);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   return (
     <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 p-4 flex-1">
@@ -222,13 +251,17 @@ const EditorView = ({
           </TooltipProvider>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setIsTranslationDialogOpen(true)} disabled={isExporting}>
-              <Languages className="mr-2 h-4 w-4" />
+            <Button 
+              variant="outline" 
+              onClick={() => setIsTranslationDialogOpen(true)} 
+              disabled={isTranslating || isExporting}
+            >
+              {isTranslating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Languages className="mr-2 h-4 w-4" />}
               Translate
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" disabled={isExporting}>
                   <FileText className="mr-2 h-4 w-4" /> Export Subtitles
                 </Button>
               </DropdownMenuTrigger>
@@ -296,8 +329,8 @@ const EditorView = ({
       <TranslationDialog
         open={isTranslationDialogOpen}
         onOpenChange={setIsTranslationDialogOpen}
-        onTranslate={onTranslate}
-        isTranslating={isExporting}
+        onTranslate={handleTranslateClick}
+        isTranslating={isTranslating}
       />
     </div>
   );

@@ -1,39 +1,83 @@
 'use client';
 
 import { useEffect } from 'react';
-import { createPortal } from 'react-dom';
 
 type SubtitleStylerProps = {
-  fontFamily: string;
+  subtitleFont: string;
+  subtitleFontSize: number;
+  subtitleColor: string;
+  subtitleBackgroundColor: string;
+  subtitleOutlineColor: string;
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
 };
 
-const SubtitleStyler = ({ fontFamily }: SubtitleStylerProps) => {
-  const styleContent = `
-    ::cue {
-      font-family: ${fontFamily} !important;
-      /* You can add more global subtitle styles here if needed */
-    }
-  `;
-
+const SubtitleStyler = ({
+  subtitleFont,
+  subtitleFontSize,
+  subtitleColor,
+  subtitleBackgroundColor,
+  subtitleOutlineColor,
+  isBold,
+  isItalic,
+  isUnderline,
+}: SubtitleStylerProps) => {
   useEffect(() => {
-    const styleElement = document.createElement('style');
-    styleElement.id = 'subtitle-styler';
-    styleElement.innerHTML = styleContent;
-    
-    const existingStyle = document.getElementById('subtitle-styler');
-    if (existingStyle) {
-      existingStyle.innerHTML = styleContent;
-    } else {
+    const styleId = 'subtitle-styler';
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement | null;
+
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = styleId;
       document.head.appendChild(styleElement);
     }
 
+    const createTextShadow = () => {
+      if (!subtitleOutlineColor || subtitleOutlineColor === 'transparent') {
+        return 'none';
+      }
+      const color = subtitleOutlineColor;
+      return `
+        -1px -1px 0 ${color},  
+         1px -1px 0 ${color},
+        -1px  1px 0 ${color},
+         1px  1px 0 ${color}
+      `;
+    };
+
+    styleElement.textContent = `
+      video::cue {
+        font-family: "${subtitleFont}", sans-serif !important;
+        font-size: ${subtitleFontSize}px !important;
+        color: ${subtitleColor} !important;
+        background-color: ${subtitleBackgroundColor} !important;
+        font-weight: ${isBold ? 'bold' : 'normal'} !important;
+        font-style: ${isItalic ? 'italic' : 'normal'} !important;
+        text-decoration: ${isUnderline ? 'underline' : 'none'} !important;
+        text-shadow: ${createTextShadow()} !important;
+        white-space: pre-wrap !important;
+        direction: rtl !important;
+      }
+    `;
+
     return () => {
-        const styleToRemove = document.getElementById('subtitle-styler');
-        if (styleToRemove) {
-            styleToRemove.remove();
-        }
-    }
-  }, [fontFamily, styleContent]);
+      const styleElement = document.getElementById(styleId);
+      if (styleElement) {
+        // In a real app you might want to be more careful about removing this
+        // but for now, we'll leave it.
+      }
+    };
+  }, [
+    subtitleFont,
+    subtitleFontSize,
+    subtitleColor,
+    subtitleBackgroundColor,
+    subtitleOutlineColor,
+    isBold,
+    isItalic,
+    isUnderline,
+  ]);
 
   return null;
 };

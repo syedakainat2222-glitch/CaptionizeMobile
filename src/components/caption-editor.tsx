@@ -11,7 +11,6 @@ import { fetchVideoLibrary, addVideo, updateVideo, deleteVideo } from '@/lib/vid
 import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
-import { useUser } from '@/hooks/use-user';
 
 type CorrectionDialogState = {
   open: boolean;
@@ -34,9 +33,7 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
   return new Date(timestamp);
 };
 
-
 export default function CaptionEditor() {
-  const { user, loading: userLoading } = useUser();
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,7 +52,7 @@ export default function CaptionEditor() {
 
   const { toast } = useToast();
   const [videoLibrary, setVideoLibrary] = useState<Video[]>([]);
-  const [language, setLanguage] = useState<string>('auto'); // Default to auto-detect
+  const [language, setLanguage] = useState<string>('auto');
 
   const [correctionDialogState, setCorrectionDialogState] =
     useState<CorrectionDialogState>({
@@ -67,7 +64,6 @@ export default function CaptionEditor() {
     });
 
   const loadVideoLibrary = useCallback(async () => {
-    // Because auth is paused, we don't need to check for a user.
     setIsFetchingLibrary(true);
     try {
       const videos = await fetchVideoLibrary();
@@ -89,7 +85,6 @@ export default function CaptionEditor() {
   }, [loadVideoLibrary]);
 
   useEffect(() => {
-    // When currentVideo changes, update the styling state
     if (currentVideo) {
       setSubtitles(currentVideo.subtitles);
       setSubtitleFont(currentVideo.subtitleFont || 'Arial, sans-serif');
@@ -101,7 +96,6 @@ export default function CaptionEditor() {
       setIsItalic(currentVideo.isItalic || false);
       setIsUnderline(currentVideo.isUnderline || false);
     } else {
-      // Reset to defaults
       setSubtitles([]);
       setSubtitleFont('Arial, sans-serif');
       setSubtitleFontSize(48);
@@ -144,10 +138,9 @@ export default function CaptionEditor() {
         
         const newVideoData: Omit<Video, 'id' | 'userId' | 'createdAt'> = {
           name: result.fileName,
-          videoUrl: flowResult.videoUrl, // Use the URL from the flow result
+          videoUrl: flowResult.videoUrl,
           publicId: result.publicId,
           subtitles: parsedSubs,
-          // Default styles
           subtitleFont: 'Arial, sans-serif',
           subtitleFontSize: 48,
           subtitleColor: '#FFFFFF',
@@ -164,7 +157,7 @@ export default function CaptionEditor() {
         const savedVideo: Video = {
            ...newVideoData,
            id: newVideoId,
-           userId: 'dev-user', // Use dev user ID since auth is paused
+           userId: 'dev-user',
            createdAt: Timestamp.now(), 
         }
         
@@ -181,8 +174,7 @@ export default function CaptionEditor() {
         toast({
           variant: 'destructive',
           title: 'An error occurred.',
-          description:
-            error.message || 'Failed to process video. Please try again.',
+          description: error.message || 'Failed to process video. Please try again.',
         });
       } finally {
         setIsLoading(false);
@@ -199,17 +191,17 @@ export default function CaptionEditor() {
         const timeParts = vttTime.split(':');
         let hours = 0, minutes = 0, seconds = 0;
 
-        if (timeParts.length === 3) { // HH:MM:SS.ms
+        if (timeParts.length === 3) {
           hours = parseInt(timeParts[0], 10);
           minutes = parseInt(timeParts[1], 10);
           const [sec, ms] = timeParts[2].split('.');
           seconds = parseInt(sec, 10) + (parseInt(ms, 10) / 1000);
-        } else if (timeParts.length === 2) { // MM:SS.ms
+        } else if (timeParts.length === 2) {
           minutes = parseInt(timeParts[0], 10);
           const [sec, ms] = timeParts[1].split('.');
           seconds = parseInt(sec, 10) + (parseInt(ms, 10) / 1000);
         } else {
-            return 0; // Invalid format
+            return 0;
         }
 
         if(isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return 0;
@@ -219,7 +211,7 @@ export default function CaptionEditor() {
 
       const activeSub = subtitles.find(
         (sub) =>
-          sub && // Ensure sub is not undefined
+          sub &&
           time >= vttTimeToSeconds(sub.startTime) &&
           time <= vttTimeToSeconds(sub.endTime)
       );
@@ -280,7 +272,6 @@ export default function CaptionEditor() {
     
     setIsLoading(true);
     try {
-      // Call our working API route
       const response = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -296,8 +287,6 @@ export default function CaptionEditor() {
       }
   
       const { subtitles: translatedSubtitles } = await response.json();
-      
-      // Update the subtitles
       handleUpdateSubtitles(translatedSubtitles);
       
       toast({
@@ -322,7 +311,6 @@ export default function CaptionEditor() {
         const updatedTimestamp = Timestamp.now();
         const updateData = { ...update, updatedAt: updatedTimestamp };
 
-        // Update local state immediately for responsiveness
         if (update.subtitleFont) setSubtitleFont(update.subtitleFont);
         if (update.subtitleFontSize) setSubtitleFontSize(update.subtitleFontSize);
         if (update.subtitleColor) setSubtitleColor(update.subtitleColor);
@@ -332,17 +320,14 @@ export default function CaptionEditor() {
         if (update.isItalic !== undefined) setIsItalic(update.isItalic);
         if (update.isUnderline !== undefined) setIsUnderline(update.isUnderline);
 
-        // Update current video object
         const newCurrentVideo = { ...currentVideo, ...updateData };
         setCurrentVideo(newCurrentVideo);
         
-        // Update library
         setVideoLibrary(prev =>
             prev.map(v => (v.id === currentVideo.id ? newCurrentVideo : v))
             .sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime())
         );
         
-        // Persist to Firebase
         await updateVideo(currentVideo.id, updateData);
 
         toast({
@@ -351,7 +336,6 @@ export default function CaptionEditor() {
         });
     }
   }, [currentVideo, toast]);
-
 
   const handleSuggestCorrection = useCallback(
     async (subtitle: Subtitle) => {
@@ -425,7 +409,7 @@ export default function CaptionEditor() {
   const handleReset = useCallback(() => {
     setCurrentVideo(null);
     setActiveSubtitleId(null);
-    loadVideoLibrary(); // Refresh library when returning to the list
+    loadVideoLibrary();
   }, [loadVideoLibrary]);
 
   const handleSelectVideoFromLibrary = (video: Video) => {
@@ -433,7 +417,7 @@ export default function CaptionEditor() {
     setCurrentVideo(video);
   };
   
-    const handleDeleteVideo = useCallback(async (videoId: string) => {
+  const handleDeleteVideo = useCallback(async (videoId: string) => {
     try {
       await deleteVideo(videoId);
       setVideoLibrary(prev => prev.filter(v => v.id !== videoId));
@@ -454,7 +438,7 @@ export default function CaptionEditor() {
     }
   }, [toast, currentVideo, handleReset]);
   
-  if (userLoading || (isFetchingLibrary && !user)) {
+  if (isFetchingLibrary) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -472,7 +456,7 @@ export default function CaptionEditor() {
             videoName={currentVideo.name}
             subtitles={subtitles}
             onUpdateSubtitles={handleUpdateSubtitles}
-            activeSubtitleId={ activeSubtitleId}
+            activeSubtitleId={activeSubtitleId}
             onTimeUpdate={handleTimeUpdate}
             onUpdateSubtitle={updateSubtitle}
             onSuggestCorrection={handleSuggestCorrection}
