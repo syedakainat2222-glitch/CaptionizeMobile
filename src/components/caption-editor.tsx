@@ -193,21 +193,35 @@ export default function CaptionEditor() {
 
   const handleTimeUpdate = useCallback(
     (time: number) => {
-      const srtTimeToSeconds = (srtTime: string) => {
-        const [h, m, s] = srtTime.split(':');
-        const [sec, ms] = s.split(',');
-        return (
-          parseInt(h) * 3600 +
-          parseInt(m) * 60 +
-          parseInt(sec) +
-          parseInt(ms) / 1000
-        );
+      const vttTimeToSeconds = (vttTime: string | undefined) => {
+        if (!vttTime) return 0;
+        
+        const timeParts = vttTime.split(':');
+        let hours = 0, minutes = 0, seconds = 0;
+
+        if (timeParts.length === 3) { // HH:MM:SS.ms
+          hours = parseInt(timeParts[0], 10);
+          minutes = parseInt(timeParts[1], 10);
+          const [sec, ms] = timeParts[2].split('.');
+          seconds = parseInt(sec, 10) + (parseInt(ms, 10) / 1000);
+        } else if (timeParts.length === 2) { // MM:SS.ms
+          minutes = parseInt(timeParts[0], 10);
+          const [sec, ms] = timeParts[1].split('.');
+          seconds = parseInt(sec, 10) + (parseInt(ms, 10) / 1000);
+        } else {
+            return 0; // Invalid format
+        }
+
+        if(isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return 0;
+
+        return hours * 3600 + minutes * 60 + seconds;
       };
 
       const activeSub = subtitles.find(
         (sub) =>
-          time >= srtTimeToSeconds(sub.startTime) &&
-          time <= srtTimeToSeconds(sub.endTime)
+          sub && // Ensure sub is not undefined
+          time >= vttTimeToSeconds(sub.startTime) &&
+          time <= vttTimeToSeconds(sub.endTime)
       );
       setActiveSubtitleId(activeSub ? activeSub.id : null);
     },
