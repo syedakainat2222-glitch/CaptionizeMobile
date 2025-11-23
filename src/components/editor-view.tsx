@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { memo, useCallback, useState } from 'react';
@@ -92,7 +91,8 @@ const EditorView = ({
       mimeType = 'application/x-subrip';
       fileExtension = 'srt';
     } else {
-      content = formatVtt(subtitles);
+      const vttResponse = await fetch(`/api/vtt?subtitles=${encodeURIComponent(JSON.stringify(subtitles))}`);
+      content = await vttResponse.text();
       mimeType = 'text/vtt';
       fileExtension = 'vtt';
     }
@@ -181,10 +181,22 @@ const EditorView = ({
       });
     } catch (error: any) {
       console.error('Export failed:', error);
+  
+      // More specific error messages
+      let errorMessage = 'Could not export the video with subtitles. Please try again.';
+      
+      if (error.message?.includes('Failed to fetch')) {
+        errorMessage = 'Network error: Could not connect to the server. Please check your connection.';
+      } else if (error.message?.includes('Cloudinary')) {
+        errorMessage = 'Video processing service error. Please try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         variant: 'destructive',
         title: 'Export Failed',
-        description: error.message || 'Could not export the video with subtitles. Please try again.',
+        description: errorMessage,
       });
     } finally {
       setIsExporting(false);

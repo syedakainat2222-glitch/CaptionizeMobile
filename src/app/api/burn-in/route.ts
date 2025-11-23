@@ -1,4 +1,3 @@
-
 // src/app/api/burn-in/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
@@ -12,11 +11,10 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// IMPORTANT: Set the body size limit for this route
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '100mb', // Set the desired limit here
+      sizeLimit: '100mb',
     },
   },
 };
@@ -51,14 +49,14 @@ const CLOUDINARY_FONTS: { [key: string]: string } = {
 
 // Parse rgba color to Cloudinary format
 const parseRgba = (rgba: string): string => {
-    if (!rgba || !rgba.startsWith('rgba')) return 'rgb:00000080';
-    const parts = rgba.substring(rgba.indexOf('(') + 1, rgba.lastIndexOf(')')).split(',');
-    const r = parseInt(parts[0], 10);
-    const g = parseInt(parts[1], 10);
-    const b = parseInt(parts[2], 10);
-    const a = parseFloat(parts[3]);
-    const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-    return `rgb:${hex.substring(1)}${Math.round(a * 100)}`;
+  if (!rgba || !rgba.startsWith('rgba')) return 'rgb:00000080';
+  const parts = rgba.substring(rgba.indexOf('(') + 1, rgba.lastIndexOf(')')).split(',');
+  const r = parseInt(parts[0], 10);
+  const g = parseInt(parts[1], 10);
+  const b = parseInt(parts[2], 10);
+  const a = parseFloat(parts[3]);
+  const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+  return `rgb:${hex.substring(1)}${Math.round(a * 100)}`;
 };
 
 // Upload VTT file to Cloudinary and return its public_id
@@ -87,8 +85,6 @@ async function uploadVttToCloudinary(subtitles: Subtitle[]): Promise<string> {
   return uploadResult.public_id;
 }
 
-export const dynamic = 'force-dynamic';
-
 export async function POST(request: NextRequest) {
   try {
     const {
@@ -111,12 +107,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
+    // Upload VTT file first
     const vttPublicId = await uploadVttToCloudinary(subtitles);
 
     const cloudinaryFont = CLOUDINARY_FONTS[subtitleFont as keyof typeof CLOUDINARY_FONTS] || 'Arial';
     const finalFont = subtitles.some(s => /[\u0600-\u06FF]/.test(s.text)) ? 'noto_naskh_arabic' : cloudinaryFont;
 
+    // Build the transformation
     const transformation = [
       {
         overlay: {
@@ -130,32 +128,17 @@ export async function POST(request: NextRequest) {
         y: 30,
       },
     ];
-    
-    // We are now going to explicitly generate the video
-    // This gives us better control over async operations.
-    const resultUrl = await new Promise<string>((resolve, reject) => {
-        cloudinary.uploader.explicit(videoPublicId, {
-            type: 'upload',
-            resource_type: 'video',
-            eager: [{
-                format: 'mp4',
-                transformation: transformation
-            }],
-            eager_async: false, // We want to wait for the result
-        }, (error, result) => {
-            if (error) {
-                console.error("Cloudinary explicit generation failed:", error);
-                return reject(error);
-            }
-            if (result && result.eager && result.eager[0]) {
-                resolve(result.eager[0].secure_url);
-            } else {
-                reject(new Error("Cloudinary did not return an eager transformation URL."));
-            }
-        });
+
+    // Generate the URL with transformations
+    const resultUrl = cloudinary.url(videoPublicId, {
+      resource_type: 'video',
+      transformation: transformation,
+      format: 'mp4',
     });
 
+    console.log('Generated Cloudinary URL:', resultUrl);
 
+    // Fetch the processed video
     const videoResponse = await fetch(resultUrl);
     if (!videoResponse.ok) {
       const errorBody = await videoResponse.text();
@@ -163,19 +146,17 @@ export async function POST(request: NextRequest) {
       throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}`);
     }
 
-    const videoStream = videoResponse.body;
-    if (!videoStream) {
-      throw new Error('Could not get video stream from Cloudinary response.');
-    }
+    const videoBuffer = await videoResponse.arrayBuffer();
 
     const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
     const filename = `${baseName}-with-subtitles.mp4`;
     
-    return new NextResponse(videoStream, {
+    return new NextResponse(videoBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'video/mp4',
         'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': videoBuffer.byteLength.toString(),
       },
     });
 
