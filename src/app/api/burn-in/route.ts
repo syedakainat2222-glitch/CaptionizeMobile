@@ -131,14 +131,6 @@ export async function POST(request: NextRequest) {
       },
     ];
     
-    const signedUrl = cloudinary.url(`${videoPublicId}.mp4`, {
-      resource_type: 'video',
-      transformation: transformation,
-      sign_url: true,
-      // Eager transformation to get the result immediately
-      // This is being deprecated, but let's keep it for now as a fallback
-    });
-    
     // We are now going to explicitly generate the video
     // This gives us better control over async operations.
     const resultUrl = await new Promise<string>((resolve, reject) => {
@@ -158,9 +150,7 @@ export async function POST(request: NextRequest) {
             if (result && result.eager && result.eager[0]) {
                 resolve(result.eager[0].secure_url);
             } else {
-                // Fallback to the older method if explicit fails without error
-                console.warn("Cloudinary explicit generation did not return eager URL, falling back to signed URL.");
-                resolve(signedUrl);
+                reject(new Error("Cloudinary did not return an eager transformation URL."));
             }
         });
     });
