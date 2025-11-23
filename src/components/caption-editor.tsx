@@ -67,7 +67,7 @@ export default function CaptionEditor() {
     });
 
   const loadVideoLibrary = useCallback(async () => {
-    if (!user) return;
+    // Because auth is paused, we don't need to check for a user.
     setIsFetchingLibrary(true);
     try {
       const videos = await fetchVideoLibrary();
@@ -82,13 +82,11 @@ export default function CaptionEditor() {
     } finally {
       setIsFetchingLibrary(false);
     }
-  }, [toast, user]);
+  }, [toast]);
 
   useEffect(() => {
-    if (user && !userLoading) {
-      loadVideoLibrary();
-    }
-  }, [loadVideoLibrary, user, userLoading]);
+    loadVideoLibrary();
+  }, [loadVideoLibrary]);
 
   useEffect(() => {
     // When currentVideo changes, update the styling state
@@ -166,7 +164,7 @@ export default function CaptionEditor() {
         const savedVideo: Video = {
            ...newVideoData,
            id: newVideoId,
-           userId: user!.uid, 
+           userId: 'dev-user', // Use dev user ID since auth is paused
            createdAt: Timestamp.now(), 
         }
         
@@ -190,7 +188,7 @@ export default function CaptionEditor() {
         setIsLoading(false);
       }
     },
-    [toast, language, user]
+    [toast, language]
   );
 
   const handleTimeUpdate = useCallback(
@@ -442,7 +440,7 @@ export default function CaptionEditor() {
     }
   }, [toast, currentVideo, handleReset]);
   
-  if (userLoading || (isFetchingLibrary && user)) {
+  if (userLoading || (isFetchingLibrary && !user)) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -493,7 +491,7 @@ export default function CaptionEditor() {
               language={language}
               onLanguageChange={setLanguage}
             />
-            {user && <VideoLibrary videos={videoLibrary} onSelectVideo={handleSelectVideoFromLibrary} onDeleteVideo={handleDeleteVideo} />}
+            <VideoLibrary videos={videoLibrary} onSelectVideo={handleSelectVideoFromLibrary} onDeleteVideo={handleDeleteVideo} />
           </div>
         </div>
       )}
