@@ -172,7 +172,7 @@ const EditorView = ({
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
-a.click();
+      a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
