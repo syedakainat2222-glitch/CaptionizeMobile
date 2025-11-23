@@ -3,7 +3,6 @@
 import { useRef, useEffect, useState, memo } from 'react';
 import { Card } from '@/components/ui/card';
 import type { Subtitle } from '@/lib/srt';
-import { formatVtt } from '@/lib/srt';
 import { cn } from '@/lib/utils';
 
 type VideoPlayerProps = {
@@ -41,18 +40,18 @@ const VideoPlayer = ({
   const activeSubtitle = subtitles.find((sub) => sub.id === activeSubtitleId);
 
   useEffect(() => {
-    let objectUrl: string | null = null;
-    if (subtitles.length > 0) {
-      const vttContent = formatVtt(subtitles);
-      const blob = new Blob([vttContent], { type: 'text/vtt' });
-      objectUrl = URL.createObjectURL(blob);
-      setVttUrl(objectUrl);
-    }
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
+    // Generate VTT URL from our new API endpoint
+    const generateVttUrl = () => {
+      if (subtitles.length > 0) {
+        const params = new URLSearchParams();
+        params.set('subtitles', JSON.stringify(subtitles));
+        const url = `/api/vtt?${params.toString()}`;
+        setVttUrl(url);
+      } else {
+        setVttUrl(null);
       }
     };
+    generateVttUrl();
   }, [subtitles]);
 
   useEffect(() => {
