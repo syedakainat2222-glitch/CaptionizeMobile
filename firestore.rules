@@ -1,9 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /videos/{videoId} {
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    // Authentication is paused. Allow all reads and writes for now.
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }

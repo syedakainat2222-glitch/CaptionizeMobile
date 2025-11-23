@@ -1,25 +1,13 @@
+// This component has been temporarily disabled and backed up to /src/auth-backup/auth-provider.tsx.bak
 'use client';
 
-import { useEffect, useState } from 'react';
-import { onAuthStateChanged } from '@/lib/firebase/auth';
-import { auth } from '@/lib/firebase';
-import type { User } from '@/lib/types';
 import { AuthContext } from '@/hooks/use-auth';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
-
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user as User | null);
-        });
-
-        return () => unsubscribe();
-    }, []);
-
-    return (
-        <AuthContext.Provider value={{ user }}>
-            {children}
-        </AuthContext.Provider>
-    );
+  // Authentication is paused, providing a null user.
+  return (
+    <AuthContext.Provider value={{ user: null }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }

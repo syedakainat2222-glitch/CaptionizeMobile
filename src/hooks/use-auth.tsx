@@ -1,61 +1,20 @@
+// This hook has been temporarily modified and backed up to /src/auth-backup/use-auth.tsx.bak
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getAuth, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import React, { createContext, useContext } from 'react';
 import type { User } from '../lib/types';
 
-// -------------------------------------------
 // Auth Context
-// -------------------------------------------
 export const AuthContext = createContext<{ user: User | null; loading: boolean }>({
   user: null,
-  loading: true,
+  loading: false, // Set loading to false as auth is paused
 });
 
-// -------------------------------------------
-// Convert Firebase User → Our User type
-// -------------------------------------------
-function mapFirebaseUser(u: FirebaseUser | null): User | null {
-  if (!u) return null;
-  return {
-    uid: u.uid,
-    email: u.email ?? '',
-    displayName: u.displayName ?? '',
-    photoURL: u.photoURL ?? null,
-  };
-}
-
-// -------------------------------------------
 // Auth Provider
-// -------------------------------------------
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const auth = getAuth();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // ---- Normal Firebase Auth ----
-    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
-      setUser(mapFirebaseUser(fbUser));
-      setLoading(false);
-    });
-
-    // ---- Fallback in case onAuthStateChanged never fires ----
-    const fallback = setTimeout(() => {
-      console.warn('Auth fallback triggered (Firebase Studio or slow init).');
-      setLoading(false);
-    }, 2000);
-
-    return () => {
-      clearTimeout(fallback);
-      unsubscribe();
-    };
-  }, [auth]);
-
-  return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
+  // Provide a mock user or null, with loading set to false.
+  return <AuthContext.Provider value={{ user: null, loading: false }}>{children}</AuthContext.Provider>;
 }
 
-// -------------------------------------------
 // useAuth Hook
-// -------------------------------------------
 export const useAuth = () => useContext(AuthContext);
