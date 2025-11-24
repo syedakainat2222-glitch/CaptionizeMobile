@@ -35,7 +35,8 @@ export interface Subtitle {
     return subtitles;
   };
   
-  export const formatVtt = (subtitles: Subtitle[]): string => {
+  // MODIFIED: Added optional fontFamily parameter to inject font styling
+  export const formatVtt = (subtitles: Subtitle[], fontFamily?: string): string => {
     const formatTimestamp = (time: string): string => {
       // Replace comma with dot for milliseconds
       time = time.replace(',', '.');
@@ -48,6 +49,17 @@ export interface Subtitle {
     };
   
     const vttLines = ['WEBVTT', ''];
+
+    // Inject the STYLE block if a font family is provided
+    if (fontFamily) {
+      vttLines.push(
+        'STYLE',
+        '::cue {',
+        `  font-family: "${fontFamily}", sans-serif;`,
+        '}',
+        ''
+      );
+    }
     
     subtitles.forEach((sub) => {
       const startTime = formatTimestamp(sub.startTime);

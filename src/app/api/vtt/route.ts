@@ -1,6 +1,6 @@
 // src/app/api/vtt/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { formatVtt, type Subtitle } from '@/lib/srt';
+import { formatVtt, type Subtitle } from '@/lib/vtt';
 import { z } from 'zod';
 
 const subtitleSchema = z.array(z.object({
@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const subtitlesParam = searchParams.get('subtitles');
+    const font = searchParams.get('font') ?? undefined;
 
     if (!subtitlesParam) {
       return new NextResponse('Missing subtitles data', { status: 400 });
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
         return new NextResponse(`Invalid JSON in subtitles parameter: ${error}`, { status: 400 });
     }
 
-    const vttContent = formatVtt(subtitles);
+    const vttContent = formatVtt(subtitles, font);
 
     return new NextResponse(vttContent, {
       status: 200,

@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/tooltip';
 import VideoPlayer from './video-player';
 import SubtitleEditor from './subtitle-editor';
-import { Subtitle, formatVtt, formatSrt } from '@/lib/srt';
+import { Subtitle, formatSrt } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
 import type { Video } from '@/lib/types';
 import TranslationDialog from '@/features/translate/TranslationDialog';
@@ -82,35 +82,40 @@ const EditorView = ({
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
 
   const handleExport = useCallback(async (format: 'srt' | 'vtt') => {
-    let content = '';
-    let mimeType = '';
-    let fileExtension = '';
-
     try {
+      const subtitlesParam = encodeURIComponent(JSON.stringify(subtitles));
+      let url = '';
+
       if (format === 'srt') {
-        content = formatSrt(subtitles);
-        mimeType = 'application/x-subrip';
-        fileExtension = 'srt';
+        // SRT export remains a direct download for simplicity
+        const content = formatSrt(subtitles);
+        const blob = new Blob([content], { type: 'application/x-subrip' });
+        url = URL.createObjectURL(blob);
       } else {
-        content = formatVtt(subtitles);
-        mimeType = 'text/vtt';
-        fileExtension = 'vtt';
+        // VTT export now goes through the API to handle font styling
+        const params = new URLSearchParams({
+          subtitles: JSON.stringify(subtitles),
+          font: subtitleFont,
+        });
+        url = `/api/vtt?${params.toString()}`;
       }
 
-      const blob = new Blob([content], { type: mimeType });
-      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${videoName.split('.')[0]}.${fileExtension}`;
+      a.download = `${videoName.split('.')[0]}.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+
+      if (format === 'srt') {
+        URL.revokeObjectURL(url); // Clean up blob URL
+      }
 
       toast({
         title: 'Export Successful',
-        description: `Your subtitles have been downloaded as a .${fileExtension} file.`,
+        description: `Your subtitles have been downloaded as a .${format} file.`,
       });
+
     } catch (error) {
       console.error('Export failed:', error);
       toast({
@@ -119,7 +124,8 @@ const EditorView = ({
         description: 'Could not export subtitles. Please try again.',
       });
     }
-  }, [subtitles, videoName, toast]);
+  }, [subtitles, videoName, subtitleFont, toast]);
+
 
   const handleExportVideoWithSubtitles = useCallback(async () => {
     setIsExporting(true);
