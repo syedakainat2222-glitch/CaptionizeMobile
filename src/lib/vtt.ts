@@ -34,31 +34,35 @@ export interface Subtitle {
   
     return subtitles;
   };
+
+  const containsArabic = (subtitles: Subtitle[]): boolean => {
+    const arabicRegex = /[\u0600-\u06FF]/;
+    return subtitles.some(sub => arabicRegex.test(sub.text));
+  };
   
-  // MODIFIED: Added optional fontFamily parameter to inject font styling
   export const formatVtt = (subtitles: Subtitle[], fontFamily?: string): string => {
     const formatTimestamp = (time: string): string => {
-      // Replace comma with dot for milliseconds
       time = time.replace(',', '.');
-      
-      // Ensure we have exactly 3 digits for milliseconds
       const [base, ms = '000'] = time.split('.');
       const paddedMs = ms.padEnd(3, '0').substring(0, 3);
-      
       return `${base}.${paddedMs}`;
     };
   
     const vttLines = ['WEBVTT', ''];
+    const styleProperties: string[] = [];
+    const isRtl = containsArabic(subtitles);
 
-    // Inject the STYLE block if a font family is provided
     if (fontFamily) {
-      vttLines.push(
-        'STYLE',
-        '::cue {',
-        `  font-family: "${fontFamily}", sans-serif;`,
-        '}',
-        ''
-      );
+      styleProperties.push(`  font-family: "${fontFamily}", sans-serif;`);
+    }
+
+    if (isRtl) {
+      styleProperties.push('  direction: rtl;');
+      styleProperties.push('  unicode-bidi: embed;');
+    }
+
+    if (styleProperties.length > 0) {
+      vttLines.push('STYLE', '::cue {', ...styleProperties, '}', '');
     }
     
     subtitles.forEach((sub) => {
