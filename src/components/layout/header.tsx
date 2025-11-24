@@ -9,21 +9,29 @@ const CaptionizeLogo = ({ className }: { className?: string }) => (
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
+    <defs>
+      <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 1 }} />
+        <stop offset="100%" style={{ stopColor: 'hsl(var(--accent))', stopOpacity: 1 }} />
+      </linearGradient>
+    </defs>
     <path
-      d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V6Z"
-      stroke="hsl(var(--primary))"
+      d="M19 4H5C4.44772 4 4 4.44772 4 5V19C4 19.5523 4.44772 20 5 20H19C19.5523 20 20 19.5523 20 19V5C20 4.44772 19.5523 4 19 4Z"
+      stroke="url(#logoGradient)"
       strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
     <path
-      d="M8 12H16"
+      d="M8 11H16"
       stroke="hsl(var(--foreground))"
-      strokeWidth="2"
+      strokeWidth="1.5"
       strokeLinecap="round"
     />
     <path
-      d="M8 16H13"
+      d="M8 14H13"
       stroke="hsl(var(--foreground))"
-      strokeWidth="2"
+      strokeWidth="1.5"
       strokeLinecap="round"
     />
   </svg>
