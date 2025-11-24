@@ -1,6 +1,5 @@
 "use client";
 import Link from 'next/link';
-import { Button } from "@/components/ui/button";
 
 const CaptionizeLogo = ({ className }: { className?: string }) => (
   <svg
@@ -10,30 +9,26 @@ const CaptionizeLogo = ({ className }: { className?: string }) => (
     xmlns="http://www.w3.org/2000/svg"
   >
     <defs>
-      <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 1 }} />
-        <stop offset="100%" style={{ stopColor: 'hsl(var(--accent))', stopOpacity: 1 }} />
+      <linearGradient id="logoGradient" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="hsl(var(--primary))" />
+        <stop offset="100%" stopColor="hsl(var(--accent))" />
       </linearGradient>
     </defs>
     <path
-      d="M19 4H5C4.44772 4 4 4.44772 4 5V19C4 19.5523 4.44772 20 5 20H19C19.5523 20 20 19.5523 20 19V5C20 4.44772 19.5523 4 19 4Z"
+      d="M15.5 12L8.5 7.5V16.5L15.5 12Z"
       stroke="url(#logoGradient)"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    <path
-      d="M8 11H16"
-      stroke="hsl(var(--foreground))"
-      strokeWidth="1.5"
-      strokeLinecap="round"
+    <rect 
+      x="3" y="3" 
+      width="18" height="18" 
+      rx="2" 
+      stroke="url(#logoGradient)" 
+      strokeWidth="2"
     />
-    <path
-      d="M8 14H13"
-      stroke="hsl(var(--foreground))"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    />
+    <path d="M8 18H16" stroke="hsl(var(--foreground))" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 );
 
