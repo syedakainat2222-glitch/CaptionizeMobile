@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    const primaryFont = subtitleFont.split(',')[0].trim().replace(/ /g, '_');
+    const primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
