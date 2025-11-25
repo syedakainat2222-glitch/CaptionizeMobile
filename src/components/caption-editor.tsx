@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import VideoUpload from '@/components/video-upload';
 import EditorView from '@/components/editor-view';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +11,47 @@ import { fetchVideoLibrary, addVideo, updateVideo, deleteVideo } from '@/lib/vid
 import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
+
+// Custom hook for managing undo/redo state
+const useHistory = <T>(initialState: T) => {
+  const [state, setState] = useState({ past: [] as T[], present: initialState, future: [] as T[] });
+
+  const set = useCallback((newState: T) => {
+    setState(currentState => ({
+      past: [...currentState.past, currentState.present],
+      present: newState,
+      future: [],
+    }));
+  }, []);
+
+  const undo = useCallback(() => {
+    setState(currentState => {
+      if (currentState.past.length === 0) return currentState;
+      const newPresent = currentState.past[currentState.past.length - 1];
+      const newPast = currentState.past.slice(0, currentState.past.length - 1);
+      return {
+        past: newPast,
+        present: newPresent,
+        future: [currentState.present, ...currentState.future],
+      };
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setState(currentState => {
+      if (currentState.future.length === 0) return currentState;
+      const newPresent = currentState.future[0];
+      const newFuture = currentState.future.slice(1);
+      return {
+        past: [...currentState.past, currentState.present],
+        present: newPresent,
+        future: newFuture,
+      };
+    });
+  }, []);
+
+  return { state: state.present, set, undo, redo, canUndo: state.past.length > 0, canRedo: state.future.length > 0 };
+};
 
 type CorrectionDialogState = {
   open: boolean;
@@ -35,12 +76,18 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
 
 export default function CaptionEditor() {
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
-  const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
+  const { state: subtitles, set: setSubtitles, undo: undoSubtitles, redo: redoSubtitles, canUndo, canRedo } = useHistory<Subtitle[]>([]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingLibrary, setIsFetchingLibrary] = useState(true);
   const [activeSubtitleId, setActiveSubtitleId] = useState<number | null>(null);
+
+  // New state for player control
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   
-  // Styling state
   const [subtitleFont, setSubtitleFont] = useState('Arial, sans-serif');
   const [subtitleFontSize, setSubtitleFontSize] = useState(48);
   const [subtitleColor, setSubtitleColor] = useState('#FFFFFF');
@@ -106,7 +153,7 @@ export default function CaptionEditor() {
       setIsItalic(false);
       setIsUnderline(false);
     }
-  }, [currentVideo]);
+  }, [currentVideo, setSubtitles]);
   
   const handleVideoSelect = useCallback(
     async (result: { publicId: string; fileName: string; secureUrl: string }) => {
@@ -183,42 +230,47 @@ export default function CaptionEditor() {
     [toast, language]
   );
 
-  const handleTimeUpdate = useCallback(
-    (time: number) => {
-      const vttTimeToSeconds = (vttTime: string | undefined) => {
-        if (!vttTime) return 0;
-        
-        const timeParts = vttTime.split(':');
-        let hours = 0, minutes = 0, seconds = 0;
+  const handleTimeUpdate = useCallback((time: number) => {
+    setCurrentTime(time);
+    const vttTimeToSeconds = (vttTime: string | undefined) => {
+      if (!vttTime) return 0;
+      const parts = vttTime.split(':').map(parseFloat);
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      if (parts.length === 2) return parts[0] * 60 + parts[1];
+      return 0;
+    };
+    const activeSub = subtitles.find(
+      (sub) =>
+        sub &&
+        time >= vttTimeToSeconds(sub.startTime) &&
+        time <= vttTimeToSeconds(sub.endTime)
+    );
+    setActiveSubtitleId(activeSub ? activeSub.id : null);
+  }, [subtitles]);
 
-        if (timeParts.length === 3) {
-          hours = parseInt(timeParts[0], 10);
-          minutes = parseInt(timeParts[1], 10);
-          const [sec, ms] = timeParts[2].split('.');
-          seconds = parseInt(sec, 10) + (parseInt(ms, 10) / 1000);
-        } else if (timeParts.length === 2) {
-          minutes = parseInt(timeParts[0], 10);
-          const [sec, ms] = timeParts[1].split('.');
-          seconds = parseInt(sec, 10) + (parseInt(ms, 10) / 1000);
-        } else {
-            return 0;
-        }
+  const handlePlayPause = () => {
+      if (videoRef.current) {
+          if (isPlaying) {
+              videoRef.current.pause();
+          } else {
+              videoRef.current.play();
+          }
+          setIsPlaying(!isPlaying);
+      }
+  };
 
-        if(isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return 0;
+  const handleSeek = (time: number) => {
+      if (videoRef.current) {
+          videoRef.current.currentTime = time;
+          setCurrentTime(time);
+      }
+  };
 
-        return hours * 3600 + minutes * 60 + seconds;
-      };
-
-      const activeSub = subtitles.find(
-        (sub) =>
-          sub &&
-          time >= vttTimeToSeconds(sub.startTime) &&
-          time <= vttTimeToSeconds(sub.endTime)
-      );
-      setActiveSubtitleId(activeSub ? activeSub.id : null);
-    },
-    [subtitles]
-  );
+  const handleLoadedMetadata = () => {
+      if (videoRef.current) {
+          setDuration(videoRef.current.duration);
+      }
+  };
 
   const updateSubtitle = useCallback(async (id: number, newText: string) => {
     const newSubtitles = subtitles.map((sub) => (sub.id === id ? { ...sub, text: newText } : sub));
@@ -240,7 +292,7 @@ export default function CaptionEditor() {
         description: 'Your subtitle changes have been saved.',
       });
     }
-  }, [subtitles, currentVideo, toast]);
+  }, [subtitles, currentVideo, toast, setSubtitles]);
 
   const handleUpdateSubtitles = useCallback(async (newSubtitles: Subtitle[]) => {
     if (currentVideo) {
@@ -252,6 +304,7 @@ export default function CaptionEditor() {
       };
 
       setCurrentVideo(newCurrentVideo);
+      setSubtitles(newSubtitles);
       await updateVideo(currentVideo.id, { 
         subtitles: newSubtitles,
         updatedAt: updatedTimestamp,
@@ -265,7 +318,88 @@ export default function CaptionEditor() {
         description: 'Your translated subtitles have been saved.',
       });
     }
-  }, [currentVideo, toast]);
+  }, [currentVideo, toast, setSubtitles]);
+
+  const handleUpdateSubtitleTime = useCallback(async (id: number, startTime: string, endTime: string) => {
+    const newSubtitles = subtitles.map((sub) => (sub.id === id ? { ...sub, startTime, endTime } : sub));
+    setSubtitles(newSubtitles);
+
+    if (currentVideo) {
+      const updatedTimestamp = Timestamp.now();
+      const updateData = { 
+        subtitles: newSubtitles,
+        updatedAt: updatedTimestamp,
+      };
+      await updateVideo(currentVideo.id, updateData);
+      
+      setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? {...v, subtitles: newSubtitles, updatedAt: updatedTimestamp} : v)
+      .sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
+      
+      toast({
+        title: 'Saved!',
+        description: 'Your subtitle timing has been updated.',
+      });
+    }
+  }, [subtitles, currentVideo, toast, setSubtitles]);
+
+    const handleSplit = useCallback(() => {
+    if (activeSubtitleId === null) return;
+
+    const vttTimeToSeconds = (vttTime: string | undefined): number => {
+        if (!vttTime) return 0;
+        const parts = vttTime.split(':').map(parseFloat);
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        return 0;
+    };
+
+    const secondsToVtt = (seconds: number): string => {
+        const date = new Date(0);
+        date.setSeconds(seconds);
+        return date.toISOString().substr(11, 12);
+    }
+
+    const activeSub = subtitles.find(s => s.id === activeSubtitleId);
+    if (!activeSub) return;
+
+    const subStartTime = vttTimeToSeconds(activeSub.startTime);
+    const subEndTime = vttTimeToSeconds(activeSub.endTime);
+    const splitTime = currentTime;
+
+    if (splitTime <= subStartTime || splitTime >= subEndTime) return; // Cannot split at the edges
+
+    const splitRatio = (splitTime - subStartTime) / (subEndTime - subStartTime);
+    const text = activeSub.text;
+    const splitIndex = Math.round(text.length * splitRatio);
+
+    const newSub1: Subtitle = {
+        ...activeSub,
+        endTime: secondsToVtt(splitTime),
+        text: text.substring(0, splitIndex),
+    };
+    const newSub2: Subtitle = {
+        ...activeSub,
+        id: Math.max(...subtitles.map(s => s.id)) + 1, // Ensure unique ID
+        startTime: secondsToVtt(splitTime),
+        text: text.substring(splitIndex),
+    };
+
+    const newSubtitles = subtitles.map(s => s.id === activeSubtitleId ? newSub1 : s);
+    const activeSubIndex = newSubtitles.findIndex(s => s.id === activeSubtitleId);
+    newSubtitles.splice(activeSubIndex + 1, 0, newSub2);
+
+    setSubtitles(newSubtitles.map((sub, index) => ({ ...sub, id: index + 1 }))); // Re-index all subtitles
+    toast({ title: 'Split!', description: 'Subtitle split at the current time.'});
+  }, [subtitles, activeSubtitleId, currentTime, setSubtitles, toast]);
+  
+  const handleDeleteSubtitle = useCallback((id: number) => {
+    const newSubtitles = subtitles.filter(sub => sub.id !== id).map((sub, index) => ({ ...sub, id: index + 1 }));
+    setSubtitles(newSubtitles);
+    toast({
+      title: 'Subtitle Deleted',
+      description: 'The subtitle has been removed.',
+    });
+  }, [subtitles, setSubtitles, toast]);
 
   const handleTranslate = useCallback(async (targetLanguage: string) => {
     if (!currentVideo) return;
@@ -451,6 +585,13 @@ export default function CaptionEditor() {
       {currentVideo ? (
         <>
           <EditorView
+            videoRef={videoRef}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            onPlayPause={handlePlayPause}
+            onSeek={handleSeek}
+            onLoadedMetadata={handleLoadedMetadata}
             videoUrl={currentVideo.videoUrl}
             videoPublicId={currentVideo.publicId}
             videoName={currentVideo.name}
@@ -471,6 +612,13 @@ export default function CaptionEditor() {
             isUnderline={isUnderline}
             onStyleChange={handleStyleChange}
             onTranslate={handleTranslate}
+            onSplit={handleSplit}
+            onUndo={undoSubtitles}
+            onRedo={redoSubtitles}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onDeleteSubtitle={handleDeleteSubtitle}
+            onUpdateSubtitleTime={handleUpdateSubtitleTime}
           />
           <CorrectionDialog
             state={correctionDialogState}

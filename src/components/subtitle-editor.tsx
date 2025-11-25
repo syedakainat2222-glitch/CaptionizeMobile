@@ -9,6 +9,7 @@ type SubtitleEditorProps = {
   activeSubtitleId: number | null;
   onUpdateSubtitle: (id: number, text: string) => void;
   onSuggestCorrection: (subtitle: Subtitle) => void;
+  onDeleteSubtitle: (id: number) => void;
 };
 
 const SubtitleEditor: FC<SubtitleEditorProps> = ({
@@ -16,6 +17,7 @@ const SubtitleEditor: FC<SubtitleEditorProps> = ({
   activeSubtitleId,
   onUpdateSubtitle,
   onSuggestCorrection,
+  onDeleteSubtitle,
 }) => {
   return (
     <Card className="shadow-lg">
@@ -34,6 +36,7 @@ const SubtitleEditor: FC<SubtitleEditorProps> = ({
                     onUpdate={onUpdateSubtitle}
                     isActive={sub.id === activeSubtitleId}
                     onSuggestCorrection={() => onSuggestCorrection(sub)}
+                    onDelete={onDeleteSubtitle}
                   />
                 ) : null
               )

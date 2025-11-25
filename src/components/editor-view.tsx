@@ -30,8 +30,16 @@ import type { Video } from '@/lib/types';
 import TranslationDialog from '@/features/translate/TranslationDialog';
 import StyleControls from './StyleControls';
 import SubtitleStyler from './subtitle-styler';
+import TimelineEditor from './timeline-editor/TimelineEditor';
 
 type EditorViewProps = {
+  videoRef: React.RefObject<HTMLVideoElement>;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  onPlayPause: () => void;
+  onSeek: (time: number) => void;
+  onLoadedMetadata: () => void;
   videoUrl: string;
   videoPublicId: string;
   videoName: string;
@@ -52,9 +60,23 @@ type EditorViewProps = {
   isUnderline: boolean;
   onStyleChange: (update: Partial<Video>) => void;
   onTranslate: (targetLanguage: string) => void;
+  onSplit: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onDeleteSubtitle: (id: number) => void;
+  onUpdateSubtitleTime: (id: number, startTime: string, endTime: string) => void;
 };
 
 const EditorView = ({
+  videoRef,
+  isPlaying,
+  currentTime,
+  duration,
+  onPlayPause,
+  onSeek,
+  onLoadedMetadata,
   videoUrl,
   videoPublicId,
   videoName,
@@ -75,6 +97,13 @@ const EditorView = ({
   isUnderline,
   onStyleChange,
   onTranslate,
+  onSplit,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  onDeleteSubtitle,
+  onUpdateSubtitleTime,
 }: EditorViewProps) => {
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
@@ -87,12 +116,10 @@ const EditorView = ({
       let url = '';
 
       if (format === 'srt') {
-        // SRT export remains a direct download for simplicity
         const content = formatSrt(subtitles);
         const blob = new Blob([content], { type: 'application/x-subrip' });
         url = URL.createObjectURL(blob);
       } else {
-        // VTT export now goes through the API to handle font styling
         const params = new URLSearchParams({
           subtitles: JSON.stringify(subtitles),
           font: subtitleFont,
@@ -108,7 +135,7 @@ const EditorView = ({
       document.body.removeChild(a);
 
       if (format === 'srt') {
-        URL.revokeObjectURL(url); // Clean up blob URL
+        URL.revokeObjectURL(url);
       }
 
       toast({
@@ -149,12 +176,6 @@ const EditorView = ({
         isUnderline,
       };
 
-      console.log('Sending export payload:', {
-        videoPublicId,
-        subtitlesCount: subtitles.length,
-        videoName,
-      });
-
       const response = await fetch('/api/burn-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -162,15 +183,9 @@ const EditorView = ({
       });
 
       if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'The server returned an error.');
-        } else {
           const errorText = await response.text();
           console.error("Server returned non-JSON response:", errorText);
           throw new Error(`Failed to process video. Status: ${response.status}`);
-        }
       }
 
       const blob = await response.blob();
@@ -207,14 +222,7 @@ const EditorView = ({
       console.error('Export failed:', error);
   
       let errorMessage = 'Could not export the video with subtitles. Please try again.';
-      
-      if (error.message?.includes('Failed to fetch')) {
-        errorMessage = 'Network error: Could not connect to the server. Please check your connection.';
-      } else if (error.message?.includes('Cloudinary')) {
-        errorMessage = 'Video processing service error. Please try again.';
-      } else if (error.message?.includes('empty video file')) {
-        errorMessage = 'The exported video file was empty. Please try again.';
-      } else if (error.message) {
+      if (error.message) {
         errorMessage = error.message;
       }
       
@@ -310,10 +318,12 @@ const EditorView = ({
           </div>
         </div>
         <VideoPlayer
+          videoRef={videoRef}
           videoUrl={videoUrl}
           subtitles={subtitles}
           onTimeUpdate={onTimeUpdate}
           activeSubtitleId={activeSubtitleId}
+          onLoadedMetadata={onLoadedMetadata}
         />
         <StyleControls
             subtitleFont={subtitleFont}
@@ -333,6 +343,25 @@ const EditorView = ({
           onUpdateSubtitle={onUpdateSubtitle}
           activeSubtitleId={activeSubtitleId}
           onSuggestCorrection={onSuggestCorrection}
+          onDeleteSubtitle={onDeleteSubtitle}
+        />
+      </div>
+      <div className="lg:col-span-2">
+        <TimelineEditor 
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            onPlayPause={onPlayPause}
+            onSeek={onSeek}
+            subtitles={subtitles}
+            onSplit={onSplit}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            activeSubtitleId={activeSubtitleId}
+            onDeleteSubtitle={onDeleteSubtitle}
+            onUpdateSubtitleTime={onUpdateSubtitleTime}
         />
       </div>
       <TranslationDialog
