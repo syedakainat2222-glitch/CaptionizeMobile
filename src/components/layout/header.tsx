@@ -14,20 +14,12 @@ const CaptionizeLogo = ({ className }: { className?: string }) => (
         <stop offset="100%" stopColor="hsl(var(--accent))" />
       </linearGradient>
     </defs>
-    <path
-      d="M10.5 15.5L15 12L10.5 8.5V15.5Z"
-      stroke="url(#logoGradient)"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M21 12C21 16.9706 16.9706 21 12 21C10.8356 21 9.72253 20.764 8.71459 20.3341C5.49888 19.202 3 15.8913 3 12C3 8.10871 5.49888 4.79799 8.71459 3.66589C9.72253 3.23602 10.8356 3 12 3C16.9706 3 21 7.02944 21 12Z"
-      stroke="url(#logoGradient)"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    {/* Video frame */}
+    <rect x="2" y="4" width="20" height="16" rx="2" stroke="url(#logoGradient)" strokeWidth="2" />
+    {/* Caption line 1 */}
+    <line x1="6" y1="12" x2="14" y2="12" stroke="url(#logoGradient)" strokeWidth="2" strokeLinecap="round" />
+    {/* Caption line 2 */}
+    <line x1="6" y1="16" x2="18" y2="16" stroke="url(#logoGradient)" strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
