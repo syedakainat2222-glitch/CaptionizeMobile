@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import type { Subtitle } from '@/lib/srt';
 import { formatTime } from '@/lib/utils';
 import VideoThumbnails from './VideoThumbnails';
+import AudioWaveform from './AudioWaveform';
 
 // Helper to convert VTT time to seconds
 const vttTimeToSeconds = (vttTime: string | undefined): number => {
@@ -232,7 +233,7 @@ const TimelineEditor = ({
                     })}
                 </div>
                 <VideoThumbnails videoPublicId={videoPublicId} duration={duration} timelineWidth={timelineWidth} />
-                <div className="h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm">Audio Waveform (Future Feature)</div>
+                <AudioWaveform videoPublicId={videoPublicId} />
             </div>
         </div>
       </div>

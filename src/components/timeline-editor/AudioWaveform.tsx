@@ -1,29 +1,75 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 
 type AudioWaveformProps = {
   videoPublicId: string;
 };
 
 const AudioWaveform = ({ videoPublicId }: AudioWaveformProps) => {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const [waveformUrl, setWaveformUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const waveformUrl = useMemo(() => {
-    if (!videoPublicId || !cloudName) return '';
+  useEffect(() => {
+    if (!videoPublicId) {
+      setIsLoading(false);
+      return;
+    }
 
-    // Generate a waveform image from the video.
-    // We'll make it transparent (b_transparent), a certain color (co_white),
-    // and use the waveform flag.
-    const waveformTransformation = 'fl_waveform,co_white,b_transparent';
+    const fetchWaveform = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch('/api/waveform', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ videoPublicId }),
+        });
 
-    return `https://res.cloudinary.com/${cloudName}/video/upload/${waveformTransformation}/${videoPublicId}.png`;
-  }, [videoPublicId, cloudName]);
+        if (!response.ok) {
+          throw new Error('Failed to fetch waveform data');
+        }
+
+        const data = await response.json();
+        if (data.success && data.waveformUrl) {
+          setWaveformUrl(data.waveformUrl);
+        } else {
+          throw new Error(data.error || 'Invalid response from server');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+        console.error('Error fetching waveform:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchWaveform();
+  }, [videoPublicId]);
+
+  if (isLoading) {
+    return (
+      <div className="h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm">
+        Generating audio waveform...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-20 bg-red-900/50 rounded-md flex items-center justify-center text-red-400 text-sm">
+        Error: {error}
+      </div>
+    );
+  }
 
   if (!waveformUrl) {
     return (
       <div className="h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm">
-        Generating audio waveform...
+        No waveform available.
       </div>
     );
   }
