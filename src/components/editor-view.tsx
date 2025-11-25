@@ -324,6 +324,8 @@ const EditorView = ({
           onTimeUpdate={onTimeUpdate}
           activeSubtitleId={activeSubtitleId}
           onLoadedMetadata={onLoadedMetadata}
+          isPlaying={isPlaying}
+          onPlayPause={onPlayPause}
         />
         <StyleControls
             subtitleFont={subtitleFont}
@@ -362,6 +364,7 @@ const EditorView = ({
             activeSubtitleId={activeSubtitleId}
             onDeleteSubtitle={onDeleteSubtitle}
             onUpdateSubtitleTime={onUpdateSubtitleTime}
+            videoPublicId={videoPublicId}
         />
       </div>
       <TranslationDialog

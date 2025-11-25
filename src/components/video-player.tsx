@@ -9,22 +9,25 @@ type VideoPlayerProps = {
   videoRef: React.RefObject<HTMLVideoElement>;
   videoUrl: string;
   subtitles: Subtitle[];
+  isPlaying: boolean;
+  onPlayPause: () => void; // To sync state with parent
   onTimeUpdate: (time: number) => void;
   onLoadedMetadata: () => void;
-  activeSubtitleId: number | null; // This prop is maintained for potential future use, e.g., highlighting
+  activeSubtitleId: number | null;
 };
 
 const VideoPlayer = ({
   videoRef,
   videoUrl,
   subtitles,
+  isPlaying,
+  onPlayPause,
   onTimeUpdate,
   onLoadedMetadata,
 }: VideoPlayerProps) => {
   const [vttUrl, setVttUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    // Create a VTT blob URL from the subtitles
     const vttContent = formatVtt(subtitles);
     const blob = new Blob([vttContent], { type: 'text/vtt' });
     const url = URL.createObjectURL(blob);
@@ -39,42 +42,60 @@ const VideoPlayer = ({
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
-    // Event listener for time updates
     const handleTimeUpdate = () => onTimeUpdate(videoElement.currentTime);
-    videoElement.addEventListener('timeupdate', handleTimeUpdate);
+    const handlePlay = () => !isPlaying && onPlayPause();
+    const handlePause = () => isPlaying && onPlayPause();
 
-    // Set track mode when metadata is loaded
-    const handleMetadata = () => {
-      if (videoElement.textTracks.length > 0) {
+    videoElement.addEventListener('timeupdate', handleTimeUpdate);
+    videoElement.addEventListener('play', handlePlay);
+    videoElement.addEventListener('pause', handlePause);
+    videoElement.addEventListener('loadedmetadata', onLoadedMetadata);
+    
+    if (videoElement.textTracks.length > 0) {
         videoElement.textTracks[0].mode = 'showing';
-      }
-      onLoadedMetadata();
-    };
-    videoElement.addEventListener('loadedmetadata', handleMetadata);
+    }
 
     return () => {
-      // Cleanup listeners
       videoElement.removeEventListener('timeupdate', handleTimeUpdate);
-      videoElement.removeEventListener('loadedmetadata', handleMetadata);
+      videoElement.removeEventListener('play', handlePlay);
+      videoElement.removeEventListener('pause', handlePause);
+      videoElement.removeEventListener('loadedmetadata', onLoadedMetadata);
     };
-  }, [videoRef, onTimeUpdate, onLoadedMetadata]);
+  }, [videoRef, onTimeUpdate, onLoadedMetadata, isPlaying, onPlayPause]);
+
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    if (isPlaying) {
+        videoElement.play().catch(error => {
+            // Handle interruption errors gracefully, often they are benign
+            if (error.name === 'AbortError') {
+                console.log('Video play was interrupted, most likely by a pause call.');
+            } else {
+                console.error('Error playing video:', error);
+            }
+        });
+    } else {
+        videoElement.pause();
+    }
+  }, [isPlaying, videoRef]);
 
   return (
     <Card className="overflow-hidden shadow-lg relative aspect-video">
       <div className="w-full h-full bg-black">
         <video
           ref={videoRef}
-          key={videoUrl} // Re-mounts the component when videoUrl changes
+          key={videoUrl} 
           crossOrigin="anonymous"
           className="h-full w-full"
-          // The `controls` attribute is removed to allow for custom controls via the timeline
         >
           <source src={videoUrl} type="video/mp4" />
           {vttUrl && (
             <track
               label="Subtitles"
               kind="subtitles"
-              srcLang="en" // Language can be made dynamic in the future
+              srcLang="en"
               src={vttUrl}
               default
             />

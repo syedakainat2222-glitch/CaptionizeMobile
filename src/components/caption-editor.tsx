@@ -248,19 +248,12 @@ export default function CaptionEditor() {
     setActiveSubtitleId(activeSub ? activeSub.id : null);
   }, [subtitles]);
 
-  const handlePlayPause = () => {
-      if (videoRef.current) {
-          if (isPlaying) {
-              videoRef.current.pause();
-          } else {
-              videoRef.current.play();
-          }
-          setIsPlaying(!isPlaying);
-      }
-  };
+  const handlePlayPause = useCallback(() => {
+      setIsPlaying(prev => !prev);
+  }, []);
 
   const handleSeek = (time: number) => {
-      if (videoRef.current) {
+      if (videoRef.current && isFinite(videoRef.current.duration)) {
           videoRef.current.currentTime = time;
           setCurrentTime(time);
       }
@@ -619,6 +612,7 @@ export default function CaptionEditor() {
             canRedo={canRedo}
             onDeleteSubtitle={handleDeleteSubtitle}
             onUpdateSubtitleTime={handleUpdateSubtitleTime}
+            videoPublicId={currentVideo.publicId}
           />
           <CorrectionDialog
             state={correctionDialogState}

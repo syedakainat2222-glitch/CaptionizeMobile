@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@cloudinary/react": "^1.14.3",
+    "@cloudinary/url-gen": "^1.22.0",
     "@genkit-ai/ai": "^1.24.0",
     "@genkit-ai/flow": "^0.5.17",
     "@genkit-ai/google-genai": "^1.24.0",

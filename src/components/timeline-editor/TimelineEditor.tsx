@@ -5,6 +5,7 @@ import { Play, Pause, Scissors, Undo, Redo, ZoomIn, ZoomOut, Trash2 } from 'luci
 import { Button } from '@/components/ui/button';
 import type { Subtitle } from '@/lib/srt';
 import { formatTime } from '@/lib/utils';
+import VideoThumbnails from './VideoThumbnails';
 
 // Helper to convert VTT time to seconds
 const vttTimeToSeconds = (vttTime: string | undefined): number => {
@@ -40,6 +41,7 @@ type TimelineEditorProps = {
   activeSubtitleId: number | null;
   onDeleteSubtitle: (id: number) => void;
   onUpdateSubtitleTime: (id: number, startTime: string, endTime: string) => void;
+  videoPublicId: string;
 };
 
 const TimelineEditor = ({ 
@@ -56,7 +58,8 @@ const TimelineEditor = ({
   canRedo,
   activeSubtitleId,
   onDeleteSubtitle,
-  onUpdateSubtitleTime
+  onUpdateSubtitleTime,
+  videoPublicId
 }: TimelineEditorProps) => {
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = normal, >1 = zoomed in
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -228,8 +231,7 @@ const TimelineEditor = ({
                         )
                     })}
                 </div>
-                {/* Placeholder Tracks */}
-                <div className="h-16 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm">Video Thumbnails (Future Feature)</div>
+                <VideoThumbnails videoPublicId={videoPublicId} duration={duration} timelineWidth={timelineWidth} />
                 <div className="h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm">Audio Waveform (Future Feature)</div>
             </div>
         </div>
