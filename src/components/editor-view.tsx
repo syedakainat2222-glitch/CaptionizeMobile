@@ -50,6 +50,8 @@ type EditorViewProps = {
   onUpdateSubtitle: (id: number, newText: string) => void;
   onSuggestCorrection: (subtitle: Subtitle) => void;
   onReset: () => void;
+  isExporting: boolean;
+  onExportVideo: () => void;
   subtitleFont: string;
   subtitleFontSize: number;
   subtitleColor: string;
@@ -87,6 +89,8 @@ const EditorView = ({
   onUpdateSubtitle,
   onSuggestCorrection,
   onReset,
+  isExporting,
+  onExportVideo,
   subtitleFont,
   subtitleFontSize,
   subtitleColor,
@@ -106,7 +110,6 @@ const EditorView = ({
   onUpdateSubtitleTime,
 }: EditorViewProps) => {
   const { toast } = useToast();
-  const [isExporting, setIsExporting] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
 
@@ -152,89 +155,6 @@ const EditorView = ({
       });
     }
   }, [subtitles, videoName, subtitleFont, toast]);
-
-
-  const handleExportVideoWithSubtitles = useCallback(async () => {
-    setIsExporting(true);
-    toast({
-      title: 'Starting Export...',
-      description: 'Your video with subtitles is being prepared. This may take a few minutes.',
-    });
-
-    try {
-      const payload = {
-        videoPublicId,
-        subtitles,
-        videoName,
-        subtitleFont,
-        subtitleFontSize,
-        subtitleColor,
-        subtitleBackgroundColor,
-        subtitleOutlineColor,
-        isBold,
-        isItalic,
-        isUnderline,
-      };
-
-      const response = await fetch('/api/burn-in', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Server returned non-JSON response:", errorText);
-          throw new Error(`Failed to process video. Status: ${response.status}`);
-      }
-
-      const blob = await response.blob();
-      
-      if (blob.size === 0) {
-        throw new Error('Received empty video file from server.');
-      }
-
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = 'video-with-subtitles.mp4';
-      
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
-        if (filenameMatch && filenameMatch.length > 1) {
-          filename = filenameMatch[1];
-        }
-      }
-
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast({
-        title: 'Export Complete!',
-        description: `"${filename}" has been downloaded successfully.`,
-      });
-    } catch (error: any) {
-      console.error('Export failed:', error);
-  
-      let errorMessage = 'Could not export the video with subtitles. Please try again.';
-      if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        variant: 'destructive',
-        title: 'Export Failed',
-        description: errorMessage,
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  }, [videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize, subtitleColor, subtitleBackgroundColor, subtitleOutlineColor, isBold, isItalic, isUnderline, toast]);
 
   const handleTranslateClick = async (targetLanguage: string) => {
     setIsTranslating(true);
@@ -305,7 +225,7 @@ const EditorView = ({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button onClick={handleExportVideoWithSubtitles} disabled={isExporting}>
+                  <Button onClick={onExportVideo} disabled={isExporting}>
                     {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                     Export Video
                   </Button>

@@ -13,7 +13,7 @@ import { Loader2 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 
 // Custom hook for managing undo/redo state
-const useHistory = <T>(initialState: T) => {
+const useHistory = <T extends unknown>(initialState: T) => {
   const [state, setState] = useState({ past: [] as T[], present: initialState, future: [] as T[] });
 
   const set = useCallback((newState: T) => {
@@ -79,6 +79,7 @@ export default function CaptionEditor() {
   const { state: subtitles, set: setSubtitles, undo: undoSubtitles, redo: redoSubtitles, canUndo, canRedo } = useHistory<Subtitle[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [isFetchingLibrary, setIsFetchingLibrary] = useState(true);
   const [activeSubtitleId, setActiveSubtitleId] = useState<number | null>(null);
 
@@ -564,6 +565,67 @@ export default function CaptionEditor() {
       });
     }
   }, [toast, currentVideo, handleReset]);
+
+  const handleExportVideoWithSubtitles = useCallback(async () => {
+    if (!currentVideo) return;
+
+    setIsExporting(true);
+    toast({
+      title: 'Starting Export...',
+      description: 'Your video with subtitles is being prepared. This may take a few minutes.',
+    });
+
+    try {
+      const payload = {
+        videoPublicId: currentVideo.publicId,
+        subtitles,
+        videoName: currentVideo.name,
+        subtitleFont,
+        subtitleFontSize,
+        subtitleColor,
+        subtitleBackgroundColor,
+        subtitleOutlineColor,
+        isBold,
+        isItalic,
+        isUnderline,
+      };
+
+      const response = await fetch('/api/burn-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+          throw new Error(result.error || `Failed to process video. Status: ${response.status}`);
+      }
+
+      // Redirect the user to the download URL
+      window.location.href = result.downloadUrl;
+
+      toast({
+        title: 'Export in Progress!',
+        description: `Your download will begin shortly.`,
+      });
+    } catch (error: any) {
+      console.error('Export failed:', error);
+  
+      let errorMessage = 'Could not export the video with subtitles. Please try again.';
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        variant: 'destructive',
+        title: 'Export Failed',
+        description: errorMessage,
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [currentVideo, subtitles, subtitleFont, subtitleFontSize, subtitleColor, subtitleBackgroundColor, subtitleOutlineColor, isBold, isItalic, isUnderline, toast]);
   
   if (isFetchingLibrary) {
     return (
@@ -595,6 +657,8 @@ export default function CaptionEditor() {
             onUpdateSubtitle={updateSubtitle}
             onSuggestCorrection={handleSuggestCorrection}
             onReset={handleReset}
+            isExporting={isExporting}
+            onExportVideo={handleExportVideoWithSubtitles}
             subtitleFont={subtitleFont}
             subtitleFontSize={subtitleFontSize}
             subtitleColor={subtitleColor}
@@ -612,7 +676,6 @@ export default function CaptionEditor() {
             canRedo={canRedo}
             onDeleteSubtitle={handleDeleteSubtitle}
             onUpdateSubtitleTime={handleUpdateSubtitleTime}
-            videoPublicId={currentVideo.publicId}
           />
           <CorrectionDialog
             state={correctionDialogState}

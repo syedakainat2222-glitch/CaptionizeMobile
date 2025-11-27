@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
-import { formatVtt, type Subtitle } from '@/lib/srt';
+import { formatVtt } from '@/lib/srt';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-};
 
 const parseRgba = (rgba: string) => {
   if (!rgba || !rgba.startsWith('rgba')) {
@@ -88,38 +80,24 @@ export async function POST(request: NextRequest) {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
       transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
+    
+    const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
+    const filename = `${safeFilename}_with_subtitles.mp4`;
 
-    const transformation = [transformationParams];
-
-    const videoUrl = cloudinary.url(videoPublicId, {
+    const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: transformation,
+      transformation: [transformationParams],
       format: 'mp4',
       quality: 'auto',
+      sign_url: true, // Generate a short-lived, secure URL
+      attachment: filename, // Tell browser to download with this filename
     });
 
-    const videoResponse = await fetch(videoUrl);
-    if (!videoResponse.ok) {
-      const errorText = await videoResponse.text();
-      console.error('Cloudinary URL failed:', videoUrl);
-      throw new Error(`Failed to fetch processed video from Cloudinary. Status: ${videoResponse.status}, Body: ${errorText}`);
-    }
-
-    const videoArrayBuffer = await videoResponse.arrayBuffer();
-    const baseName = (videoName || 'video').split('.').slice(0, -1).join('.') || 'video';
-    const filename = `${baseName}-with-subtitles.mp4`;
-    
-    return new NextResponse(videoArrayBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'video/mp4',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': videoArrayBuffer.byteLength.toString(),
-      },
-    });
+    // Return the URL for the client to handle the download
+    return NextResponse.json({ success: true, downloadUrl: finalUrl });
 
   } catch (error) {
-    console.error('=== BURN-IN PROCESS FAILED ===', error);
+    console.error('=== VIDEO PROCESSING FAILED ===', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json(
       { success: false, error: `Failed to process video: ${errorMessage}` },
