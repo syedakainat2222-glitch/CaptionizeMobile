@@ -73,15 +73,6 @@ export default function TermsOfServicePage() {
                 <p>
                     These Terms shall be governed and construed in accordance with the laws of the jurisdiction in which the company is based, without regard to its conflict of law provisions.
                 </p>
-
-                <h2>11. Contact Us</h2>
-                <p>
-                    If you have any questions about these Terms, please contact us at:
-                </p>
-                <p>
-                    Captionize Support<br/>
-                    Email: legal@captionize.app
-                </p>
             </div>
         </main>
     );

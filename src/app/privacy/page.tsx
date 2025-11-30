@@ -98,15 +98,6 @@ export default function PrivacyPolicyPage() {
                 <p>
                     We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last Updated" date. You are advised to review this Privacy Policy periodically for any changes.
                 </p>
-
-                <h2>8. CONTACT US</h2>
-                <p>
-                    If you have questions or comments about this Privacy Policy, please contact us at:
-                </p>
-                <p>
-                    Captionize Support<br/>
-                    Email: support@captionize.app
-                </p>
             </div>
         </main>
     );
