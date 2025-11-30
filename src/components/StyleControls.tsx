@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Bold, Italic, Underline, Palette, Paintbrush, PenLine } from 'lucide-react';
+import { Bold, Italic, Underline, Palette, PenLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ColorPicker from './ColorPicker';
 import type { Video } from '@/lib/types';
@@ -44,7 +44,6 @@ type StyleControlsProps = {
   subtitleFont: string;
   subtitleFontSize: number;
   subtitleColor: string;
-  subtitleBackgroundColor: string;
   subtitleOutlineColor: string;
   isBold: boolean;
   isItalic: boolean;
@@ -56,7 +55,6 @@ const StyleControls = ({
   subtitleFont,
   subtitleFontSize,
   subtitleColor,
-  subtitleBackgroundColor,
   subtitleOutlineColor,
   isBold,
   isItalic,
@@ -98,19 +96,12 @@ const StyleControls = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <ColorPicker
             label="Text Color"
             color={subtitleColor}
             onColorChange={(color) => onStyleChange({ subtitleColor: color })}
             icon={Palette}
-          />
-          <ColorPicker
-            label="Background Color"
-            color={subtitleBackgroundColor}
-            onColorChange={(color) => onStyleChange({ subtitleBackgroundColor: color })}
-            icon={Paintbrush}
-            includeTransparent
           />
           <ColorPicker
             label="Outline Color"
