@@ -2,7 +2,6 @@
 
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from './ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { PlayCircle, Trash2 } from 'lucide-react';
@@ -37,21 +36,23 @@ export default function VideoLibrary({ videos, onSelectVideo, onDeleteVideo }: V
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[40vh] pr-4">
+        <div className="h-[40vh] overflow-auto pr-4">
           <div className="space-y-4">
             {videos.length > 0 ? (
               videos.map((video) => (
                 <div
                   key={video.id}
-                  className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                  className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50 min-w-[500px]"
                 >
-                  <div className="flex-1 overflow-hidden">
-                    <p className="font-semibold truncate">{video.name}</p>
+                  <div className="flex-1 overflow-hidden group">
+                    <p className="font-semibold truncate group-hover:whitespace-normal group-hover:overflow-visible">
+                        {video.name}
+                    </p>
                     <p className="text-sm text-muted-foreground">
                       Last updated: {formatDistanceToNow(toDate(video.updatedAt), { addSuffix: true })}
                     </p>
                   </div>
-                  <div className="flex items-center">
+                  <div className="flex items-center ml-4">
                     <Button variant="ghost" size="icon" onClick={() => onSelectVideo(video)}>
                       <PlayCircle className="h-6 w-6 text-primary" />
                     </Button>
@@ -67,7 +68,7 @@ export default function VideoLibrary({ videos, onSelectVideo, onDeleteVideo }: V
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   );
