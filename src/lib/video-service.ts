@@ -42,9 +42,8 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
     }
   
     try {
-        const videosRef = collection(db, `videos`);
-        // Query only by userId to avoid needing a composite index
-        const q = query(videosRef, where("userId", "==", userId));
+        const videosRef = collection(db, `users/${userId}/videos`);
+        const q = query(videosRef, orderBy("updatedAt", "desc"));
         const snapshot = await getDocs(q);
 
         const videos = snapshot.docs.map((doc) => {
@@ -69,13 +68,12 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
             } as Video;
         });
 
-        // Sort on the client-side
-        return videos.sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime());
+        return videos;
 
     } catch (e: any) {
         if (e.code === 'permission-denied') {
             const error = new FirestorePermissionError({
-                path: `/videos`,
+                path: `/users/${userId}/videos`,
                 operation: 'list'
             });
             errorEmitter.emit('permission-error', error);
@@ -99,12 +97,12 @@ export async function addVideo(videoData: Omit<Video, 'id' | 'userId' | 'created
   };
 
   try {
-    const docRef = await addDoc(collection(db, "videos"), dataToSave);
+    const docRef = await addDoc(collection(db, `users/${userId}/videos`), dataToSave);
     return docRef.id;
   } catch(e: any) {
      if (e.code === 'permission-denied') {
         const error = new FirestorePermissionError({
-            path: `/videos`,
+            path: `/users/${userId}/videos`,
             operation: 'create',
             requestResourceData: dataToSave
         });
@@ -119,7 +117,8 @@ export async function addVideo(videoData: Omit<Video, 'id' | 'userId' | 'created
  * Update existing video
  */
 export async function updateVideo(videoId: string, updateData: Partial<Omit<Video, 'id'>>) {
-  const videoRef = doc(db, "videos", videoId);
+  const userId = DEV_USER_ID;
+  const videoRef = doc(db, `users/${userId}/videos`, videoId);
   const dataToUpdate = { ...updateData, updatedAt: Timestamp.now() };
 
   try {
@@ -127,7 +126,7 @@ export async function updateVideo(videoId: string, updateData: Partial<Omit<Vide
   } catch(e: any) {
       if (e.code === 'permission-denied') {
         const error = new FirestorePermissionError({
-            path: `/videos/${videoId}`,
+            path: `/users/${userId}/videos/${videoId}`,
             operation: 'update',
             requestResourceData: dataToUpdate,
         });
@@ -142,13 +141,14 @@ export async function updateVideo(videoId: string, updateData: Partial<Omit<Vide
  * Delete video
  */
 export async function deleteVideo(videoId: string) {
-    const videoRef = doc(db, "videos", videoId);
+    const userId = DEV_USER_ID;
+    const videoRef = doc(db, `users/${userId}/videos`, videoId);
     try {
         await deleteDoc(videoRef);
     } catch(e: any) {
         if (e.code === 'permission-denied') {
             const error = new FirestorePermissionError({
-                path: `/videos/${videoId}`,
+                path: `/users/${userId}/videos/${videoId}`,
                 operation: 'delete'
             });
             errorEmitter.emit('permission-error', error);

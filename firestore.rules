@@ -1,9 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Authentication is paused. Allow all reads and writes for now.
-    match /{document=**} {
-      allow read, write: if true;
+    // A user document can only be created if the user is authenticated.
+    // The exception is the dev-user, which can be created by anyone.
+    // Users can only modify their own document.
+    match /users/{userId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null || userId == 'dev-user'; // Allow creating the dev user
+
+      // Users can only manage the videos within their own user document.
+      // The dev-user has full access to its own videos for development purposes.
+      match /videos/{videoId} {
+        allow read, write: if (request.auth != null && request.auth.uid == userId) || userId == 'dev-user';
+      }
     }
   }
 }
