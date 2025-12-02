@@ -4,6 +4,8 @@ import { useEffect, useState, memo } from 'react';
 import { Card } from '@/components/ui/card';
 import type { Subtitle } from '@/lib/srt';
 import { formatVtt } from '@/lib/srt';
+import { Button } from '@/components/ui/button';
+
 
 type VideoPlayerProps = {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -26,6 +28,20 @@ const VideoPlayer = ({
   onLoadedMetadata,
 }: VideoPlayerProps) => {
   const [vttUrl, setVttUrl] = useState<string | null>(null);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const playbackRates = [0.5, 1, 1.5, 2];
+
+  const handlePlaybackRateChange = () => {
+    const currentIndex = playbackRates.indexOf(playbackRate);
+    const nextIndex = (currentIndex + 1) % playbackRates.length;
+    setPlaybackRate(playbackRates[nextIndex]);
+  };
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = playbackRate;
+    }
+  }, [playbackRate, videoRef]);
 
   useEffect(() => {
     const vttContent = formatVtt(subtitles);
@@ -102,6 +118,16 @@ const VideoPlayer = ({
           )}
           Your browser does not support the video tag.
         </video>
+        <div className="absolute bottom-2 right-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePlaybackRateChange}
+            className="bg-black bg-opacity-50 text-white hover:bg-opacity-75"
+          >
+            {playbackRate}x
+          </Button>
+        </div>
       </div>
     </Card>
   );

@@ -7,9 +7,9 @@ import { v2 as cloudinary } from 'cloudinary';
 
 // Configure Cloudinary
 cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dh6aa9yoa',
-    api_key: process.env.CLOUDINARY_API_KEY || '925498661764494',
-    api_secret: process.env.CLOUDINARY_API_SECRET || 'wrwEgDvJ-MFxEleWyBa0VFzDDoU',
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 export async function processVideo(input: { cloudinaryPublicId: string; languageCode?: string }) {
