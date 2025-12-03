@@ -1,21 +1,43 @@
-// This file has been temporarily modified and backed up to /src/auth-backup/firebase-auth.ts.bak
-
-import type { Auth } from "firebase/auth";
+import {
+  onAuthStateChanged as onFirebaseAuthStateChanged,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut as firebaseSignOut,
+  type Auth,
+  type User as FirebaseUser,
+} from "firebase/auth";
+import { auth } from "../firebase";
 import type { User } from "../types";
 
-// Mock functions to disable authentication
 export function onAuthStateChanged(authInstance: Auth, callback: (user: User | null) => void) {
-  // Immediately call back with null user and return an empty unsubscribe function
-  callback(null);
-  return () => {};
+  return onFirebaseAuthStateChanged(authInstance, (user: FirebaseUser | null) => {
+    if (user) {
+      const simplifiedUser: User = {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+      };
+      callback(simplifiedUser);
+    } else {
+      callback(null);
+    }
+  });
 }
 
 export async function signInWithGoogle(): Promise<void> {
-    console.log("Sign-in has been temporarily disabled.");
-    return Promise.resolve();
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+    await signInWithPopup(auth, provider);
 }
 
 export async function signOut(): Promise<void> {
-    console.log("Sign-out has been temporarily disabled.");
-    return Promise.resolve();
+    try {
+        await firebaseSignOut(auth);
+    } catch (error) {
+        console.error("Error during sign-out:", error);
+        throw error;
+    }
 }
