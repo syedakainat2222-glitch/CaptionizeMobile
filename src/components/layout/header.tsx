@@ -20,36 +20,22 @@ export default function Header() {
   };
 
   return (
-    <header className="py-4 px-6 md:px-8 flex items-center justify-between border-b">
-      <Link href="/" className="flex items-center gap-2.5 group">
+    <header className="flex items-center justify-between px-4 py-3 bg-background border-b">
+      <Link href="/" className="flex items-center gap-2">
         <svg
-          width="32"
-          height="32"
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
           viewBox="0 0 24 24"
           fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="transition-transform duration-300 group-hover:scale-110"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         >
-          <path
-            d="M4 4H20V16H4V4Z"
-            className="fill-primary/20"
-          />
-          <path
-            d="M4 18H14"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-           <path
-            d="M4 20H10"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-          <path
-            d="M10 9L14 12L10 15V9Z"
-            className="fill-primary"
-          />
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M8 12h8" />
+          <path d="M12 8v8" />
         </svg>
         <span className="font-semibold text-xl tracking-tight">Captionize</span>
       </Link>
@@ -59,7 +45,9 @@ export default function Header() {
             Sign Out
           </Button>
         ) : (
-          null
+          <Button onClick={() => router.push('/auth/signin')} variant="outline">
+            Sign In
+          </Button>
         )}
       </div>
     </header>
