@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getAuth, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import { auth } from '@/lib/firebase'; // Import the initialized auth instance
 import type { User } from '../lib/types';
 
 // -------------------------------------------
@@ -29,18 +30,13 @@ function mapFirebaseUser(u: FirebaseUser | null): User | null {
 // Auth Provider
 // -------------------------------------------
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const auth = getAuth();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // ---- Admin Bypass ----
-    // To enable admin bypass, set the ADMIN_EMAIL to your email address.
-    // This is a temporary solution for development.
     const ADMIN_EMAIL = "admin@bypass.com";
-
-    // This flag enables or disables the bypass. Set to false to use normal authentication.
-    const ENABLE_ADMIN_BYPASS = true;
+    const ENABLE_ADMIN_BYPASS = false;
 
     if (ENABLE_ADMIN_BYPASS) {
       const adminUser: User = {
@@ -53,7 +49,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return; // Skip Firebase auth for admin
     }
-
 
     // ---- Normal Firebase Auth ----
     const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
@@ -71,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(fallback);
       unsubscribe();
     };
-  }, [auth]);
+  }, []);
 
   return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
 }
