@@ -1,7 +1,24 @@
 "use client";
 import Link from 'next/link';
+import { useAuth } from '@/hooks/use-auth';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 
 export default function Header() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      router.push('/auth/signin');
+    } catch (error) {
+      console.error("Error signing out: ", error);
+    }
+  };
+
   return (
     <header className="py-4 px-6 md:px-8 flex items-center justify-between border-b">
       <Link href="/" className="flex items-center gap-2.5 group">
@@ -37,7 +54,13 @@ export default function Header() {
         <span className="font-semibold text-xl tracking-tight">Captionize</span>
       </Link>
       <div className="flex items-center gap-4">
-        {/* AuthButton has been removed */}
+        {user ? (
+          <Button onClick={handleSignOut} variant="outline">
+            Sign Out
+          </Button>
+        ) : (
+          null
+        )}
       </div>
     </header>
   );
