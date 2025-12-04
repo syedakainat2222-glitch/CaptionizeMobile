@@ -21,9 +21,6 @@ import { FirestorePermissionError } from "@/firebase/errors";
 
 const db = getFirestore(app);
 
-// Use a hardcoded user ID for development since auth is paused.
-const DEV_USER_ID = "dev-user";
-
 const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
   if (!timestamp) return new Date();
   if (timestamp instanceof Timestamp) return timestamp.toDate();
@@ -35,7 +32,7 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
  * Fetch all videos for the current user
  */
 export async function fetchVideoLibrary(): Promise<Video[]> {
-    const userId = DEV_USER_ID;
+    const userId = auth.currentUser?.uid;
     if (!userId) {
         console.warn("fetchVideoLibrary: No user ID provided, returning empty array.");
         return [];
@@ -86,8 +83,11 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
 /**
  * Add a new video
  */
-export async function addVideo(videoData: Omit<Video, 'id' | 'userId' | 'createdAt'>): Promise<string> {
-  const userId = DEV_USER_ID;
+export async function addVideo(videoData: Omit<Video, 'id' | 'createdAt'>): Promise<string> {
+  const userId = auth.currentUser?.uid;
+   if (!userId) {
+    throw new Error("User not authenticated");
+  }
 
   const dataToSave = {
     ...videoData,
@@ -117,7 +117,10 @@ export async function addVideo(videoData: Omit<Video, 'id' | 'userId' | 'created
  * Update existing video
  */
 export async function updateVideo(videoId: string, updateData: Partial<Omit<Video, 'id'>>) {
-  const userId = DEV_USER_ID;
+  const userId = auth.currentUser?.uid;
+  if (!userId) {
+    throw new Error("User not authenticated");
+  }
   const videoRef = doc(db, `users/${userId}/videos`, videoId);
   const dataToUpdate = { ...updateData, updatedAt: Timestamp.now() };
 
@@ -141,7 +144,10 @@ export async function updateVideo(videoId: string, updateData: Partial<Omit<Vide
  * Delete video
  */
 export async function deleteVideo(videoId: string) {
-    const userId = DEV_USER_ID;
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+    throw new Error("User not authenticated");
+  }
     const videoRef = doc(db, `users/${userId}/videos`, videoId);
     try {
         await deleteDoc(videoRef);

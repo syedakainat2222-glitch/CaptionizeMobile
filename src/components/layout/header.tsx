@@ -1,23 +1,13 @@
 "use client";
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
-import { auth } from '@/lib/firebase';
-import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { UserNav } from './user-nav';
 
 export default function Header() {
   const { user } = useAuth();
   const router = useRouter();
-
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      router.push('/auth/signin');
-    } catch (error) {
-      console.error("Error signing out: ", error);
-    }
-  };
 
   return (
     <header className="flex items-center justify-between px-4 py-3 bg-background border-b">
@@ -41,9 +31,7 @@ export default function Header() {
       </Link>
       <div className="flex items-center gap-4">
         {user ? (
-          <Button onClick={handleSignOut} variant="outline">
-            Sign Out
-          </Button>
+          <UserNav />
         ) : (
           <Button onClick={() => router.push('/auth/signin')} variant="outline">
             Sign In
