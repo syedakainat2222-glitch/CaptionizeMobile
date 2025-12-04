@@ -11,33 +11,32 @@ export default function Header() {
           viewBox="0 0 32 32"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          aria-label="Captionize Logo"
         >
           <defs>
-            <linearGradient id="logoGradient" x1="0" y1="0" x2="32" y2="32">
-              <stop stopColor="hsl(var(--primary))" />
-              <stop offset="1" stopColor="hsl(var(--accent))" />
+            <linearGradient
+              id="logoGradient"
+              x1="0"
+              y1="0"
+              x2="100%"
+              y2="100%"
+            >
+              <stop stopColor="hsl(var(--primary))" offset="0%" />
+              <stop stopColor="hsl(var(--accent))" offset="100%" />
             </linearGradient>
           </defs>
           <path
-            d="M16 28C22.6274 28 28 22.6274 28 16C28 9.37258 22.6274 4 16 4C9.37258 4 4 9.37258 4 16C4 22.6274 9.37258 28 16 28Z"
-            stroke="url(#logoGradient)"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            d="M16 2.66667C8.63604 2.66667 2.66667 8.63604 2.66667 16C2.66667 23.364 8.63604 29.3333 16 29.3333C23.364 29.3333 29.3333 23.364 29.3333 16C29.3333 8.63604 23.364 2.66667 16 2.66667ZM16 26.6667C10.1093 26.6667 5.33333 21.8907 5.33333 16C5.33333 10.1093 10.1093 5.33333 16 5.33333C21.8907 5.33333 26.6667 10.1093 26.6667 16C26.6667 21.8907 21.8907 26.6667 16 26.6667Z"
+            fill="url(#logoGradient)"
           />
           <path
-            d="M13 12L21 16L13 20V12Z"
-            stroke="url(#logoGradient)"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            d="M13.3333 20L18.6667 16L13.3333 12V20Z"
+            fill="url(#logoGradient)"
           />
         </svg>
-        <span className="text-xl font-bold tracking-tight">Captionize</span>
+        <span className="text-2xl font-bold tracking-tighter">Captionize</span>
       </Link>
       <div className="flex items-center gap-4">
-        {/* Auth components can be added here */}
+        {/* AuthButton has been removed */}
       </div>
     </header>
   );
