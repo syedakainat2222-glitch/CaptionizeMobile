@@ -28,7 +28,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.className} flex flex-col min-h-screen`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -37,7 +37,7 @@ export default function RootLayout({
         >
           <AuthProvider>
             <Header />
-            {children}
+            <main className="flex-grow">{children}</main>
             <Footer />
           </AuthProvider>
         </ThemeProvider>
