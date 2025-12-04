@@ -1,1 +1,1 @@
-restore auth sign out button 30
+restore auth sign out button 31
