@@ -1,1 +1,1 @@
-restore auth loading 34
+restore auth Logo 35
