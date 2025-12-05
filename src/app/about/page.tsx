@@ -69,7 +69,7 @@ export default function AboutPage() {
                     </p>
 
                     <div className="text-center pt-8">
-                         <h2 className="text-3xl font-bold font-headline">Join us in making video truly universal.</h2>
+                         <h2 className="text-3xl font-bold font-headline">Join us in making video truly accessible.</h2>
                     </div>
                 </div>
             </div>
