@@ -20,6 +20,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Caveat&family=Comfortaa&family=Dancing+Script&family=Inter&family=Lato&family=Lobster&family=Lora&family=Merriweather&family=Montserrat&family=Open+Sans&family=Oswald&family=Pacifico&family=Playfair+Display&family=Poppins&family=Righteous&family=Roboto&family=Source+Code+Pro&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className={`${inter.className} flex flex-col min-h-screen`}>
         <ThemeProvider
           attribute="class"
