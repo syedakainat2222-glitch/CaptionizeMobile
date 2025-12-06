@@ -1,1 +1,1 @@
-restore auth Logo 37 mistake resolved
+After i fixed 404 Error = 41

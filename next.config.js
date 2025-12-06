@@ -1,56 +1,29 @@
 /** @type {import('next').NextConfig} */
-
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development', // Disable PWA in development
-});
-
 const nextConfig = {
+  webpack: (config) => {
+    // Ignore server-only modules in frontend
+    config.resolve.fallback = {
+      fs: false,
+      net: false, 
+      tls: false,
+      child_process: false,
+      '@opentelemetry/sdk-node': false,
+    };
+    
+    return config;
+  },
+  // Disable server components for problematic packages
   experimental: {
+    serverComponentsExternalPackages: [
+      '@opentelemetry/sdk-node', 
+      'handlebars',
+      'require-in-the-middle'
+    ],
+    // Increase body size limit for server actions
     serverActions: {
-      bodySizeLimit: '100mb',
+      bodySizeLimit: '50mb',
     },
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
-      },
-    ],
-  },
-  webpack: (config, { isServer }) => {
-    config.resolve.fallback = {
-     fs: false,
-     net: false, 
-     tls: false,
-     child_process: false,
-   };
-
-   return config;
- },
 };
 
-module.exports = withPWA(nextConfig);
+module.exports = nextConfig;
