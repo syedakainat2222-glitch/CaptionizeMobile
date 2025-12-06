@@ -13,17 +13,18 @@ const nextConfig = {
     return config;
   },
   // Disable server components for problematic packages
+  serverExternalPackages: [
+    '@opentelemetry/sdk-node', 
+    'handlebars',
+    'require-in-the-middle'
+  ],
   experimental: {
-    serverComponentsExternalPackages: [
-      '@opentelemetry/sdk-node', 
-      'handlebars',
-      'require-in-the-middle'
-    ],
     // Increase body size limit for server actions
     serverActions: {
       bodySizeLimit: '50mb',
     },
   },
+  turbopack: {},
 };
 
 module.exports = nextConfig;
