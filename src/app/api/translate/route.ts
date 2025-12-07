@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     const prompt = `Translate to ${targetLanguage}. Keep SRT format:\n\n${srtContent}`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
