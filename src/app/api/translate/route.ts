@@ -17,13 +17,21 @@ export async function POST(req: Request) {
     const prompt = `Translate to ${targetLanguage}. Keep SRT format:\n\n${srtContent}`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=${apiKey}`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2 }
+          contents: [
+            {
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.2
+          }
         })
       }
     );
@@ -36,11 +44,10 @@ export async function POST(req: Request) {
     }
 
     const data = await response.json();
-    const translatedText =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const translatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!translatedText) {
-      throw new Error('Empty response from Gemini API');
+      throw new Error('No translated text returned from Gemini');
     }
 
     const translatedSubtitles = parseSrt(translatedText);
@@ -52,7 +59,6 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error('Translation Error:', error);
-
     return NextResponse.json(
       { error: `Translation failed: ${error.message}` },
       { status: 500 }
