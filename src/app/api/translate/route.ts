@@ -16,8 +16,9 @@ export async function POST(req: Request) {
     const srtContent = formatSrt(subtitles);
     const prompt = `Translate to ${targetLanguage}. Keep SRT format:\n\n${srtContent}`;
 
+    // ✅ Updated model to gemini-1.5-flash to fix 404
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: {
