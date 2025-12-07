@@ -1,1 +1,1 @@
-After i fixed genetic = 47
+After i fixed genetic = 48
