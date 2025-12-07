@@ -3,6 +3,8 @@ export interface Subtitle {
   startTime: string;
   endTime: string;
   text: string;
+  positionX?: number;
+  positionY?: number;
 }
 
 const srtRegex =

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
+import Draggable from 'react-draggable';
 import type { Subtitle } from '@/lib/srt';
 
 type DraggableSubtitlesProps = {
@@ -13,6 +13,17 @@ type DraggableSubtitlesProps = {
   videoHeight: number;
 };
 
+// Helper function to convert time string to seconds
+const timeToSeconds = (time: string): number => {
+  const parts = time.split(':');
+  const secondsParts = parts[2].split(',');
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  const seconds = parseInt(secondsParts[0], 10);
+  const milliseconds = parseInt(secondsParts[1], 10);
+  return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+};
+
 const DraggableSubtitles: React.FC<DraggableSubtitlesProps> = ({
   subtitles,
   currentTime,
@@ -22,10 +33,10 @@ const DraggableSubtitles: React.FC<DraggableSubtitlesProps> = ({
   videoHeight,
 }) => {
   const activeSubtitle = subtitles.find(
-    (sub) => sub.startTime <= currentTime && sub.endTime >= currentTime
+    (sub) => timeToSeconds(sub.startTime) <= currentTime && timeToSeconds(sub.endTime) >= currentTime
   );
 
-  const handleStop = (e: DraggableEvent, data: DraggableData) => {
+  const handleStop = (e, data) => {
     if (activeSubtitle && videoWidth > 0 && videoHeight > 0) {
       const x = Math.round((data.x / videoWidth) * 100);
       const y = Math.round((data.y / videoHeight) * 100);
@@ -37,8 +48,14 @@ const DraggableSubtitles: React.FC<DraggableSubtitlesProps> = ({
     return null;
   }
 
-  const defaultX = activeSubtitle.positionX !== undefined ? (activeSubtitle.positionX / 100) * videoWidth : videoWidth / 2;
-  const defaultY = activeSubtitle.positionY !== undefined ? (activeSubtitle.positionY / 100) * videoHeight : videoHeight - 50;
+  // Ensure positionX and positionY are treated as numbers
+  const positionX = typeof activeSubtitle.positionX === 'number' ? activeSubtitle.positionX : 50;
+  const positionY = typeof activeSubtitle.positionY === 'number' ? activeSubtitle.positionY : 100;
+
+
+  const defaultX = (positionX / 100) * videoWidth;
+  const defaultY = (positionY / 100) * videoHeight - 50;
+
 
   return (
     <Draggable

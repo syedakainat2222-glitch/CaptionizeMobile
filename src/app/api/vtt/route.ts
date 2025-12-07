@@ -4,7 +4,7 @@ import { formatVtt, type Subtitle } from '@/lib/vtt';
 import { z } from 'zod';
 
 const subtitleSchema = z.array(z.object({
-  id: z.number(),
+  id: z.number().optional(), // Allow id to be optional
   startTime: z.string(),
   endTime: z.string(),
   text: z.string(),
@@ -24,13 +24,19 @@ export async function GET(request: NextRequest) {
 
     let subtitles: Subtitle[];
     try {
-      // The parameter is URL-encoded, so Next.js/Vercel should handle decoding automatically
       const parsed = JSON.parse(subtitlesParam);
       const validation = subtitleSchema.safeParse(parsed);
       if (!validation.success) {
         throw new Error(`Invalid subtitle format: ${validation.error.message}`);
       }
-      subtitles = validation.data;
+      // Auto-generate ID if it is missing, to conform to the Subtitle type.
+      subtitles = validation.data.map((sub, index) => ({
+        ...sub,
+        id: sub.id ?? index + 1,
+        startTime: sub.startTime,
+        endTime: sub.endTime,
+        text: sub.text,
+      }));
     } catch (e) {
         const error = e instanceof Error ? e.message : "Unknown error";
         console.error("Failed to parse subtitles param:", error);
