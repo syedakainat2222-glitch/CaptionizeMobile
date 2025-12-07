@@ -1,1 +1,1 @@
-After i fixed genetic = 49
+After Translate fix = 50
