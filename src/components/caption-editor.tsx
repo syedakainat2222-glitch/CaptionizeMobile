@@ -184,10 +184,11 @@ export default function CaptionEditor() {
 
         const parsedSubs = parseSrt(flowResult.subtitles);
         
-        const newVideoData: Omit<Video, 'id' | 'userId' | 'createdAt'> = {
+        const newVideoData: Omit<Video, 'id' | 'createdAt'> = {
           name: result.fileName,
           videoUrl: flowResult.videoUrl,
           publicId: result.publicId,
+          userId: 'dev-user',
           subtitles: parsedSubs,
           subtitleFont: 'Arial, sans-serif',
           subtitleFontSize: 48,
@@ -205,7 +206,6 @@ export default function CaptionEditor() {
         const savedVideo: Video = {
            ...newVideoData,
            id: newVideoId,
-           userId: 'dev-user',
            createdAt: Timestamp.now(), 
         }
         
