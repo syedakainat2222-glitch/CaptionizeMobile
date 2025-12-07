@@ -13,9 +13,9 @@ export async function POST(req: Request) {
     const srtContent = formatSrt(subtitles);
     const prompt = `Translate to ${targetLanguage}. Keep SRT format:\n\n${srtContent}`;
 
-    // ✅ **FREE GEMINI 2.0 FLASH MODEL**
+    // ✅ **USING GEMINI 1.5 FLASH MODEL WITH AVAILABLE QUOTA**
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-001:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
