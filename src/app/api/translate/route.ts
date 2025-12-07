@@ -4,7 +4,7 @@ import { formatSrt, parseSrt } from '@/lib/srt';
 export async function POST(req: Request) {
   try {
     const { subtitles, targetLanguage } = await req.json();
-    
+
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 });
@@ -13,9 +13,9 @@ export async function POST(req: Request) {
     const srtContent = formatSrt(subtitles);
     const prompt = `Translate to ${targetLanguage}. Keep SRT format:\n\n${srtContent}`;
 
-    // ✅ **USING GEMINI 1.5 FLASH MODEL WITH AVAILABLE QUOTA**
+    // ✅ **FIX: Using correct model name and API version**
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -34,15 +34,15 @@ export async function POST(req: Request) {
     const data = await response.json();
     const translatedText = data.candidates[0].content.parts[0].text;
     const translatedSubtitles = parseSrt(translatedText);
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       success: true,
-      subtitles: translatedSubtitles 
+      subtitles: translatedSubtitles
     });
-    
+
   } catch (error: any) {
-    return NextResponse.json({ 
-      error: `Translation failed: ${error.message}` 
+    return NextResponse.json({
+      error: `Translation failed: ${error.message}`
     }, { status: 500 });
   }
 }
