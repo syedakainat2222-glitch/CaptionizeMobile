@@ -14,44 +14,8 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/icon-72.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-96.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-128.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-144.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-152.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-384.png",
-      "sizes": "384x384",
       "type": "image/png",
       "purpose": "any maskable"
     },
@@ -62,57 +26,5 @@
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshot-mobile-1.png",
-      "sizes": "1080x1920",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Video Translation Interface"
-    },
-    {
-      "src": "/screenshot-mobile-2.png",
-      "sizes": "1080x1920",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Subtitle Editor"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "New Translation",
-      "short_name": "Translate",
-      "description": "Start new video translation",
-      "url": "/?action=new",
-      "icons": [
-        {
-          "src": "/shortcut-translate.png",
-          "sizes": "96x96"
-        }
-      ]
-    },
-    {
-      "name": "My Library",
-      "short_name": "Library",
-      "description": "View your video library",
-      "url": "/library",
-      "icons": [
-        {
-          "src": "/shortcut-library.png",
-          "sizes": "96x96"
-        }
-      ]
-    }
-  ],
-  "protocol_handlers": [
-    {
-      "protocol": "web+captionize",
-      "url": "/open?url=%s"
-    }
-  ],
-  "related_applications": [],
-  "display_override": ["window-controls-overlay", "standalone"],
-  "edge_side_panel": {
-    "preferred_width": 360
-  }
+  "display_override": ["window-controls-overlay", "standalone"]
 }
