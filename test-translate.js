@@ -17,7 +17,7 @@ async function fixGemini404() {
     const models = await listResponse.json();
     console.log("Available Gemini Models:", models);
 
-    // Step 2: Pick a supported model (example: gemini-1.5-turbo)
+    // Step 2: Pick a supported model (example: gemini-2.5-flash-latest)
     const modelName = "gemini-2.5-flash-latest"; // replace with a valid model from the list
 
     // Step 3: Test a translation request
