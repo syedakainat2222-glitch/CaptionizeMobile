@@ -55,7 +55,6 @@ type EditorViewProps = {
   subtitleFont: string;
   subtitleFontSize: number;
   subtitleColor: string;
-  subtitleBackgroundColor: string;
   subtitleOutlineColor: string;
   isBold: boolean;
   isItalic: boolean;
@@ -94,7 +93,6 @@ const EditorView = ({
   subtitleFont,
   subtitleFontSize,
   subtitleColor,
-  subtitleBackgroundColor,
   subtitleOutlineColor,
   isBold,
   isItalic,
@@ -174,7 +172,6 @@ const EditorView = ({
         subtitleFont={subtitleFont}
         subtitleFontSize={subtitleFontSize}
         subtitleColor={subtitleColor}
-        subtitleBackgroundColor={subtitleBackgroundColor}
         subtitleOutlineColor={subtitleOutlineColor}
         isBold={isBold}
         isItalic={isItalic}
@@ -251,7 +248,6 @@ const EditorView = ({
             subtitleFont={subtitleFont}
             subtitleFontSize={subtitleFontSize}
             subtitleColor={subtitleColor}
-            subtitleBackgroundColor={subtitleBackgroundColor}
             subtitleOutlineColor={subtitleOutlineColor}
             isBold={isBold}
             isItalic={isItalic}

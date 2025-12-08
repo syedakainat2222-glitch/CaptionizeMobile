@@ -44,7 +44,6 @@ type StyleControlsProps = {
   subtitleFont: string;
   subtitleFontSize: number;
   subtitleColor: string;
-  subtitleBackgroundColor: string;
   subtitleOutlineColor: string;
   isBold: boolean;
   isItalic: boolean;
@@ -56,7 +55,6 @@ const StyleControls = ({
   subtitleFont,
   subtitleFontSize,
   subtitleColor,
-  subtitleBackgroundColor,
   subtitleOutlineColor,
   isBold,
   isItalic,
@@ -104,13 +102,6 @@ const StyleControls = ({
             color={subtitleColor}
             onColorChange={(color) => onStyleChange({ subtitleColor: color })}
             icon={Palette}
-          />
-          <ColorPicker
-            label="Background Color"
-            color={subtitleBackgroundColor}
-            onColorChange={(color) => onStyleChange({ subtitleBackgroundColor: color })}
-            icon={Palette}
-            includeTransparent
           />
           <ColorPicker
             label="Outline Color"

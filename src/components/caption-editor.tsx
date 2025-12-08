@@ -92,7 +92,6 @@ export default function CaptionEditor() {
   const [subtitleFont, setSubtitleFont] = useState('Arial, sans-serif');
   const [subtitleFontSize, setSubtitleFontSize] = useState(48);
   const [subtitleColor, setSubtitleColor] = useState('#FFFFFF');
-  const [subtitleBackgroundColor, setSubtitleBackgroundColor] = useState('#000000');
   const [subtitleOutlineColor, setSubtitleOutlineColor] = useState('transparent');
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
@@ -138,7 +137,6 @@ export default function CaptionEditor() {
       setSubtitleFont(currentVideo.subtitleFont || 'Arial, sans-serif');
       setSubtitleFontSize(currentVideo.subtitleFontSize || 48);
       setSubtitleColor(currentVideo.subtitleColor || '#FFFFFF');
-      setSubtitleBackgroundColor(currentVideo.subtitleBackgroundColor || '#000000');
       setSubtitleOutlineColor(currentVideo.subtitleOutlineColor || 'transparent');
       setIsBold(currentVideo.isBold || false);
       setIsItalic(currentVideo.isItalic || false);
@@ -148,7 +146,6 @@ export default function CaptionEditor() {
       setSubtitleFont('Arial, sans-serif');
       setSubtitleFontSize(48);
       setSubtitleColor('#FFFFFF');
-      setSubtitleBackgroundColor('#000000');
       setSubtitleOutlineColor('transparent');
       setIsBold(false);
       setIsItalic(false);
@@ -193,7 +190,6 @@ export default function CaptionEditor() {
           subtitleFont: 'Arial, sans-serif',
           subtitleFontSize: 48,
           subtitleColor: '#FFFFFF',
-          subtitleBackgroundColor: '#000000',
           subtitleOutlineColor: 'transparent',
           isBold: false,
           isItalic: false,
@@ -442,7 +438,6 @@ export default function CaptionEditor() {
         if (update.subtitleFont) setSubtitleFont(update.subtitleFont);
         if (update.subtitleFontSize) setSubtitleFontSize(update.subtitleFontSize);
         if (update.subtitleColor) setSubtitleColor(update.subtitleColor);
-        if (update.subtitleBackgroundColor) setSubtitleBackgroundColor(update.subtitleBackgroundColor);
         if (update.subtitleOutlineColor) setSubtitleOutlineColor(update.subtitleOutlineColor);
         if (update.isBold !== undefined) setIsBold(update.isBold);
         if (update.isItalic !== undefined) setIsItalic(update.isItalic);
@@ -583,7 +578,6 @@ export default function CaptionEditor() {
         subtitleFont,
         subtitleFontSize,
         subtitleColor,
-        subtitleBackgroundColor,
         subtitleOutlineColor,
         isBold,
         isItalic,
@@ -625,7 +619,7 @@ export default function CaptionEditor() {
     } finally {
       setIsExporting(false);
     }
-  }, [currentVideo, subtitles, subtitleFont, subtitleFontSize, subtitleColor, subtitleBackgroundColor, subtitleOutlineColor, isBold, isItalic, isUnderline, toast]);
+  }, [currentVideo, subtitles, subtitleFont, subtitleFontSize, subtitleColor, subtitleOutlineColor, isBold, isItalic, isUnderline, toast]);
   
   if (isFetchingLibrary) {
     return (
@@ -662,7 +656,6 @@ export default function CaptionEditor() {
             subtitleFont={subtitleFont}
             subtitleFontSize={subtitleFontSize}
             subtitleColor={subtitleColor}
-            subtitleBackgroundColor={subtitleBackgroundColor}
             subtitleOutlineColor={subtitleOutlineColor}
             isBold={isBold}
             isItalic={isItalic}

@@ -6,7 +6,6 @@ type SubtitleStylerProps = {
   subtitleFont: string;
   subtitleFontSize: number;
   subtitleColor: string;
-  subtitleBackgroundColor: string;
   subtitleOutlineColor: string;
   isBold: boolean;
   isItalic: boolean;
@@ -17,7 +16,6 @@ const SubtitleStyler = ({
   subtitleFont,
   subtitleFontSize,
   subtitleColor,
-  subtitleBackgroundColor,
   subtitleOutlineColor,
   isBold,
   isItalic,
@@ -51,12 +49,12 @@ const SubtitleStyler = ({
         font-family: "${subtitleFont}", sans-serif !important;
         font-size: ${subtitleFontSize}px !important;
         color: ${subtitleColor} !important;
-        background-color: ${subtitleBackgroundColor} !important;
+        background-color: transparent !important;
         font-weight: ${isBold ? 'bold' : 'normal'} !important;
         font-style: ${isItalic ? 'italic' : 'normal'} !important;
         text-decoration: ${isUnderline ? 'underline' : 'none'} !important;
         text-shadow: ${createTextShadow()} !important;
-        white-space: pre-wrap !important;
+        white-space: pre-wrap !importany;
         direction: rtl !important;
       }
     `;
@@ -65,7 +63,6 @@ const SubtitleStyler = ({
     subtitleFont,
     subtitleFontSize,
     subtitleColor,
-    subtitleBackgroundColor,
     subtitleOutlineColor,
     isBold,
     isItalic,
