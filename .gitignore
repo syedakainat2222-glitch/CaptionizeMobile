@@ -31,3 +31,4 @@ Thumbs.db
 *.test.js
 *.spec.js
 test-*.js
+.vercel
