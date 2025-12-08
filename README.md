@@ -1,1 +1,1 @@
-Background color removed = 64
+after downloading bubble wrap = 66
