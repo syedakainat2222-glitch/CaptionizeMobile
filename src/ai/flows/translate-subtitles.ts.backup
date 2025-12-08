@@ -21,7 +21,7 @@ export async function translateSubtitles(input: {
   const validatedInput = TranslateSubtitlesInputSchema.parse(input);
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-latest' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-001' });
 
   const prompt = `Translate the following subtitles into ${validatedInput.targetLanguage}. Only return the translated text for each subtitle, in the same order, separated by a new line. Do not include timestamps or IDs.\n\n${validatedInput.subtitles.map(s => s.text).join('\n')}`;
 

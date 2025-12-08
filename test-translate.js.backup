@@ -5,7 +5,7 @@ async function fixGemini404() {
   try {
     // Step 1: List all available Gemini models
     const listResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
     );
 
     if (!listResponse.ok) {
@@ -18,13 +18,13 @@ async function fixGemini404() {
     console.log("Available Gemini Models:", models);
 
     // Step 2: Pick a supported model (example: gemini-1.5-turbo)
-    const modelName = "gemini-2.5-flash-latest"; // replace with a valid model from the list
+    const modelName = "gemini-1.5-turbo"; // replace with a valid model from the list
 
     // Step 3: Test a translation request
     const prompt = "Translate 'Hello world' to Spanish, keep format simple.";
 
     const translateResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
