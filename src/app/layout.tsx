@@ -42,7 +42,9 @@ export default function RootLayout({
         >
           <AuthProvider>
             <Header />
-            <main className="flex-grow">{children}</main>
+            <main className="flex-grow">
+              {children}
+            </main>
             <Footer />
           </AuthProvider>
         </ThemeProvider>
@@ -50,3 +52,4 @@ export default function RootLayout({
     </html>
   );
 }
+// Force new build to update assetlinks.json
