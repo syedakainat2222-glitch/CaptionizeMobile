@@ -42,7 +42,7 @@ export default function RootLayout({
         >
           <AuthProvider>
             <Header />
-            <main className="flex-grow">
+            <main className="flex-grow w-full max-w-7xl mx-auto p-4">
               {children}
             </main>
             <Footer />
