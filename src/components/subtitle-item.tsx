@@ -29,7 +29,7 @@ const SubtitleItem = ({
   return (
     <div
       className={cn(
-        'flex gap-2 rounded-lg border p-3 transition-all duration-300',
+        'flex flex-col md:flex-row gap-2 rounded-lg border p-3 transition-all duration-300',
         isActive ? 'border-primary bg-primary/5 shadow-md' : 'border-border'
       )}
     >
@@ -39,9 +39,10 @@ const SubtitleItem = ({
       </div>
       <div className="flex-grow">
         <Textarea
+          dir="auto"
           value={subtitle.text}
           onChange={(e) => onUpdate(subtitle.id, e.target.value)}
-          className="h-full resize-none bg-background/50"
+          className="h-full resize-none bg-background/50 [&:dir(rtl)]:text-right"
           rows={2}
         />
       </div>
