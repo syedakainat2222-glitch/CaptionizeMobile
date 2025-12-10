@@ -29,23 +29,23 @@ const SubtitleItem = ({
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 rounded-lg border p-3 transition-all duration-300 md:flex-row md:gap-2',
+        'flex gap-2 rounded-lg border p-3 transition-all duration-300',
         isActive ? 'border-primary bg-primary/5 shadow-md' : 'border-border'
       )}
     >
-      <div className="flex flex-row justify-between text-xs text-muted-foreground md:flex-col">
+      <div className="flex flex-col text-xs text-muted-foreground">
         <span>{subtitle.startTime.replace(',', '.')}</span>
         <span>{subtitle.endTime.replace(',', '.')}</span>
       </div>
       <div className="flex-grow">
         <Textarea
-          dir="auto"
           value={subtitle.text}
           onChange={(e) => onUpdate(subtitle.id, e.target.value)}
-          className="h-full min-h-[60px] resize-none bg-background/50 [&:dir(rtl)]:text-right"
+          className="h-full resize-none bg-background/50"
+          rows={2}
         />
       </div>
-      <div className="flex flex-row items-center justify-center gap-2 md:flex-col">
+      <div className="flex flex-col gap-1">
         <TooltipProvider>
             <Tooltip>
             <TooltipTrigger asChild>
