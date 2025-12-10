@@ -1,0 +1,10 @@
+
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.captionize.studio",
+    "sha256_cert_fingerprints":
+    ["7F:55:60:15:B3:58:C7:F1:FD:96:3D:2C:E5:83:A9:61:0F:6C:DF:F4:F7:4B:9F:6A:86:E2:4D:0F:68:A6:26:8D"]
+  }
+}]

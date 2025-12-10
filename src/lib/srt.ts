@@ -3,6 +3,8 @@ export interface Subtitle {
   startTime: string;
   endTime: string;
   text: string;
+  positionX?: number;
+  positionY?: number;
 }
 
 const srtRegex =
@@ -13,6 +15,8 @@ export const parseSrt = (srt: string): Subtitle[] => {
   // Normalize line endings
   const normalizedSrt = srt.replace(/\r\n/g, '\n');
   let match;
+  // Ensure we reset the regex index before exec
+  srtRegex.lastIndex = 0; 
   while ((match = srtRegex.exec(normalizedSrt)) !== null) {
     subtitles.push({
       id: parseInt(match[1]),

@@ -1,4 +1,3 @@
-
 import {
   onAuthStateChanged as onFirebaseAuthStateChanged,
   signInWithPopup,
@@ -7,8 +6,8 @@ import {
   type Auth,
   type User as FirebaseUser,
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import type { User } from "@/lib/types";
+import { auth } from "../firebase";
+import type { User } from "../types";
 
 export function onAuthStateChanged(authInstance: Auth, callback: (user: User | null) => void) {
   return onFirebaseAuthStateChanged(authInstance, (user: FirebaseUser | null) => {
@@ -26,24 +25,12 @@ export function onAuthStateChanged(authInstance: Auth, callback: (user: User | n
   });
 }
 
-export async function signInWithGoogle(): Promise<User | null> {
+export async function signInWithGoogle(): Promise<void> {
     const provider = new GoogleAuthProvider();
-    try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
-         if (user) {
-            return {
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName,
-                photoURL: user.photoURL,
-            };
-        }
-        return null;
-    } catch (error) {
-        console.error("Error during Google sign-in:", error);
-        throw error;
-    }
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+    await signInWithPopup(auth, provider);
 }
 
 export async function signOut(): Promise<void> {

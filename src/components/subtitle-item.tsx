@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Trash2 } from 'lucide-react';
 import type { Subtitle } from '@/lib/srt';
 import { cn } from '@/lib/utils';
 import {
@@ -16,6 +16,7 @@ type SubtitleItemProps = {
   onUpdate: (id: number, text: string) => void;
   isActive: boolean;
   onSuggestCorrection: () => void;
+  onDelete: (id: number) => void;
 };
 
 const SubtitleItem = ({
@@ -23,6 +24,7 @@ const SubtitleItem = ({
   onUpdate,
   isActive,
   onSuggestCorrection,
+  onDelete,
 }: SubtitleItemProps) => {
   return (
     <div
@@ -43,23 +45,42 @@ const SubtitleItem = ({
           rows={2}
         />
       </div>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onSuggestCorrection}
-              className="shrink-0 text-amber-500 hover:text-amber-400"
-            >
-              <Sparkles className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Suggest Correction</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <div className="flex flex-col gap-1">
+        <TooltipProvider>
+            <Tooltip>
+            <TooltipTrigger asChild>
+                <Button
+                variant="ghost"
+                size="icon"
+                onClick={onSuggestCorrection}
+                className="shrink-0 text-amber-500 hover:text-amber-400"
+                >
+                <Sparkles className="h-5 w-5" />
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+                <p>Suggest Correction</p>
+            </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDelete(subtitle.id)}
+                    className="shrink-0 text-red-500 hover:text-red-400"
+                    >
+                    <Trash2 className="h-5 w-5" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Delete Subtitle</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+      </div>
     </div>
   );
 };

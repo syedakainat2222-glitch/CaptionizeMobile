@@ -1,57 +1,56 @@
 'use client';
 
-import { useRef, useEffect, useState, memo } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { Card } from '@/components/ui/card';
 import type { Subtitle } from '@/lib/srt';
 import { formatVtt } from '@/lib/srt';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+
 
 type VideoPlayerProps = {
+  videoRef: React.RefObject<HTMLVideoElement>;
   videoUrl: string;
   subtitles: Subtitle[];
+  isPlaying: boolean;
+  onPlayPause: () => void; // To sync state with parent
   onTimeUpdate: (time: number) => void;
+  onLoadedMetadata: () => void;
   activeSubtitleId: number | null;
-  subtitleFont: string;
-  subtitleFontSize: number;
-  subtitleColor: string;
-  subtitleBackgroundColor: string;
-  subtitleOutlineColor: string;
-  isBold: boolean;
-  isItalic: boolean;
-  isUnderline: boolean;
 };
 
 const VideoPlayer = ({
+  videoRef,
   videoUrl,
   subtitles,
+  isPlaying,
+  onPlayPause,
   onTimeUpdate,
-  activeSubtitleId,
-  subtitleFont,
-  subtitleFontSize,
-  subtitleColor,
-  subtitleBackgroundColor,
-  subtitleOutlineColor,
-  isBold,
-  isItalic,
-  isUnderline,
+  onLoadedMetadata,
 }: VideoPlayerProps) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [vttUrl, setVttUrl] = useState<string | null>(null);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const playbackRates = [0.5, 1, 1.5, 2];
 
-  const activeSubtitle = subtitles.find((sub) => sub.id === activeSubtitleId);
+  const handlePlaybackRateChange = () => {
+    const currentIndex = playbackRates.indexOf(playbackRate);
+    const nextIndex = (currentIndex + 1) % playbackRates.length;
+    setPlaybackRate(playbackRates[nextIndex]);
+  };
 
   useEffect(() => {
-    let objectUrl: string | null = null;
-    if (subtitles.length > 0) {
-      const vttContent = formatVtt(subtitles);
-      const blob = new Blob([vttContent], { type: 'text/vtt' });
-      objectUrl = URL.createObjectURL(blob);
-      setVttUrl(objectUrl);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = playbackRate;
     }
+  }, [playbackRate, videoRef]);
+
+  useEffect(() => {
+    const vttContent = formatVtt(subtitles);
+    const blob = new Blob([vttContent], { type: 'text/vtt' });
+    const url = URL.createObjectURL(blob);
+    setVttUrl(url);
+
     return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
+      URL.revokeObjectURL(url);
     };
   }, [subtitles]);
 
@@ -59,57 +58,58 @@ const VideoPlayer = ({
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
-    const handleTimeUpdateEvent = () => {
-      onTimeUpdate(videoElement.currentTime);
-    };
+    const handleTimeUpdate = () => onTimeUpdate(videoElement.currentTime);
+    const handlePlay = () => !isPlaying && onPlayPause();
+    const handlePause = () => isPlaying && onPlayPause();
 
-    videoElement.addEventListener('timeupdate', handleTimeUpdateEvent);
+    videoElement.addEventListener('timeupdate', handleTimeUpdate);
+    videoElement.addEventListener('play', handlePlay);
+    videoElement.addEventListener('pause', handlePause);
+    videoElement.addEventListener('loadedmetadata', onLoadedMetadata);
+    
+    if (videoElement.textTracks.length > 0) {
+        videoElement.textTracks[0].mode = 'showing';
+    }
 
     return () => {
-      if (videoElement) {
-        videoElement.removeEventListener('timeupdate', handleTimeUpdateEvent);
-      }
+      videoElement.removeEventListener('timeupdate', handleTimeUpdate);
+      videoElement.removeEventListener('play', handlePlay);
+      videoElement.removeEventListener('pause', handlePause);
+      videoElement.removeEventListener('loadedmetadata', onLoadedMetadata);
     };
-  }, [onTimeUpdate]);
+  }, [videoRef, onTimeUpdate, onLoadedMetadata, isPlaying, onPlayPause]);
 
-  const handleLoadedMetadata = () => {
-    if (videoRef.current && videoRef.current.textTracks.length > 0) {
-      videoRef.current.textTracks[0].mode = 'hidden';
-    }
-  };
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
 
-  const createTextShadow = () => {
-    if (!subtitleOutlineColor || subtitleOutlineColor === 'transparent') {
-      return '2px 2px 4px rgba(0,0,0,0.7)';
+    if (isPlaying) {
+        videoElement.play().catch(error => {
+            // Handle interruption errors gracefully, often they are benign
+            if (error.name === 'AbortError') {
+                console.log('Video play was interrupted, most likely by a pause call.');
+            } else {
+                console.error('Error playing video:', error);
+            }
+        });
+    } else {
+        videoElement.pause();
     }
-    const color = subtitleOutlineColor;
-    return `
-      -2px -2px 0 ${color},  
-       2px -2px 0 ${color},
-      -2px  2px 0 ${color},
-       2px  2px 0 ${color},
-      -2px  0px 0 ${color},
-       2px  0px 0 ${color},
-       0px -2px 0 ${color},
-       0px  2px 0 ${color}
-    `;
-  };
+  }, [isPlaying, videoRef]);
 
   return (
-    <Card className="overflow-hidden shadow-lg relative">
-      <div className="aspect-video w-full bg-black relative">
+    <Card className="overflow-hidden shadow-lg relative aspect-video">
+      <div className="w-full h-full bg-black">
         <video
           ref={videoRef}
-          key={videoUrl}
-          controls
+          key={videoUrl} 
           crossOrigin="anonymous"
           className="h-full w-full"
-          onLoadedMetadata={handleLoadedMetadata}
         >
           <source src={videoUrl} type="video/mp4" />
           {vttUrl && (
             <track
-              label="English"
+              label="Subtitles"
               kind="subtitles"
               srcLang="en"
               src={vttUrl}
@@ -118,35 +118,15 @@ const VideoPlayer = ({
           )}
           Your browser does not support the video tag.
         </video>
-
-        {/* Custom Subtitle Overlay */}
-        <div
-          className={cn(
-            'absolute bottom-5 md:bottom-10 left-1/2 -translate-x-1/2 w-full px-4 text-center transition-opacity duration-300',
-            activeSubtitle ? 'opacity-100' : 'opacity-0'
-          )}
-          style={{ pointerEvents: 'none' }}
-        >
-          {activeSubtitle && (
-            <span
-              style={{
-                backgroundColor: subtitleBackgroundColor,
-                fontFamily: subtitleFont,
-                fontSize: `${subtitleFontSize}px`,
-                color: subtitleColor,
-                fontWeight: isBold ? 'bold' : 'normal',
-                fontStyle: isItalic ? 'italic' : 'normal',
-                textDecoration: isUnderline ? 'underline' : 'none',
-                textShadow: createTextShadow(),
-                padding: '0.2em 0.4em',
-                borderRadius: '0.25em',
-                boxDecorationBreak: 'clone',
-                WebkitBoxDecorationBreak: 'clone',
-              }}
-            >
-              {activeSubtitle.text}
-            </span>
-          )}
+        <div className="absolute bottom-2 right-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePlaybackRateChange}
+            className="bg-black bg-opacity-50 text-white hover:bg-opacity-75"
+          >
+            {playbackRate}x
+          </Button>
         </div>
       </div>
     </Card>

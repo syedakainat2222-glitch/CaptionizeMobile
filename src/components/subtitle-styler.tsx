@@ -1,39 +1,73 @@
 'use client';
 
 import { useEffect } from 'react';
-import { createPortal } from 'react-dom';
 
 type SubtitleStylerProps = {
-  fontFamily: string;
+  subtitleFont: string;
+  subtitleFontSize: number;
+  subtitleColor: string;
+  subtitleOutlineColor: string;
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
 };
 
-const SubtitleStyler = ({ fontFamily }: SubtitleStylerProps) => {
-  const styleContent = `
-    ::cue {
-      font-family: ${fontFamily} !important;
-      /* You can add more global subtitle styles here if needed */
-    }
-  `;
-
+const SubtitleStyler = ({
+  subtitleFont,
+  subtitleFontSize,
+  subtitleColor,
+  subtitleOutlineColor,
+  isBold,
+  isItalic,
+  isUnderline,
+}: SubtitleStylerProps) => {
   useEffect(() => {
-    const styleElement = document.createElement('style');
-    styleElement.id = 'subtitle-styler';
-    styleElement.innerHTML = styleContent;
-    
-    const existingStyle = document.getElementById('subtitle-styler');
-    if (existingStyle) {
-      existingStyle.innerHTML = styleContent;
-    } else {
+    const styleId = 'subtitle-styler';
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement | null;
+
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = styleId;
       document.head.appendChild(styleElement);
     }
 
-    return () => {
-        const styleToRemove = document.getElementById('subtitle-styler');
-        if (styleToRemove) {
-            styleToRemove.remove();
-        }
-    }
-  }, [fontFamily, styleContent]);
+    const createTextShadow = () => {
+      if (!subtitleOutlineColor || subtitleOutlineColor === 'transparent') {
+        return 'none';
+      }
+      const color = subtitleOutlineColor;
+      return `
+        -1px -1px 0 ${color},  
+         1px -1px 0 ${color},
+        -1px  1px 0 ${color},
+         1px  1px 0 ${color}
+      `;
+    };
+
+    styleElement.textContent = `
+      video::cue {
+        font-family: "${subtitleFont}", sans-serif !important;
+        font-size: ${subtitleFontSize}px !important;
+        color: ${subtitleColor} !important;
+        background-color: transparent !important;
+        font-weight: ${isBold ? 'bold' : 'normal'} !important;
+        font-style: ${isItalic ? 'italic' : 'normal'} !important;
+        text-decoration: ${isUnderline ? 'underline' : 'none'} !important;
+        text-shadow: ${createTextShadow()} !important;
+        white-space: pre-wrap !importany;
+        direction: rtl !important;
+      }
+    `;
+
+  }, [
+    subtitleFont,
+    subtitleFontSize,
+    subtitleColor,
+    subtitleOutlineColor,
+    isBold,
+    isItalic,
+    isUnderline,
+  ]);
 
   return null;
 };

@@ -1,66 +1,58 @@
 'use server';
-/**
- * @fileOverview This file defines a Genkit flow for suggesting corrections and improvements to subtitles.
- *
- * The flow takes the original subtitle text and the surrounding context as input, and returns suggested corrections.
- *
- * @interface AISuggestedCorrectionsInput - Input type for the aiSuggestedCorrections function.
- * @interface AISuggestedCorrectionsOutput - Output type for the aiSuggestedCorrections function.
- * @function aiSuggestedCorrections - The main function to trigger the subtitle correction suggestions flow.
- */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'zod';
+import { z } from 'zod';
 
-const AISuggestedCorrectionsInputSchema = z.object({
-  subtitleText: z.string().describe('The text of the subtitle to be corrected.'),
-  context: z
-    .string()
-    .describe(
-      'The surrounding context of the subtitle, including previous and subsequent subtitles.'
-    ),
-});
-export type AISuggestedCorrectionsInput = z.infer<typeof AISuggestedCorrectionsInputSchema>;
+export async function aiSuggestedCorrections(input: { subtitleText: string; context: string }) {
+    const prompt = `You are a subtitle correction expert. Given the following subtitle text and its surrounding context, please suggest a correction for the main subtitle text. Provide a brief explanation for your suggestion. Focus on grammatical errors, typos, and clarity. The context may include the previous and next subtitles. Only correct the main text, not the context.
 
-const AISuggestedCorrectionsOutputSchema = z.object({
-  suggestedCorrection: z
-    .string()
-    .describe('The AI-suggested correction for the subtitle text.'),
-  explanation: z
-    .string()
-    .describe('An explanation of why the AI suggested this correction.'),
-});
-export type AISuggestedCorrectionsOutput = z.infer<typeof AISuggestedCorrectionsOutputSchema>;
+Context:
+${input.context}
 
-export async function aiSuggestedCorrections(
-  input: AISuggestedCorrectionsInput
-): Promise<AISuggestedCorrectionsOutput> {
-  return aiSuggestedCorrectionsFlow(input);
+Main Subtitle to Correct:
+${input.subtitleText}
+
+Your response should be in JSON format with two keys: 'suggestedCorrection' and 'explanation'.`;
+
+    try {
+        const apiKey = process.env.GOOGLE_AI_API_KEY;
+        if (!apiKey) {
+            throw new Error('GOOGLE_AI_API_KEY environment variable is not set');
+        }
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.3,
+                    responseMimeType: 'application/json',
+                }
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Google AI API error: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        const responseText = data.candidates[0].content.parts[0].text;
+        
+        // Parse the JSON response
+        return JSON.parse(responseText);
+    } catch (error) {
+        console.error('AI suggestion error:', error);
+        // Fallback to mock response
+        return {
+            suggestedCorrection: input.subtitleText,
+            explanation: "AI service temporarily unavailable. Please try again."
+        };
+    }
 }
-
-const aiSuggestedCorrectionsPrompt = ai.definePrompt({
-  name: 'aiSuggestedCorrectionsPrompt',
-  input: {schema: AISuggestedCorrectionsInputSchema},
-  output: {schema: AISuggestedCorrectionsOutputSchema},
-  prompt: `You are an AI subtitle editor. You will suggest corrections and improvements to the subtitle text based on the surrounding context.
-
-Subtitle Text: {{{subtitleText}}}
-Context: {{{context}}}
-
-Suggest a correction to the subtitle text and explain why you suggested this correction.
-
-Correction: {{suggestedCorrection}}
-Explanation: {{explanation}}`,
-});
-
-const aiSuggestedCorrectionsFlow = ai.defineFlow(
-  {
-    name: 'aiSuggestedCorrectionsFlow',
-    inputSchema: AISuggestedCorrectionsInputSchema,
-    outputSchema: AISuggestedCorrectionsOutputSchema,
-  },
-  async input => {
-    const {output} = await aiSuggestedCorrectionsPrompt(input);
-    return output!;
-  }
-);

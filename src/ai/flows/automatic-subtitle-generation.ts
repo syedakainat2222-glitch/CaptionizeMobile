@@ -1,57 +1,139 @@
 'use server';
 
-/**
- * @fileOverview Generates subtitles automatically from a video.
- *
- * - generateSubtitles - A function that handles the automatic subtitle generation process.
- * - GenerateSubtitlesInput - The input type for the generateSubtitles function.
- * - GenerateSubtitlesOutput - The return type for the generateSubtitles function.
- */
+import { z } from 'zod';
+import { AssemblyAI } from 'assemblyai';
 
-import {ai} from '@/ai/genkit';
-import {z} from 'zod';
-import {AssemblyAI} from 'assemblyai';
+const POLLING_INTERVAL = 3000; // 3 seconds
+const TIMEOUT = 180000; // 3 minutes
 
-const GenerateSubtitlesInputSchema = z.object({
-  videoUrl: z.string().describe('The public URL of the video file.'),
+const AutomaticSubtitleInputSchema = z.object({
+    videoUrl: z.string().describe('The public URL of the video file.'),
+    languageCode: z.string().optional().describe('The language of the video.'),
 });
-export type GenerateSubtitlesInput = z.infer<typeof GenerateSubtitlesInputSchema>;
 
-const GenerateSubtitlesOutputSchema = z.object({
-  subtitles: z.string().describe('The generated subtitles in SRT format.'),
-});
-export type GenerateSubtitlesOutput = z.infer<typeof GenerateSubtitlesOutputSchema>;
+const toSrtTime = (ms: number): string => {
+    const date = new Date(ms);
+    const hours = date.getUTCHours().toString().padStart(2, '0');
+    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+    const seconds = date.getUTCSeconds().toString().padStart(2, '0');
+    const milliseconds = date.getUTCMilliseconds().toString().padStart(3, '0');
+    return `${hours}:${minutes}:${seconds},${milliseconds}`;
+};
 
-export async function generateSubtitles(input: GenerateSubtitlesInput): Promise<GenerateSubtitlesOutput> {
-  return generateSubtitlesFlow(input);
+// --- FINAL ROBUST MULTI-CONDITION SEGMENTATION LOGIC ---
+
+// Handles line breaking within a segment for readability
+function buildSegmentLines(words: { text: string }[]): string {
+    const MAX_CHARS_PER_LINE = 42;
+    if (!words.length) return '';
+
+    const lines: string[] = [];
+    let currentLine = '';
+
+    words.forEach(word => {
+        if (currentLine.length === 0) {
+            currentLine = word.text;
+        } else if ((currentLine + ' ' + word.text).length > MAX_CHARS_PER_LINE) {
+            lines.push(currentLine);
+            currentLine = word.text;
+        } else {
+            currentLine += ' ' + word.text;
+        }
+    });
+    lines.push(currentLine);
+
+    return lines.join('\n');
 }
 
-const generateSubtitlesFlow = ai.defineFlow(
-  {
-    name: 'generateSubtitlesFlow',
-    inputSchema: GenerateSubtitlesInputSchema,
-    outputSchema: GenerateSubtitlesOutputSchema,
-  },
-  async input => {
+// Creates segments based on pauses, duration, and length
+function createProfessionalSegments(words: { text: string; start: number; end: number }[]): { start: number; end: number; text: string }[] {
+    if (!words.length) return [];
+
+    const PAUSE_THRESHOLD_MS = 700;
+    const MAX_SEGMENT_DURATION_MS = 7000; // 7 seconds
+    const MAX_SEGMENT_CHARS = 90;
+
+    const segments: { start: number; end: number; text: string }[] = [];
+    let currentSegmentWords: { text: string; start: number; end: number }[] = [];
+
+    for (const word of words) {
+        const potentialSegmentWords = [...currentSegmentWords, word];
+        const segmentStartTime = potentialSegmentWords[0].start;
+        const segmentText = potentialSegmentWords.map(w => w.text).join(' ');
+
+        // --- Break Conditions ---
+        const isLongPause = currentSegmentWords.length > 0 && (word.start - currentSegmentWords[currentSegmentWords.length - 1].end > PAUSE_THRESHOLD_MS);
+        const isSegmentTooLong = word.end - segmentStartTime > MAX_SEGMENT_DURATION_MS;
+        const isTextTooLong = segmentText.length > MAX_SEGMENT_CHARS;
+
+        if (isLongPause || isSegmentTooLong || isTextTooLong) {
+            if (currentSegmentWords.length > 0) {
+                segments.push({
+                    start: currentSegmentWords[0].start,
+                    end: currentSegmentWords[currentSegmentWords.length - 1].end,
+                    text: buildSegmentLines(currentSegmentWords),
+                });
+            }
+            currentSegmentWords = [word];
+        } else {
+            currentSegmentWords.push(word);
+        }
+    }
+
+    // Add the final remaining segment
+    if (currentSegmentWords.length > 0) {
+        segments.push({
+            start: currentSegmentWords[0].start,
+            end: currentSegmentWords[currentSegmentWords.length - 1].end,
+            text: buildSegmentLines(currentSegmentWords),
+        });
+    }
+
+    return segments;
+}
+
+
+export async function automaticSubtitleGeneration(input: {
+    videoUrl: string;
+    languageCode?: string;
+}) {
+    const validatedInput = AutomaticSubtitleInputSchema.parse(input);
     const apiKey = process.env.ASSEMBLYAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('AssemblyAI API key is not configured. Please add ASSEMBLYAI_API_KEY to your environment variables.');
-    }
+    if (!apiKey) throw new Error('AssemblyAI API key is not configured.');
+
     const assemblyai = new AssemblyAI({ apiKey });
-    
-    // Transcribe the video using AssemblyAI from the provided URL
-    const transcript = await assemblyai.transcripts.create({
-      audio_url: input.videoUrl,
-      language_detection: true, // Enable automatic language detection
-    });
 
-    if (transcript.status === 'error' || !transcript.id) {
-      throw new Error(transcript.error || 'Failed to create transcript.');
+    try {
+        let transcript = await assemblyai.transcripts.create({
+            audio_url: validatedInput.videoUrl,
+            language_code: validatedInput.languageCode as any,
+        });
+
+        const startTime = Date.now();
+        while (true) {
+            if (Date.now() - startTime > TIMEOUT) throw new Error('Transcription timed out.');
+
+            transcript = await assemblyai.transcripts.get(transcript.id);
+
+            if (transcript.status === 'completed') {
+                if (!transcript.words || transcript.words.length === 0) return '';
+
+                const segments = createProfessionalSegments(transcript.words);
+
+                const srt = segments.map((segment, index) => {
+                    return `${index + 1}\n${toSrtTime(segment.start)} --> ${toSrtTime(segment.end)}\n${segment.text}`;
+                }).join('\n\n');
+
+                return srt;
+
+            } else if (transcript.status === 'error') {
+                throw new Error(`Transcription failed: ${transcript.error}`);
+            }
+
+            await new Promise(res => setTimeout(res, POLLING_INTERVAL));
+        }
+    } catch (error) {
+        console.error('Automatic subtitle generation error:', error);
+        throw new Error(`Failed to generate subtitles: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    // Get subtitles in SRT format
-    const srt = await assemblyai.transcripts.subtitles(transcript.id, 'srt');
-
-    return {subtitles: srt};
-  }
-);
+}

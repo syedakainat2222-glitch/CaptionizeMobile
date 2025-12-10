@@ -1,3 +1,4 @@
+'use client';
 
 import React, { memo, useCallback, useState } from 'react';
 import {
@@ -5,13 +6,7 @@ import {
   Download,
   FileText,
   Loader2,
-  Palette,
-  Bold,
-  Italic,
-  Underline,
-  Type,
-  Baseline,
-  Square,
+  Languages,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,282 +24,159 @@ import {
 } from '@/components/ui/tooltip';
 import VideoPlayer from './video-player';
 import SubtitleEditor from './subtitle-editor';
-import { Subtitle } from '@/lib/srt';
+import { Subtitle, formatSrt } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
-import { Label } from './ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
-import { Input } from './ui/input';
-import { Toggle } from './ui/toggle';
-import { Slider } from './ui/slider';
 import type { Video } from '@/lib/types';
-import { cn } from '@/lib/utils';
-
-
-const FONT_OPTIONS = [
-  // Sans-serif
-  'Arial, sans-serif',
-  'Inter, sans-serif',
-  'Roboto, sans-serif',
-  'Open Sans, sans-serif',
-  'Lato, sans-serif',
-  'Montserrat, sans-serif',
-  'Poppins, sans-serif',
-  'Oswald, sans-serif',
-  'Bebas Neue, sans-serif',
-  'Anton, sans-serif',
-  'Comfortaa, sans-serif',
-  // Serif
-  'Georgia, serif',
-  'Times New Roman, serif',
-  'Playfair Display, serif',
-  'Merriweather, serif',
-  'Lora, serif',
-  // Monospace
-  'Courier New, monospace',
-  'Source Code Pro, monospace',
-  // Cursive & Decorative
-  'Pacifico, cursive',
-  'Dancing Script, cursive',
-  'Caveat, cursive',
-  'Lobster, cursive',
-  'Righteous, sans-serif'
-];
-
-const FONT_SIZE_OPTIONS = [24, 36, 48, 60, 72, 84, 96];
-
-const generateColorPalette = () => {
-    const baseColors = [
-      { name: 'White', value: '#FFFFFF' }, { name: 'Black', value: '#000000' },
-      { name: 'Yellow', value: '#FFFF00' }, { name: 'Cyan', value: '#00FFFF' },
-      { name: 'Magenta', value: '#FF00FF' }, { name: 'Red', value: '#FF0000' },
-      { name: 'Green', value: '#00FF00' }, { name: 'Blue', value: '#0000FF' }
-    ];
-    const shades = [
-        { name: 'Light Gray', value: '#CCCCCC' }, { name: 'Gray', value: '#888888' },
-        { name: 'Dark Gray', value: '#444444' }, { name: 'Soft Yellow', value: '#FFFFAA' },
-        { name: 'Light Blue', value: '#ADD8E6' }, { name: 'Pale Green', value: '#98FB98' },
-        { name: 'Light Pink', value: '#FFB6C1' }, { name: 'Orange', value: '#FFA500' }
-    ];
-    return [...baseColors, ...shades];
-};
-const COLOR_PALETTE = generateColorPalette();
+import TranslationDialog from '@/features/translate/TranslationDialog';
+import StyleControls from './StyleControls';
+import SubtitleStyler from './subtitle-styler';
+import TimelineEditor from './timeline-editor/TimelineEditor';
 
 type EditorViewProps = {
+  videoRef: React.RefObject<HTMLVideoElement>;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  onPlayPause: () => void;
+  onSeek: (time: number) => void;
+  onLoadedMetadata: () => void;
   videoUrl: string;
   videoPublicId: string;
   videoName: string;
   subtitles: Subtitle[];
+  onUpdateSubtitles: (newSubtitles: Subtitle[]) => void;
   activeSubtitleId: number | null;
   onTimeUpdate: (time: number) => void;
   onUpdateSubtitle: (id: number, newText: string) => void;
   onSuggestCorrection: (subtitle: Subtitle) => void;
   onReset: () => void;
+  isExporting: boolean;
+  onExportVideo: () => void;
   subtitleFont: string;
   subtitleFontSize: number;
   subtitleColor: string;
-  subtitleBackgroundColor: string;
   subtitleOutlineColor: string;
   isBold: boolean;
   isItalic: boolean;
   isUnderline: boolean;
   onStyleChange: (update: Partial<Video>) => void;
+  onTranslate: (targetLanguage: string) => void;
+  onSplit: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onDeleteSubtitle: (id: number) => void;
+  onUpdateSubtitleTime: (id: number, startTime: string, endTime: string) => void;
 };
 
-const ColorPicker = ({
-    label,
-    icon: Icon,
-    color,
-    onColorChange,
-    includeTransparent = false,
-}: {
-    label: string,
-    icon: React.ElementType,
-    color: string,
-    onColorChange: (color: string) => void,
-    includeTransparent?: boolean,
-}) => (
-    <div className="flex flex-col gap-2">
-        <Label className="text-sm font-medium flex items-center gap-2">
-            <Icon className="h-4 w-4" /> {label}
-        </Label>
-        <div className="flex items-center gap-2">
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex-1 justify-start gap-2">
-                        <div className="h-4 w-4 rounded-full border relative" style={{ backgroundColor: color === 'transparent' ? 'white' : color }}>
-                          {color === 'transparent' && <div className="absolute inset-0 bg-red-500 transform rotate-45" style={{ mixBlendMode: 'multiply' }}></div>}
-                        </div>
-                        <span className="truncate">{color}</span>
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="max-h-60 overflow-y-auto">
-                    <DropdownMenuRadioGroup value={color} onValueChange={onColorChange}>
-                        {includeTransparent && <DropdownMenuRadioItem value="transparent">Transparent</DropdownMenuRadioItem>}
-                        {COLOR_PALETTE.map((c) => (
-                            <DropdownMenuRadioItem key={c.value} value={c.value}>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-4 w-4 rounded-full border" style={{ backgroundColor: c.value }}></div>
-                                    <span>{c.name}</span>
-                                </div>
-                            </DropdownMenuRadioItem>
-                        ))}
-                    </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-            </DropdownMenu>
-            <Input
-                type="color"
-                value={color === 'transparent' ? '#000000' : color}
-                onChange={(e) => onColorChange(e.target.value)}
-                className="h-10 w-10 p-1"
-                aria-label={`Custom ${label.toLowerCase()} color`}
-            />
-        </div>
-    </div>
-);
-
-
 const EditorView = ({
+  videoRef,
+  isPlaying,
+  currentTime,
+  duration,
+  onPlayPause,
+  onSeek,
+  onLoadedMetadata,
   videoUrl,
   videoPublicId,
   videoName,
   subtitles,
+  onUpdateSubtitles,
   activeSubtitleId,
   onTimeUpdate,
   onUpdateSubtitle,
   onSuggestCorrection,
   onReset,
+  isExporting,
+  onExportVideo,
   subtitleFont,
   subtitleFontSize,
   subtitleColor,
-  subtitleBackgroundColor,
   subtitleOutlineColor,
   isBold,
   isItalic,
   isUnderline,
   onStyleChange,
+  onTranslate,
+  onSplit,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  onDeleteSubtitle,
+  onUpdateSubtitleTime,
 }: EditorViewProps) => {
   const { toast } = useToast();
-  const [isExporting, setIsExporting] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
 
   const handleExport = useCallback(async (format: 'srt' | 'vtt') => {
-    let content = '';
-    let mimeType = '';
-    let fileExtension = '';
-
-    if (format === 'srt') {
-      const { formatSrt } = await import('@/lib/srt');
-      content = formatSrt(subtitles);
-      mimeType = 'application/x-subrip';
-      fileExtension = 'srt';
-    } else {
-      const { formatVtt } = await import('@/lib/srt');
-      content = formatVtt(subtitles);
-      mimeType = 'text/vtt';
-      fileExtension = 'vtt';
-    }
-
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${videoName.split('.')[0]}.${fileExtension}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: 'Export Successful',
-      description: `Your subtitles have been downloaded as a .${fileExtension} file.`,
-    });
-  }, [subtitles, videoName, toast]);
-
-  const handleExportVideoWithSubtitles = useCallback(async () => {
-    setIsExporting(true);
-    toast({
-      title: 'Starting Export...',
-      description: 'Your video with subtitles is being prepared. This may take a few minutes.',
-    });
-
     try {
-      const payload = {
-        videoPublicId,
-        subtitles,
-        videoName,
-        subtitleFont,
-        subtitleFontSize,
-        subtitleColor,
-        subtitleBackgroundColor,
-        subtitleOutlineColor,
-        isBold,
-        isItalic,
-        isUnderline,
-      };
+      const subtitlesParam = encodeURIComponent(JSON.stringify(subtitles));
+      let url = '';
 
-      const response = await fetch('/api/burn-in', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.indexOf('application/json') !== -1) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'The server returned an error.');
-        } else {
-          const errorText = await response.text();
-          console.error("Server returned non-JSON response:", errorText);
-          throw new Error('The server returned an unexpected response. Please check the server logs.');
-        }
+      if (format === 'srt') {
+        const content = formatSrt(subtitles);
+        const blob = new Blob([content], { type: 'application/x-subrip' });
+        url = URL.createObjectURL(blob);
+      } else {
+        const params = new URLSearchParams({
+          subtitles: JSON.stringify(subtitles),
+          font: subtitleFont,
+        });
+        url = `/api/vtt?${params.toString()}`;
       }
 
-      const blob = await response.blob();
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = 'video-with-subtitles.mp4';
-      
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
-        if (filenameMatch && filenameMatch.length > 1) {
-          filename = filenameMatch[1];
-        }
-      }
-
-      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.style.display = 'none';
       a.href = url;
-      a.download = filename;
+      a.download = `${videoName.split('.')[0]}.${format}`;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
+      if (format === 'srt') {
+        URL.revokeObjectURL(url);
+      }
+
       toast({
-        title: 'Export Complete!',
-        description: `"${filename}" has been downloaded successfully.`,
+        title: 'Export Successful',
+        description: `Your subtitles have been downloaded as a .${format} file.`,
       });
-    } catch (error: any) {
+
+    } catch (error) {
       console.error('Export failed:', error);
       toast({
         variant: 'destructive',
         title: 'Export Failed',
-        description: error.message || 'Could not export the video with subtitles. Please try again.',
+        description: 'Could not export subtitles. Please try again.',
       });
-    } finally {
-      setIsExporting(false);
     }
-  }, [videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize, subtitleColor, subtitleBackgroundColor, subtitleOutlineColor, isBold, isItalic, isUnderline, toast]);
+  }, [subtitles, videoName, subtitleFont, toast]);
 
+  const handleTranslateClick = async (targetLanguage: string) => {
+    setIsTranslating(true);
+    setIsTranslationDialogOpen(false);
+    try {
+      await onTranslate(targetLanguage);
+    } catch (error) {
+      console.error('Translation failed:', error);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   return (
     <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 p-4 flex-1">
+       <SubtitleStyler
+        subtitleFont={subtitleFont}
+        subtitleFontSize={subtitleFontSize}
+        subtitleColor={subtitleColor}
+        subtitleOutlineColor={subtitleOutlineColor}
+        isBold={isBold}
+        isItalic={isItalic}
+        isUnderline={isUnderline}
+      />
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <TooltipProvider>
@@ -321,9 +193,17 @@ const EditorView = ({
           </TooltipProvider>
 
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsTranslationDialogOpen(true)} 
+              disabled={isTranslating || isExporting}
+            >
+              {isTranslating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Languages className="mr-2 h-4 w-4" />}
+              Translate
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" disabled={isExporting}>
                   <FileText className="mr-2 h-4 w-4" /> Export Subtitles
                 </Button>
               </DropdownMenuTrigger>
@@ -342,7 +222,7 @@ const EditorView = ({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button onClick={handleExportVideoWithSubtitles} disabled={isExporting}>
+                  <Button onClick={onExportVideo} disabled={isExporting}>
                     {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                     Export Video
                   </Button>
@@ -355,80 +235,25 @@ const EditorView = ({
           </div>
         </div>
         <VideoPlayer
+          videoRef={videoRef}
           videoUrl={videoUrl}
           subtitles={subtitles}
           onTimeUpdate={onTimeUpdate}
           activeSubtitleId={activeSubtitleId}
-          subtitleFont={subtitleFont}
-          subtitleFontSize={subtitleFontSize}
-          subtitleColor={subtitleColor}
-          subtitleBackgroundColor={subtitleBackgroundColor}
-          subtitleOutlineColor={subtitleOutlineColor}
-          isBold={isBold}
-          isItalic={isItalic}
-          isUnderline={isUnderline}
+          onLoadedMetadata={onLoadedMetadata}
+          isPlaying={isPlaying}
+          onPlayPause={onPlayPause}
         />
-        <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                    <Label className="text-sm font-medium flex items-center gap-2"><Type className="h-4 w-4" /> Font</Label>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between">
-                                <span className="truncate">{subtitleFont.split(',')[0]}</span>
-                                <Palette className="h-4 w-4 opacity-50" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-96 overflow-y-auto">
-                            <DropdownMenuRadioGroup value={subtitleFont} onValueChange={(v) => onStyleChange({ subtitleFont: v })}>
-                                {FONT_OPTIONS.map((font) => (
-                                    <DropdownMenuRadioItem key={font} value={font} style={{ fontFamily: font }}>
-                                        {font.split(',')[0]}
-                                    </DropdownMenuRadioItem>
-                                ))}
-                            </DropdownMenuRadioGroup>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-                <div className="flex flex-col gap-2">
-                    <Label className="text-sm font-medium flex items-center gap-2"><Baseline className="h-4 w-4" /> Size</Label>
-                    <Select value={String(subtitleFontSize)} onValueChange={(v) => onStyleChange({ subtitleFontSize: Number(v) })}>
-                        <SelectTrigger><SelectValue placeholder="Select size" /></SelectTrigger>
-                        <SelectContent>
-                            {FONT_SIZE_OPTIONS.map((size) => (
-                                <SelectItem key={size} value={String(size)}>{size}px</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <ColorPicker label="Text" icon={Type} color={subtitleColor} onColorChange={(c) => onStyleChange({ subtitleColor: c })} />
-                <ColorPicker label="Outline" icon={Square} color={subtitleOutlineColor} onColorChange={(c) => onStyleChange({ subtitleOutlineColor: c })} includeTransparent />
-                
-                <div className="flex flex-col gap-2">
-                    <Label className="text-sm font-medium flex items-center gap-2"><Square className="h-4 w-4" /> Box</Label>
-                    <div className='flex items-center gap-2'>
-                        <Input type="color" value={subtitleBackgroundColor.slice(0, 7)} onChange={(e) => {
-                            const newOpacity = subtitleBackgroundColor.split(',')[3]?.replace(')','') || '0.5';
-                            onStyleChange({ subtitleBackgroundColor: `${e.target.value}${Math.round(parseFloat(newOpacity) * 255).toString(16).padStart(2,'0')}`});
-                        }} className="p-1 h-10 w-10" />
-                        <Slider value={[parseFloat(subtitleBackgroundColor.split(',')[3]?.replace(')','') || '0.5') * 100]} onValueChange={([val]) => {
-                           const hexColor = subtitleBackgroundColor.slice(0, 7);
-                           const newRgba = `rgba(${parseInt(hexColor.slice(1,3),16)},${parseInt(hexColor.slice(3,5),16)},${parseInt(hexColor.slice(5,7),16)},${val/100})`;
-                           onStyleChange({ subtitleBackgroundColor: newRgba });
-                        }} max={100} step={5} className="flex-1" />
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-                <Toggle pressed={isBold} onPressedChange={(p) => onStyleChange({ isBold: p })} aria-label="Toggle bold"><Bold className="h-4 w-4" /></Toggle>
-                <Toggle pressed={isItalic} onPressedChange={(p) => onStyleChange({ isItalic: p })} aria-label="Toggle italic"><Italic className="h-4 w-4" /></Toggle>
-                <Toggle pressed={isUnderline} onPressedChange={(p) => onStyleChange({ isUnderline: p })} aria-label="Toggle underline"><Underline className="h-4 w-4" /></Toggle>
-            </div>
-        </div>
+        <StyleControls
+            subtitleFont={subtitleFont}
+            subtitleFontSize={subtitleFontSize}
+            subtitleColor={subtitleColor}
+            subtitleOutlineColor={subtitleOutlineColor}
+            isBold={isBold}
+            isItalic={isItalic}
+            isUnderline={isUnderline}
+            onStyleChange={onStyleChange}
+        />
       </div>
       <div>
         <SubtitleEditor
@@ -436,8 +261,34 @@ const EditorView = ({
           onUpdateSubtitle={onUpdateSubtitle}
           activeSubtitleId={activeSubtitleId}
           onSuggestCorrection={onSuggestCorrection}
+          onDeleteSubtitle={onDeleteSubtitle}
         />
       </div>
+      <div className="lg:col-span-2">
+        <TimelineEditor 
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            onPlayPause={onPlayPause}
+            onSeek={onSeek}
+            subtitles={subtitles}
+            onSplit={onSplit}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            activeSubtitleId={activeSubtitleId}
+            onDeleteSubtitle={onDeleteSubtitle}
+            onUpdateSubtitleTime={onUpdateSubtitleTime}
+            videoPublicId={videoPublicId}
+        />
+      </div>
+      <TranslationDialog
+        open={isTranslationDialogOpen}
+        onOpenChange={setIsTranslationDialogOpen}
+        onTranslate={handleTranslateClick}
+        isTranslating={isTranslating}
+      />
     </div>
   );
 };
