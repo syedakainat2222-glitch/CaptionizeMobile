@@ -1,1 +1,1 @@
-after url in mobile app= 71
+after url in mobile app= 72
