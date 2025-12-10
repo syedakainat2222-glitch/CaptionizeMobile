@@ -11,7 +11,7 @@ export default function AboutPage() {
         <main className="container mx-auto px-4 py-8 md:px-6 md:py-12">
             <div className="mx-auto max-w-3xl">
                 <div className="text-center mb-12">
-                    <h1 className="text-4xl md:text-5xl font-bold font-headline mb-4">About Captionize</h1>
+                    <h1 className="text-4xl md:text-5xl font-bold font-headline mb-4">About Us</h1>
                     <p className="text-lg md:text-xl text-muted-foreground">
                         Our mission is to make the world’s video content accessible to everyone, effortlessly.
                     </p>
