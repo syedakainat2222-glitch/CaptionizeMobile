@@ -29,11 +29,11 @@ const SubtitleItem = ({
   return (
     <div
       className={cn(
-        'flex flex-col md:flex-row gap-2 rounded-lg border p-3 transition-all duration-300',
+        'flex flex-col gap-3 rounded-lg border p-3 transition-all duration-300 md:flex-row md:gap-2',
         isActive ? 'border-primary bg-primary/5 shadow-md' : 'border-border'
       )}
     >
-      <div className="flex flex-col text-xs text-muted-foreground">
+      <div className="flex flex-row justify-between text-xs text-muted-foreground md:flex-col">
         <span>{subtitle.startTime.replace(',', '.')}</span>
         <span>{subtitle.endTime.replace(',', '.')}</span>
       </div>
@@ -42,11 +42,10 @@ const SubtitleItem = ({
           dir="auto"
           value={subtitle.text}
           onChange={(e) => onUpdate(subtitle.id, e.target.value)}
-          className="h-full resize-none bg-background/50 [&:dir(rtl)]:text-right"
-          rows={2}
+          className="h-full min-h-[60px] resize-none bg-background/50 [&:dir(rtl)]:text-right"
         />
       </div>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-row items-center justify-center gap-2 md:flex-col">
         <TooltipProvider>
             <Tooltip>
             <TooltipTrigger asChild>
