@@ -1,0 +1,15 @@
+{
+  "name": "@mobile-build/mobile-files",
+  "version": "1.0.0",
+  "description": "This folder contains Android/PWA build files. It's IGNORED by git and won't deploy to Vercel.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@bubblewrap/cli": "^1.24.1"
+  }
+}
