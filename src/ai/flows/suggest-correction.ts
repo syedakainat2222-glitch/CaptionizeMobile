@@ -1,3 +1,4 @@
+
 'use server'
 import { generate } from '@genkit-ai/ai'
 import { z } from 'zod'
@@ -16,12 +17,14 @@ export const suggestCorrection = async (input: z.infer<typeof SuggestCorrectionI
   const prompt = `Please correct the following text for grammar and spelling in ${input.language}:\n\n${input.text}`
 
   const result = await generate(
-    prompt,
+    {
+      input: prompt,  // wrap prompt string inside `input` key
+    },
     {
       model: gemini10Pro,
       output: { schema: SuggestCorrectionOutputSchema },
     }
-  )
+  );
 
-  return result.output()
-}
+  return result.output();
+};
