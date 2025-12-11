@@ -1,6 +1,6 @@
 'use server';
 
-import { generateText } from '@genkit-ai/ai';
+import { generate } from '@genkit-ai/ai';
 import { z } from 'zod';
 import { geminiPro } from '@genkit-ai/vertexai';
 
@@ -25,7 +25,7 @@ Text:
 "${input.text}"
 `;
 
-  const result = await generateText({
+  const result = await generate({
     model: geminiPro,
     prompt,
     output: { schema: SuggestCorrectionOutputSchema }
