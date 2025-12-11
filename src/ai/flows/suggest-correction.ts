@@ -15,13 +15,12 @@ const SuggestCorrectionOutputSchema = z.object({
 export const suggestCorrection = async (input: z.infer<typeof SuggestCorrectionInputSchema>) => {
   const prompt = `Please correct the following text for grammar and spelling in ${input.language}:\n\n${input.text}`
 
-  const result = await generate(
-    prompt, // <-- first argument is prompt string
-    {
-      model: gemini10Pro,   // <-- second argument is options object
-      output: { schema: SuggestCorrectionOutputSchema }
-    }
-  )
+  // Wrap prompt in `input` key
+  const result = await generate({
+    model: gemini10Pro,
+    input: prompt,              // <-- wrap string in 'input'
+    output: { schema: SuggestCorrectionOutputSchema },
+  })
 
-  return result.output() // <-- return structured output
+  return result.output()
 }
