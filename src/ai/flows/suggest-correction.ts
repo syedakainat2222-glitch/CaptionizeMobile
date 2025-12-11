@@ -2,7 +2,7 @@
 
 import { generate } from '@genkit-ai/ai';
 import { z } from 'zod';
-import { geminiPro } from '@genkit-ai/vertexai';
+import { gemini10Pro } from '@genkit-ai/vertexai';
 
 const SuggestCorrectionInputSchema = z.object({
   text: z.string(),
@@ -26,7 +26,7 @@ Text:
 `;
 
   const result = await generate({
-    model: geminiPro,
+    model: gemini10Pro,
     prompt,
     output: { schema: SuggestCorrectionOutputSchema }
   });
