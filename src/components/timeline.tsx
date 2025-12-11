@@ -1,5 +1,5 @@
 'use client'
-import {cn} from '@/lib/utils'
+import {cn, timeStringToSeconds} from '@/lib/utils'
 import {Subtitle} from '@/lib/srt'
 import React from "react";
 
@@ -33,19 +33,23 @@ export default function Timeline({currentTime, duration, onSeek, subtitles, acti
 
             {/* Subtitle blocks */}
             <div className="absolute inset-0 p-2">
-                {subtitles.map(sub => (
-                    <div
-                        key={sub.id}
-                        className={cn(
-                            "absolute h-full top-0 bg-yellow-500/50 border-2 border-yellow-600 rounded-sm",
-                            sub.id === activeSubtitleId && "bg-green-500/50 border-green-600"
-                        )}
-                        style={{
-                            left: `${(sub.startTime / duration) * 100}%`,
-                            width: `${((sub.endTime - sub.startTime) / duration) * 100}%`
-                        }}
-                    />
-                ))}
+                {subtitles.map(sub => {
+                    const startTime = timeStringToSeconds(sub.startTime);
+                    const endTime = timeStringToSeconds(sub.endTime);
+                    return (
+                        <div
+                            key={sub.id}
+                            className={cn(
+                                "absolute h-full top-0 bg-yellow-500/50 border-2 border-yellow-600 rounded-sm",
+                                sub.id === activeSubtitleId && "bg-green-500/50 border-green-600"
+                            )}
+                            style={{
+                                left: `${(startTime / duration) * 100}%`,
+                                width: `${((endTime - startTime) / duration) * 100}%`
+                            }}
+                        />
+                    )
+                })}
             </div>
 
             {/* Current time indicator */}

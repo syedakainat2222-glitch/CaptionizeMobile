@@ -1,7 +1,10 @@
 'use server';
 
 import { AssemblyAI } from 'assemblyai';
-import { Subtitle, parse } from 'subtitle';
+import { parse } from 'subtitle';
+import type { Subtitle } from '../../lib/srt';
+import { streamToArray } from '../../lib/utils';
+import { Readable } from 'stream';
 
 const client = new AssemblyAI({
   apiKey: process.env.ASSEMBLYAI_API_KEY,
@@ -20,13 +23,18 @@ export async function generateSubtitles(audio_url: string, language_code?: strin
     throw new Error(transcript.error);
   }
 
-  const srt = await client.transcripts.export(transcript.id, 'srt');
+  const srt = await client.transcripts.subtitles(transcript.id, 'srt');
 
   if (!srt) {
     throw new Error('Failed to export SRT');
   }
 
-  const subtitles = parse(srt);
+  const readable = new Readable();
+  readable.push(srt);
+  readable.push(null);
 
-  return subtitles as Subtitle[];
+  const subtitlesStream = readable.pipe(parse());
+  const subtitles = await streamToArray<Subtitle>(subtitlesStream);
+
+  return subtitles;
 }

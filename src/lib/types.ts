@@ -11,6 +11,7 @@ export type Video = {
     subtitleFontSize?: number;
     subtitleColor?: string;
     subtitleOutlineColor?: string;
+    subtitleBackgroundColor?: string;
     isBold?: boolean;
     isItalic?: boolean;
     isUnderline?: boolean;
