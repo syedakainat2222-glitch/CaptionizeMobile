@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { AssemblyAI } from 'assemblyai';
 import { toSrt } from '@/lib/toSrt';
-// Import the new Admin DB instance instead of the client one
-import { adminDb } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+
 
 const webhookPayloadSchema = z.object({
     transcript_id: z.string(),
@@ -19,13 +20,11 @@ async function getTranscriptAndSave(transcriptId: string, videoId: string) {
     const assemblyai = new AssemblyAI({ apiKey });
     const transcript = await assemblyai.transcripts.get(transcriptId);
 
-    // Get a reference to the document using the Admin SDK
-    const videoDocRef = adminDb.collection('videos').doc(videoId);
-
     if (transcript.status !== 'completed' || !transcript.words) {
         console.log(`Transcript ${transcriptId} is not ready or has no words.`);
-        // Update the video status to 'error' using the Admin SDK
-        await videoDocRef.update({
+        // Optionally, update the video status to 'error'
+        const videoDocRef = doc(db, 'videos', videoId);
+        await updateDoc(videoDocRef, {
             status: 'error',
             error: `Transcription failed or produced no words. Status: ${transcript.status}`
         });
@@ -34,8 +33,9 @@ async function getTranscriptAndSave(transcriptId: string, videoId: string) {
 
     const srt = toSrt(transcript.words);
     
-    // Update the video document in Firestore using the Admin SDK
-    await videoDocRef.update({
+    // Update the video document in Firestore
+    const videoDocRef = doc(db, 'videos', videoId);
+    await updateDoc(videoDocRef, {
         subtitles: srt,
         status: 'completed',
     });
@@ -68,9 +68,9 @@ export async function POST(req: NextRequest) {
             await getTranscriptAndSave(transcript_id, videoId);
         } else if (status === 'error') {
             console.error(`Webhook received error for transcript ${transcript_id}:`, payload);
-            // Update the video document to reflect the error using the Admin SDK
-            const videoDocRef = adminDb.collection('videos').doc(videoId);
-            await videoDocRef.update({
+            // Update the video document to reflect the error
+            const videoDocRef = doc(db, 'videos', videoId);
+            await updateDoc(videoDocRef, {
                 status: 'error',
                 error: (payload as any).error || 'Transcription failed.'
             });

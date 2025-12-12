@@ -27,5 +27,3 @@ export type User = {
     displayName: string | null;
     photoURL?: string | null;
 };
-
-export type { Subtitle };
