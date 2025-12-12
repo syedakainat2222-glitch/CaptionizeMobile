@@ -21,15 +21,10 @@ export async function processVideo(input: { cloudinaryPublicId: string; language
 
     const validatedInput = ProcessVideoInputSchema.parse(input);
     
-    // Debug log to check the public ID
-    console.log('Cloudinary Public ID:', validatedInput.cloudinaryPublicId);
-    
     const videoUrl = cloudinary.url(validatedInput.cloudinaryPublicId, {
         resource_type: 'video',
-        secure: true, // Always use secure URLs
+        secure: true,
     });
-
-    console.log('Generated Cloudinary URL:', videoUrl);
 
     if (!videoUrl) {
         throw new Error('Failed to generate video URL from Cloudinary.');
@@ -40,13 +35,20 @@ export async function processVideo(input: { cloudinaryPublicId: string; language
         languageCode = await detectLanguage({ videoUrl });
     }
 
-    const subtitles = await automaticSubtitleGeneration({
+    // Construct the webhook URL. This is where AssemblyAI will send the result.
+    const host = process.env.VERCEL_URL || 'http://localhost:3000';
+    const webhookUrl = `${host}/api/webhook`;
+
+    // Start the transcription job. This now returns immediately.
+    const transcript = await automaticSubtitleGeneration({
         videoUrl,
         languageCode,
+        webhookUrl,
     });
 
+    // Return the ID of the job, not the subtitles themselves.
     return {
-        subtitles,
-        videoUrl, // Return the videoUrl so you can save it to Firestore
+        transcriptId: transcript.id,
+        videoUrl,
     };
 }
