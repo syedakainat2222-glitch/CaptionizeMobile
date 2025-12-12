@@ -1,20 +1,6 @@
 
 import * as admin from 'firebase-admin';
 
-// This is the shape of the service account key JSON file
-interface ServiceAccount {
-  type: string;
-  project_id: string;
-  private_key_id: string;
-  private_key: string;
-  client_email: string;
-  client_id: string;
-  auth_uri: string;
-  token_uri: string;
-  auth_provider_x509_cert_url: string;
-  client_x509_cert_url: string;
-}
-
 // Check if the app is already initialized to prevent errors
 if (!admin.apps.length) {
   // Get the service account key from environment variables
@@ -24,8 +10,11 @@ if (!admin.apps.length) {
   }
 
   try {
-    const serviceAccount: ServiceAccount = JSON.parse(serviceAccountJson);
+    // Parse the service account key JSON string without a custom interface
+    const serviceAccount = JSON.parse(serviceAccountJson);
+
     admin.initializeApp({
+      // The 'cert' function will correctly interpret the parsed object
       credential: admin.credential.cert(serviceAccount),
     });
   } catch (error: any) {

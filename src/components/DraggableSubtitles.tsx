@@ -36,7 +36,7 @@ const DraggableSubtitles: React.FC<DraggableSubtitlesProps> = ({
     (sub) => timeToSeconds(sub.startTime) <= currentTime && timeToSeconds(sub.endTime) >= currentTime
   );
 
-  const handleStop = (e, data) => {
+  const handleStop = (e: React.MouseEvent<HTMLElement>, data: { x: number; y: number; }) => {
     if (activeSubtitle && videoWidth > 0 && videoHeight > 0) {
       const x = Math.round((data.x / videoWidth) * 100);
       const y = Math.round((data.y / videoHeight) * 100);
