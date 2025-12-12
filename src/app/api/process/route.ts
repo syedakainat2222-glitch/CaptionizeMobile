@@ -5,6 +5,7 @@ import { z } from 'zod';
 const processVideoSchema = z.object({
   cloudinaryPublicId: z.string(),
   languageCode: z.string().optional(),
+  videoId: z.string(),
 });
 
 export async function POST(req: NextRequest) {
@@ -16,11 +17,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validation.error.format() }, { status: 400 });
     }
 
-    const { cloudinaryPublicId, languageCode } = validation.data;
+    const { cloudinaryPublicId, languageCode, videoId } = validation.data;
 
     const result = await processVideo({
       cloudinaryPublicId,
       languageCode,
+      videoId,
     });
 
     return NextResponse.json(result);

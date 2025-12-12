@@ -4,13 +4,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { AssemblyAI } from 'assemblyai';
 import { toSrt } from '@/lib/toSrt';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+
 
 const webhookPayloadSchema = z.object({
     transcript_id: z.string(),
     status: z.string(), // e.g., 'completed', 'error'
 });
 
-async function getTranscriptAndSave(transcriptId: string) {
+async function getTranscriptAndSave(transcriptId: string, videoId: string) {
     const apiKey = process.env.ASSEMBLYAI_API_KEY;
     if (!apiKey) throw new Error('AssemblyAI API key is not configured.');
 
@@ -19,21 +22,35 @@ async function getTranscriptAndSave(transcriptId: string) {
 
     if (transcript.status !== 'completed' || !transcript.words) {
         console.log(`Transcript ${transcriptId} is not ready or has no words.`);
+        // Optionally, update the video status to 'error'
+        const videoDocRef = doc(db, 'videos', videoId);
+        await updateDoc(videoDocRef, {
+            status: 'error',
+            error: `Transcription failed or produced no words. Status: ${transcript.status}`
+        });
         return;
     }
 
     const srt = toSrt(transcript.words);
     
-    // For now, we will log the SRT to the console. We will add database logic here later.
-    console.log('Generated SRT:', srt);
-    console.log(`Saved SRT for transcript: ${transcriptId}`);
+    // Update the video document in Firestore
+    const videoDocRef = doc(db, 'videos', videoId);
+    await updateDoc(videoDocRef, {
+        subtitles: srt,
+        status: 'completed',
+    });
 
-    // Example of what we WILL do next:
-    // await db.collection('videos').doc(transcript.id).update({ subtitles: srt, status: 'completed' });
+    console.log(`Saved SRT for video: ${videoId}`);
 }
 
 export async function POST(req: NextRequest) {
     try {
+        // Extract video_id from the query parameters
+        const videoId = req.nextUrl.searchParams.get('video_id');
+        if (!videoId) {
+            return NextResponse.json({ error: 'video_id query parameter is missing' }, { status: 400 });
+        }
+        
         const payload = await req.json();
 
         // Security: It is critical to verify the webhook comes from AssemblyAI.
@@ -48,7 +65,15 @@ export async function POST(req: NextRequest) {
         const { transcript_id, status } = validation.data;
 
         if (status === 'completed') {
-            await getTranscriptAndSave(transcript_id);
+            await getTranscriptAndSave(transcript_id, videoId);
+        } else if (status === 'error') {
+            console.error(`Webhook received error for transcript ${transcript_id}:`, payload);
+            // Update the video document to reflect the error
+            const videoDocRef = doc(db, 'videos', videoId);
+            await updateDoc(videoDocRef, {
+                status: 'error',
+                error: (payload as any).error || 'Transcription failed.'
+            });
         } else {
             console.log(`Webhook received for transcript ${transcript_id} with status: ${status}`);
         }
