@@ -52,6 +52,7 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
                 publicId: data.publicId ?? "",
                 subtitles: data.subtitles ?? [],
                 userId: data.userId,
+                status: data.status ?? 'completed',
                 createdAt: data.createdAt ?? Timestamp.now(),
                 updatedAt: data.updatedAt ?? Timestamp.now(),
                 subtitleFont: data.subtitleFont || 'Arial, sans-serif',
@@ -78,6 +79,58 @@ export async function fetchVideoLibrary(): Promise<Video[]> {
         }
         throw e;
     }
+}
+
+/**
+ * Fetch a single video by ID
+ */
+export async function getVideo(videoId: string): Promise<Video | null> {
+  const userId = auth.currentUser?.uid;
+  if (!userId) {
+    console.warn("getVideo: No user ID provided, returning null.");
+    return null;
+  }
+
+  try {
+    const videoRef = doc(db, `users/${userId}/videos`, videoId);
+    const docSnap = await getDoc(videoRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        name: data.name ?? "Untitled",
+        videoUrl: data.videoUrl ?? "",
+        publicId: data.publicId ?? "",
+        subtitles: data.subtitles ?? [],
+        userId: data.userId,
+        status: data.status ?? 'completed',
+        createdAt: data.createdAt ?? Timestamp.now(),
+        updatedAt: data.updatedAt ?? Timestamp.now(),
+        subtitleFont: data.subtitleFont || 'Arial, sans-serif',
+        subtitleFontSize: data.subtitleFontSize || 48,
+        subtitleColor: data.subtitleColor || '#FFFFFF',
+        subtitleBackgroundColor: data.subtitleBackgroundColor || 'rgba(0,0,0,0.5)',
+        subtitleOutlineColor: data.subtitleOutlineColor || 'transparent',
+        isBold: data.isBold || false,
+        isItalic: data.isItalic || false,
+        isUnderline: data.isUnderline || false,
+      } as Video;
+    } else {
+      console.log("No such document!");
+      return null;
+    }
+  } catch (e: any) {
+    if (e.code === 'permission-denied') {
+      const error = new FirestorePermissionError({
+        path: `/users/${userId}/videos/${videoId}`,
+        operation: 'get'
+      });
+      errorEmitter.emit('permission-error', error);
+      throw error;
+    }
+    throw e;
+  }
 }
 
 /**

@@ -1,4 +1,3 @@
-'use server';
 
 import { Word } from 'assemblyai';
 

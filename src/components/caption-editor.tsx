@@ -73,24 +73,6 @@ export default function CaptionEditor() {
   const [correctionDialogState, setCorrectionDialogState] = useState<CorrectionDialogState>({ open: false, subtitleId: null, suggestion: null, explanation: null, isLoading: false });
   const [pollingIntervalId, setPollingIntervalId] = useState<NodeJS.Timeout | null>(null);
 
-  const loadVideoLibrary = useCallback(async () => {
-    setIsFetchingLibrary(true);
-    try {
-      const videos = await fetchVideoLibrary();
-      setVideoLibrary(videos);
-      const processingVideo = videos.find(v => v.status === 'processing');
-      if (processingVideo) {
-        setCurrentVideo(processingVideo);
-        startPolling(processingVideo.id);
-      }
-    } catch (error) {
-      console.error("Failed to fetch video library:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not load your video library.' });
-    } finally {
-      setIsFetchingLibrary(false);
-    }
-  }, [toast]);
-
   const startPolling = useCallback((videoId: string) => {
     if (pollingIntervalId) clearInterval(pollingIntervalId);
 
@@ -110,10 +92,28 @@ export default function CaptionEditor() {
         if (pollingIntervalId) clearInterval(pollingIntervalId);
         setPollingIntervalId(null);
       }
-    }, 5000); // Poll every 5 seconds
+    }, 5000);
 
     setPollingIntervalId(intervalId);
   }, [pollingIntervalId, toast]);
+
+  const loadVideoLibrary = useCallback(async () => {
+    setIsFetchingLibrary(true);
+    try {
+      const videos = await fetchVideoLibrary();
+      setVideoLibrary(videos);
+      const processingVideo = videos.find(v => v.status === 'processing');
+      if (processingVideo) {
+        setCurrentVideo(processingVideo);
+        startPolling(processingVideo.id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch video library:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not load your video library.' });
+    } finally {
+      setIsFetchingLibrary(false);
+    }
+  }, [toast, startPolling]);
 
   useEffect(() => {
     loadVideoLibrary();
@@ -168,7 +168,6 @@ export default function CaptionEditor() {
 
         if (!response.ok) throw new Error(await response.text());
         
-        // Start polling for this new video
         startPolling(newVideoId);
 
         toast({ title: 'Processing Started', description: 'Your video is being processed. Subtitles will appear when ready.' });
@@ -176,15 +175,406 @@ export default function CaptionEditor() {
     } catch (error: any) {
         console.error('Processing failed:', error);
         toast({ variant: 'destructive', title: 'An error occurred.', description: error.message || 'Failed to process video. Please try again.' });
-        setCurrentVideo(null); // Clear video on failure
+        setCurrentVideo(null);
     } finally {
         setIsLoading(false);
     }
   }, [toast, language, startPolling]);
 
-  // ... (All other handlers: handleTimeUpdate, handlePlayPause, etc. remain unchanged) ...
+  const handleTimeUpdate = useCallback((time: number) => {
+    setCurrentTime(time);
+    const vttTimeToSeconds = (vttTime: string | undefined) => {
+      if (!vttTime) return 0;
+      const parts = vttTime.split(':').map(parseFloat);
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      if (parts.length === 2) return parts[0] * 60 + parts[1];
+      return 0;
+    };
+    const activeSub = subtitles.find(
+      (sub) =>
+        sub &&
+        time >= vttTimeToSeconds(sub.startTime) &&
+        time <= vttTimeToSeconds(sub.endTime)
+    );
+    setActiveSubtitleId(activeSub ? activeSub.id : null);
+  }, [subtitles]);
 
+  const handlePlayPause = useCallback(() => {
+      setIsPlaying(prev => !prev);
+  }, []);
 
+  const handleSeek = (time: number) => {
+      if (videoRef.current && isFinite(videoRef.current.duration)) {
+          videoRef.current.currentTime = time;
+          setCurrentTime(time);
+      }
+  };
+
+  const handleLoadedMetadata = () => {
+      if (videoRef.current) {
+          setDuration(videoRef.current.duration);
+      }
+  };
+
+  const updateSubtitle = useCallback(async (id: number, newText: string) => {
+    const newSubtitles = subtitles.map((sub) => (sub.id === id ? { ...sub, text: newText } : sub));
+    setSubtitles(newSubtitles);
+
+    if (currentVideo) {
+      const updatedTimestamp = Timestamp.now();
+      const updateData = { 
+        subtitles: newSubtitles,
+        updatedAt: updatedTimestamp,
+      };
+      await updateVideo(currentVideo.id, updateData);
+      
+      setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? {...v, subtitles: newSubtitles, updatedAt: updatedTimestamp} : v)
+      .sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
+      
+      toast({
+        title: 'Saved!',
+        description: 'Your subtitle changes have been saved.',
+      });
+    }
+  }, [subtitles, currentVideo, toast, setSubtitles]);
+
+  const handleUpdateSubtitles = useCallback(async (newSubtitles: Subtitle[]) => {
+    if (currentVideo) {
+      const updatedTimestamp = Timestamp.now();
+      const newCurrentVideo = { 
+        ...currentVideo, 
+        subtitles: newSubtitles,
+        updatedAt: updatedTimestamp,
+      };
+
+      setCurrentVideo(newCurrentVideo);
+      setSubtitles(newSubtitles);
+      await updateVideo(currentVideo.id, { 
+        subtitles: newSubtitles,
+        updatedAt: updatedTimestamp,
+      });
+
+      setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? newCurrentVideo : v)
+      .sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
+
+      toast({
+        title: 'Saved!',
+        description: 'Your translated subtitles have been saved.',
+      });
+    }
+  }, [currentVideo, toast, setSubtitles]);
+
+  const handleUpdateSubtitleTime = useCallback(async (id: number, startTime: string, endTime: string) => {
+    const newSubtitles = subtitles.map((sub) => (sub.id === id ? { ...sub, startTime, endTime } : sub));
+    setSubtitles(newSubtitles);
+
+    if (currentVideo) {
+      const updatedTimestamp = Timestamp.now();
+      const updateData = { 
+        subtitles: newSubtitles,
+        updatedAt: updatedTimestamp,
+      };
+      await updateVideo(currentVideo.id, updateData);
+      
+      setVideoLibrary(prev => prev.map(v => v.id === currentVideo.id ? {...v, subtitles: newSubtitles, updatedAt: updatedTimestamp} : v)
+      .sort((a,b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime()));
+      
+      toast({
+        title: 'Saved!',
+        description: 'Your subtitle timing has been updated.',
+      });
+    }
+  }, [subtitles, currentVideo, toast, setSubtitles]);
+
+    const handleSplit = useCallback(() => {
+    if (activeSubtitleId === null) return;
+
+    const vttTimeToSeconds = (vttTime: string | undefined): number => {
+        if (!vttTime) return 0;
+        const parts = vttTime.split(':').map(parseFloat);
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        return 0;
+    };
+
+    const secondsToVtt = (seconds: number): string => {
+        const date = new Date(0);
+        date.setSeconds(seconds);
+        return date.toISOString().substr(11, 12);
+    }
+
+    const activeSub = subtitles.find(s => s.id === activeSubtitleId);
+    if (!activeSub) return;
+
+    const subStartTime = vttTimeToSeconds(activeSub.startTime);
+    const subEndTime = vttTimeToSeconds(activeSub.endTime);
+    const splitTime = currentTime;
+
+    if (splitTime <= subStartTime || splitTime >= subEndTime) return; // Cannot split at the edges
+
+    const splitRatio = (splitTime - subStartTime) / (subEndTime - subStartTime);
+    const text = activeSub.text;
+    const splitIndex = Math.round(text.length * splitRatio);
+
+    const newSub1: Subtitle = {
+        ...activeSub,
+        endTime: secondsToVtt(splitTime),
+        text: text.substring(0, splitIndex),
+    };
+    const newSub2: Subtitle = {
+        ...activeSub,
+        id: Math.max(...subtitles.map(s => s.id)) + 1, // Ensure unique ID
+        startTime: secondsToVtt(splitTime),
+        text: text.substring(splitIndex),
+    };
+
+    const newSubtitles = subtitles.map(s => s.id === activeSubtitleId ? newSub1 : s);
+    const activeSubIndex = newSubtitles.findIndex(s => s.id === activeSubtitleId);
+    newSubtitles.splice(activeSubIndex + 1, 0, newSub2);
+
+    setSubtitles(newSubtitles.map((sub, index) => ({ ...sub, id: index + 1 }))); // Re-index all subtitles
+    toast({ title: 'Split!', description: 'Subtitle split at the current time.'});
+  }, [subtitles, activeSubtitleId, currentTime, setSubtitles, toast]);
+  
+  const handleDeleteSubtitle = useCallback((id: number) => {
+    const newSubtitles = subtitles.filter(sub => sub.id !== id).map((sub, index) => ({ ...sub, id: index + 1 }));
+    setSubtitles(newSubtitles);
+    toast({
+      title: 'Subtitle Deleted',
+      description: 'The subtitle has been removed.',
+    });
+  }, [subtitles, setSubtitles, toast]);
+
+  const handleTranslate = useCallback(async (targetLanguage: string) => {
+    if (!currentVideo) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          subtitles, 
+          targetLanguage 
+        }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Translation failed');
+      }
+  
+      const { subtitles: translatedSubtitles } = await response.json();
+      handleUpdateSubtitles(translatedSubtitles);
+      
+      toast({
+        title: 'Translation Complete!',
+        description: `Subtitles translated to ${targetLanguage}`,
+      });
+      
+    } catch (error: any) {
+      console.error('Translation failed:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Translation Failed',
+        description: error.message || 'Could not translate subtitles',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentVideo, subtitles, handleUpdateSubtitles, toast]);
+
+  const handleStyleChange = useCallback(async (update: Partial<Video>) => {
+    if (currentVideo) {
+        const updatedTimestamp = Timestamp.now();
+        const updateData = { ...update, updatedAt: updatedTimestamp };
+
+        if (update.subtitleFont) setSubtitleFont(update.subtitleFont);
+        if (update.subtitleFontSize) setSubtitleFontSize(update.subtitleFontSize);
+        if (update.subtitleColor) setSubtitleColor(update.subtitleColor);
+        if (update.subtitleOutlineColor) setSubtitleOutlineColor(update.subtitleOutlineColor);
+        if (update.isBold !== undefined) setIsBold(update.isBold);
+        if (update.isItalic !== undefined) setIsItalic(update.isItalic);
+        if (update.isUnderline !== undefined) setIsUnderline(update.isUnderline);
+
+        const newCurrentVideo = { ...currentVideo, ...updateData };
+        setCurrentVideo(newCurrentVideo);
+        
+        setVideoLibrary(prev =>
+            prev.map(v => (v.id === currentVideo.id ? newCurrentVideo : v))
+            .sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime())
+        );
+        
+        await updateVideo(currentVideo.id, updateData);
+
+        toast({
+            title: 'Style Saved!',
+            description: `Your subtitle style has been updated.`,
+        });
+    }
+  }, [currentVideo, toast]);
+
+  const handleSuggestCorrection = useCallback(
+    async (subtitle: Subtitle) => {
+      setCorrectionDialogState({
+        ...correctionDialogState,
+        open: true,
+        isLoading: true,
+        subtitleId: subtitle.id,
+      });
+
+      try {
+        const contextSubtitles = subtitles.filter(
+          (s) => s.id >= subtitle.id - 1 && s.id <= subtitle.id + 1
+        );
+        const context = contextSubtitles
+          .map((s) => s.text)
+          .join('\n');
+
+        const response = await fetch('/api/corrections', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            subtitleText: subtitle.text,
+            context: context,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+
+        const result = await response.json();
+
+        if (result) {
+          setCorrectionDialogState({
+            open: true,
+            isLoading: false,
+            subtitleId: subtitle.id,
+            suggestion: result.suggestedCorrection,
+            explanation: result.explanation,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to get suggestion', error);
+        toast({
+          variant: 'destructive',
+          title: 'Suggestion Failed',
+          description: 'Could not generate a correction suggestion.',
+        });
+        setCorrectionDialogState({ ...correctionDialogState, open: false, isLoading: false, suggestion: null, explanation: null });
+      }
+    },
+    [subtitles, toast, correctionDialogState]
+  );
+
+  const handleAcceptSuggestion = useCallback(() => {
+    if (
+      correctionDialogState.subtitleId !== null &&
+      correctionDialogState.suggestion
+    ) {
+      updateSubtitle(
+        correctionDialogState.subtitleId,
+        correctionDialogState.suggestion
+      );
+    }
+    setCorrectionDialogState({ ...correctionDialogState, open: false });
+  }, [correctionDialogState, updateSubtitle]);
+
+  const handleReset = useCallback(() => {
+    setCurrentVideo(null);
+    setActiveSubtitleId(null);
+    loadVideoLibrary();
+  }, [loadVideoLibrary]);
+
+  const handleSelectVideoFromLibrary = (video: Video) => {
+    console.log("Selected video from library:", video);
+    setCurrentVideo(video);
+  };
+  
+  const handleDeleteVideo = useCallback(async (videoId: string) => {
+    try {
+      await deleteVideo(videoId);
+      setVideoLibrary(prev => prev.filter(v => v.id !== videoId));
+      if (currentVideo?.id === videoId) {
+        handleReset();
+      }
+      toast({
+        title: 'Video Deleted',
+        description: 'The video has been successfully removed.',
+      });
+    } catch (error) {
+      console.error('Failed to delete video:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Delete Failed',
+        description: 'Could not delete the video. Please try again.',
+      });
+    }
+  }, [toast, currentVideo, handleReset]);
+
+  const handleExportVideoWithSubtitles = useCallback(async () => {
+    if (!currentVideo) return;
+
+    setIsExporting(true);
+    toast({
+      title: 'Starting Export...',
+      description: 'Your video with subtitles is being prepared. This may take a few minutes.',
+    });
+
+    try {
+      const payload = {
+        videoPublicId: currentVideo.publicId,
+        subtitles,
+        videoName: currentVideo.name,
+        subtitleFont,
+        subtitleFontSize,
+        subtitleColor,
+        subtitleOutlineColor,
+        isBold,
+        isItalic,
+        isUnderline,
+      };
+
+      const response = await fetch('/api/burn-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+          throw new Error(result.error || `Failed to process video. Status: ${response.status}`);
+      }
+
+      // Redirect the user to the download URL
+      window.location.href = result.downloadUrl;
+
+      toast({
+        title: 'Export in Progress!',
+        description: `Your download will begin shortly.`,
+      });
+    } catch (error: any) {
+      console.error('Export failed:', error);
+  
+      let errorMessage = 'Could not export the video with subtitles. Please try again.';
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        variant: 'destructive',
+        title: 'Export Failed',
+        description: errorMessage,
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [currentVideo, subtitles, subtitleFont, subtitleFontSize, subtitleColor, subtitleOutlineColor, isBold, isItalic, isUnderline, toast]);
+  
   if (isFetchingLibrary) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -259,7 +649,3 @@ export default function CaptionEditor() {
     </div>
   );
 }
-
-// Keep all other functions like handleTimeUpdate, updateSubtitle etc. the same.
-// I've omitted them here for brevity but they should be included in the final file.
-
