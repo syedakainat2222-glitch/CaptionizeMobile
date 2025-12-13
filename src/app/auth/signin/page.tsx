@@ -6,24 +6,23 @@ import { signInWithGoogle } from '../../../lib/firebase/auth';
 import { useAuth } from '../../../hooks/use-auth';
 
 export default function SignInPage() {
-  // Correctly get BOTH the user and the loading state.
-  const { user, loading } = useAuth();
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    // Only redirect once loading is false AND a user object exists.
-    if (!loading && user) {
+    if (user) {
       router.push('/');
     }
-  }, [user, loading, router]);
+  }, [user, router]);
 
   const handleSignIn = () => {
-    setIsSigningIn(true);
+    setIsLoading(true);
     setError(null);
     signInWithGoogle()
       .catch((error: any) => {
+        // Don't show an error if the user intentionally closes the pop-up.
         if (error.code !== 'auth/popup-closed-by-user') {
           setError(error.message);
           console.error(error);
@@ -32,14 +31,11 @@ export default function SignInPage() {
         }
       })
       .finally(() => {
-        setIsSigningIn(false);
+        setIsLoading(false);
       });
   };
 
-  // Show a loading spinner while the auth state is being determined,
-  // or if the user is already logged in and we are about to redirect.
-  // This prevents the sign-in button from flashing on the screen.
-  if (loading || user) {
+  if (user === undefined) {
      return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
             <svg className="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -50,7 +46,6 @@ export default function SignInPage() {
     );
   }
 
-  // Only show the sign-in page if we are done loading and there is no user.
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="max-w-md w-full mx-auto p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
@@ -58,10 +53,10 @@ export default function SignInPage() {
         {error && <p className="text-red-500 text-center mb-4">{error}</p>}
         <button 
           onClick={handleSignIn} 
-          disabled={isSigningIn}
+          disabled={isLoading}
           className="w-full bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors duration-300 flex items-center justify-center"
         >
-          {isSigningIn ? (
+          {isLoading ? (
             <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

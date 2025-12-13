@@ -1,2 +1,5 @@
+.env
+.env.local
 .next/
-node_modules
+node_modules/
+.mobile_files/

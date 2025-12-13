@@ -14,9 +14,9 @@ ${input.subtitleText}
 Your response should be in JSON format with two keys: 'suggestedCorrection' and 'explanation'.`;
 
     try {
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = process.env.GOOGLE_AI_API_KEY;
         if (!apiKey) {
-            throw new Error('GEMINI_API_KEY environment variable is not set');
+            throw new Error('GOOGLE_AI_API_KEY environment variable is not set');
         }
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {

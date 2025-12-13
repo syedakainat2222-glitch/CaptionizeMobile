@@ -7,12 +7,10 @@ export type Video = {
     videoUrl: string;
     publicId: string; // Cloudinary public ID
     subtitles: Subtitle[];
-    status?: 'processing' | 'completed' | 'failed';
     subtitleFont?: string;
     subtitleFontSize?: number;
     subtitleColor?: string;
     subtitleOutlineColor?: string;
-    subtitleBackgroundColor?: string;
     isBold?: boolean;
     isItalic?: boolean;
     isUnderline?: boolean;

@@ -1,7 +1,6 @@
-
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -17,16 +16,6 @@ const firebaseConfig: FirebaseOptions = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 const auth = getAuth(app);
-
-if (process.env.NODE_ENV === 'development') {
-    try {
-        console.log("Connecting to emulators");
-        connectFirestoreEmulator(db, 'localhost', 8080);
-        connectAuthEmulator(auth, 'http://localhost:9099');
-    } catch (error) {
-        console.error("Error connecting to emulators:", error);
-    }
-}
 
 export { app, db, auth };
 export { firebaseConfig };
