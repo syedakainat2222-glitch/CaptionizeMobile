@@ -31,6 +31,7 @@ import TranslationDialog from '@/features/translate/TranslationDialog';
 import StyleControls from './StyleControls';
 import SubtitleStyler from './subtitle-styler';
 import TimelineEditor from './timeline-editor/TimelineEditor';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Import Tabs components
 
 type EditorViewProps = {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -165,124 +166,202 @@ const EditorView = ({
       setIsTranslating(false);
     }
   };
+  
+  const header = (
+    <div className="flex justify-between items-center mb-4">
+        <TooltipProvider>
+        <Tooltip>
+            <TooltipTrigger asChild>
+            <Button variant="outline" size="icon" onClick={onReset}>
+                <ArrowLeft className="h-5 w-5" />
+            </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+            <p>Back to Upload</p>
+            </TooltipContent>
+        </Tooltip>
+        </TooltipProvider>
+
+        <div className="flex items-center gap-2">
+        <Button 
+            variant="outline" 
+            onClick={() => setIsTranslationDialogOpen(true)} 
+            disabled={isTranslating || isExporting}
+        >
+            {isTranslating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Languages className="mr-2 h-4 w-4" />}
+            Translate
+        </Button>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+            <Button variant="outline" disabled={isExporting}>
+                <FileText className="mr-2 h-4 w-4" /> Export Subtitles
+            </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+            <DropdownMenuRadioGroup>
+                <DropdownMenuRadioItem value="srt" onClick={() => handleExport('srt')}>
+                SRT (.srt)
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="vtt" onClick={() => handleExport('vtt')}>
+                VTT (.vtt)
+                </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
+
+        <TooltipProvider>
+            <Tooltip>
+            <TooltipTrigger asChild>
+                <Button onClick={onExportVideo} disabled={isExporting}>
+                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                Export Video
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+                <p>Burn subtitles into the video and download</p>
+            </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+        </div>
+    </div>
+  );
 
   return (
-    <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 p-4 flex-1">
-       <SubtitleStyler
-        subtitleFont={subtitleFont}
-        subtitleFontSize={subtitleFontSize}
-        subtitleColor={subtitleColor}
-        subtitleOutlineColor={subtitleOutlineColor}
-        isBold={isBold}
-        isItalic={isItalic}
-        isUnderline={isUnderline}
-      />
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={onReset}>
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Back to Upload</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsTranslationDialogOpen(true)} 
-              disabled={isTranslating || isExporting}
-            >
-              {isTranslating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Languages className="mr-2 h-4 w-4" />}
-              Translate
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={isExporting}>
-                  <FileText className="mr-2 h-4 w-4" /> Export Subtitles
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuRadioGroup>
-                  <DropdownMenuRadioItem value="srt" onClick={() => handleExport('srt')}>
-                    SRT (.srt)
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="vtt" onClick={() => handleExport('vtt')}>
-                    VTT (.vtt)
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button onClick={onExportVideo} disabled={isExporting}>
-                    {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                    Export Video
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Burn subtitles into the video and download</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
+    <div className="container mx-auto p-4 flex flex-col flex-1">
+      {header}
+      {/* Mobile Layout */}
+      <div className="lg:hidden">
         <VideoPlayer
-          videoRef={videoRef}
-          videoUrl={videoUrl}
-          subtitles={subtitles}
-          onTimeUpdate={onTimeUpdate}
-          activeSubtitleId={activeSubtitleId}
-          onLoadedMetadata={onLoadedMetadata}
-          isPlaying={isPlaying}
-          onPlayPause={onPlayPause}
-        />
-        <StyleControls
-            subtitleFont={subtitleFont}
-            subtitleFontSize={subtitleFontSize}
-            subtitleColor={subtitleColor}
-            subtitleOutlineColor={subtitleOutlineColor}
-            isBold={isBold}
-            isItalic={isItalic}
-            isUnderline={isUnderline}
-            onStyleChange={onStyleChange}
-        />
-      </div>
-      <div>
-        <SubtitleEditor
-          subtitles={subtitles}
-          onUpdateSubtitle={onUpdateSubtitle}
-          activeSubtitleId={activeSubtitleId}
-          onSuggestCorrection={onSuggestCorrection}
-          onDeleteSubtitle={onDeleteSubtitle}
-        />
-      </div>
-      <div className="lg:col-span-2">
-        <TimelineEditor 
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            onPlayPause={onPlayPause}
-            onSeek={onSeek}
+            videoRef={videoRef}
+            videoUrl={videoUrl}
             subtitles={subtitles}
-            onSplit={onSplit}
-            onUndo={onUndo}
-            onRedo={onRedo}
-            canUndo={canUndo}
-            canRedo={canRedo}
+            onTimeUpdate={onTimeUpdate}
             activeSubtitleId={activeSubtitleId}
-            onDeleteSubtitle={onDeleteSubtitle}
-            onUpdateSubtitleTime={onUpdateSubtitleTime}
-            videoPublicId={videoPublicId}
+            onLoadedMetadata={onLoadedMetadata}
+            isPlaying={isPlaying}
+            onPlayPause={onPlayPause}
         />
+        <Tabs defaultValue="subtitles" className="mt-4">
+          <TabsList>
+            <TabsTrigger value="subtitles">Subtitles</TabsTrigger>
+            <TabsTrigger value="style">Style</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          </TabsList>
+          <TabsContent value="subtitles">
+            <SubtitleEditor
+              subtitles={subtitles}
+              onUpdateSubtitle={onUpdateSubtitle}
+              activeSubtitleId={activeSubtitleId}
+              onSuggestCorrection={onSuggestCorrection}
+              onDeleteSubtitle={onDeleteSubtitle}
+            />
+          </TabsContent>
+          <TabsContent value="style">
+             <SubtitleStyler
+                subtitleFont={subtitleFont}
+                subtitleFontSize={subtitleFontSize}
+                subtitleColor={subtitleColor}
+                subtitleOutlineColor={subtitleOutlineColor}
+                isBold={isBold}
+                isItalic={isItalic}
+                isUnderline={isUnderline}
+              />
+            <StyleControls
+                subtitleFont={subtitleFont}
+                subtitleFontSize={subtitleFontSize}
+                subtitleColor={subtitleColor}
+                subtitleOutlineColor={subtitleOutlineColor}
+                isBold={isBold}
+                isItalic={isItalic}
+                isUnderline={isUnderline}
+                onStyleChange={onStyleChange}
+            />
+          </TabsContent>
+          <TabsContent value="timeline">
+            <TimelineEditor 
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                duration={duration}
+                onPlayPause={onPlayPause}
+                onSeek={onSeek}
+                subtitles={subtitles}
+                onSplit={onSplit}
+                onUndo={onUndo}
+                onRedo={onRedo}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                activeSubtitleId={activeSubtitleId}
+                onDeleteSubtitle={onDeleteSubtitle}
+                onUpdateSubtitleTime={onUpdateSubtitleTime}
+                videoPublicId={videoPublicId}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden lg:grid lg:grid-cols-2 gap-8 flex-1">
+         <div className="flex flex-col gap-4">
+            <VideoPlayer
+                videoRef={videoRef}
+                videoUrl={videoUrl}
+                subtitles={subtitles}
+                onTimeUpdate={onTimeUpdate}
+                activeSubtitleId={activeSubtitleId}
+                onLoadedMetadata={onLoadedMetadata}
+                isPlaying={isPlaying}
+                onPlayPause={onPlayPause}
+            />
+            <SubtitleStyler
+                subtitleFont={subtitleFont}
+                subtitleFontSize={subtitleFontSize}
+                subtitleColor={subtitleColor}
+                subtitleOutlineColor={subtitleOutlineColor}
+                isBold={isBold}
+                isItalic={isItalic}
+                isUnderline={isUnderline}
+            />
+            <StyleControls
+                subtitleFont={subtitleFont}
+                subtitleFontSize={subtitleFontSize}
+                subtitleColor={subtitleColor}
+                subtitleOutlineColor={subtitleOutlineColor}
+                isBold={isBold}
+                isItalic={isItalic}
+                isUnderline={isUnderline}
+                onStyleChange={onStyleChange}
+            />
+        </div>
+        <div>
+            <SubtitleEditor
+            subtitles={subtitles}
+            onUpdateSubtitle={onUpdateSubtitle}
+            activeSubtitleId={activeSubtitleId}
+            onSuggestCorrection={onSuggestCorrection}
+            onDeleteSubtitle={onDeleteSubtitle}
+            />
+        </div>
+        <div className="lg:col-span-2">
+            <TimelineEditor 
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                duration={duration}
+                onPlayPause={onPlayPause}
+                onSeek={onSeek}
+                subtitles={subtitles}
+                onSplit={onSplit}
+                onUndo={onUndo}
+                onRedo={onRedo}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                activeSubtitleId={activeSubtitleId}
+                onDeleteSubtitle={onDeleteSubtitle}
+                onUpdateSubtitleTime={onUpdateSubtitleTime}
+                videoPublicId={videoPublicId}
+            />
+        </div>
+      </div>
+      
       <TranslationDialog
         open={isTranslationDialogOpen}
         onOpenChange={setIsTranslationDialogOpen}
