@@ -1,1 +1,1 @@
-Bubble wrap = 6
+Mobilelayout = 7
