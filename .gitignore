@@ -1,5 +1,75 @@
+# Node dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js build outputs
+.next/
+out/
+
+# Android build outputs
+.gradle/
+build/
+app/
+mobile-files/
+
+# Android Studio files
+.idea/
+*.iml
+*.hprof
+.navigation/
+captures/
+.externalNativeBuild/
+local.properties
+
+# Gradle files
+gradle/
+gradlew
+gradlew.bat
+build.gradle
+settings.gradle
+gradle.properties
+gradle-wrapper.jar
+gradle-wrapper.properties
+
+# Generated binaries
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.apk.idsig
+*.apks
+
+# Logs and caches
+*.log
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+firebase-debug.log
+firestore-debug.log
+*.tsbuildinfo
+.cache
+.parcel-cache
+.eslintcache
+
+# Environment variables
 .env
 .env.local
-.next/
-node_modules/
-.mobile_files/
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Other generated or temporary files
+.modified
+*-player-script.js
+*.zip
+*.lock
+*.bin
+store_icon.png
+twa-manifest.json
+
+# Ignore the duplicate home directory
+home/
