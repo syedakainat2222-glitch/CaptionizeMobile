@@ -1,1 +1,1 @@
-Bubble wrap = 5
+Bubble wrap = 6
