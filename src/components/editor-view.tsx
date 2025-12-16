@@ -318,7 +318,7 @@ const EditorView = ({
             />
             <StyleControls
                 subtitleFont={subtitleFont}
-                subtitleFontSize={fontSize}
+                subtitleFontSize={subtitleFontSize}
                 subtitleColor={subtitleColor}
                 subtitleOutlineColor={subtitleOutlineColor}
                 isBold={isBold}
