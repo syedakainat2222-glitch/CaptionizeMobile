@@ -3,7 +3,8 @@
   "target": {
     "namespace": "android_app",
     "package_name": "com.captionize.studio",
-    "sha256_cert_fingerprints":
-    ["7F:55:60:15:B3:58:C7:F1:FD:96:3D:2C:E5:83:A9:61:0F:6C:DF:F4:F7:4B:9F:6A:86:E2:4D:0F:68:A6:26:8D"]
+    "sha256_cert_fingerprints": [
+      "EE:A3:79:C9:1B:5C:C7:C1:2F:36:8E:C3:5B:0E:E8:30:B0:63:D7:11:56:31:51:85:C9:BC:68:86:FF:B5:08:82"
+    ]
   }
 }]
