@@ -11,7 +11,7 @@
   "categories": ["productivity", "utilities", "video"],
   "lang": "en-US",
   "dir": "ltr",
-  "prefer_related_applications": false,
+  "prefer_related_applications": true,
   "icons": [
     {
       "src": "/icon-192.png",
