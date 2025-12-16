@@ -1,3 +1,4 @@
+mobile-files/
 # Node dependencies
 node_modules/
 .pnpm-store/
@@ -10,7 +11,6 @@ out/
 .gradle/
 build/
 app/
-mobile-files/
 
 # Android Studio files
 .idea/
@@ -73,3 +73,4 @@ twa-manifest.json
 
 # Ignore the duplicate home directory
 home/
+node_modules
