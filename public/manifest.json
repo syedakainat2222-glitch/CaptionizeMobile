@@ -12,6 +12,7 @@
   "lang": "en-US",
   "dir": "ltr",
   "prefer_related_applications": false,
+  "iconUrl": "https://captionize-mobile.vercel.app/icon-512.png",
   "icons": [
     {
       "src": "https://captionize-mobile.vercel.app/icon-192.png",
