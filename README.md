@@ -1,1 +1,1 @@
-Mobilelayout ChatGpt  = 24
+Mobilelayout ChatGpt  = 25

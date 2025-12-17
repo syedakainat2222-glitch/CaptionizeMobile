@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useState, useEffect } from 'react';
 import { ArrowLeft, Download, FileText, Loader2, Languages } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -101,6 +101,15 @@ const EditorView = ({
   const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('subtitle');
+  const [isLandscape, setIsLandscape] = useState(true);
+
+  // Detect mobile landscape
+  useEffect(() => {
+    const handleOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight);
+    handleOrientation();
+    window.addEventListener('resize', handleOrientation);
+    return () => window.removeEventListener('resize', handleOrientation);
+  }, []);
 
   const handleExport = useCallback(
     async (format: 'srt' | 'vtt') => {
@@ -171,6 +180,14 @@ const EditorView = ({
     </div>
   );
 
+  if (!isLandscape) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-background">
+        <p className="text-lg font-medium">Please rotate your device to landscape for editing subtitles</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {header}
@@ -202,31 +219,12 @@ const EditorView = ({
           </Button>
         </div>
 
-        {mobileTab === 'subtitle' && (
-          <SubtitleEditor subtitles={subtitles} activeSubtitleId={activeSubtitleId} onUpdateSubtitle={onUpdateSubtitle} onSuggestCorrection={onSuggestCorrection} onDeleteSubtitle={onDeleteSubtitle} />
-        )}
+        {mobileTab === 'subtitle' && <SubtitleEditor subtitles={subtitles} activeSubtitleId={activeSubtitleId} onUpdateSubtitle={onUpdateSubtitle} onSuggestCorrection={onSuggestCorrection} onDeleteSubtitle={onDeleteSubtitle} />}
 
         {mobileTab === 'style' && (
           <div className="flex flex-col gap-2">
-            <SubtitleStyler
-              subtitleFont={subtitleFont}
-              subtitleFontSize={subtitleFontSize}
-              subtitleColor={subtitleColor}
-              subtitleOutlineColor={subtitleOutlineColor}
-              isBold={isBold}
-              isItalic={isItalic}
-              isUnderline={isUnderline}
-            />
-            <StyleControls
-              subtitleFont={subtitleFont}
-              subtitleFontSize={subtitleFontSize}
-              subtitleColor={subtitleColor}
-              subtitleOutlineColor={subtitleOutlineColor}
-              isBold={isBold}
-              isItalic={isItalic}
-              isUnderline={isUnderline}
-              onStyleChange={onStyleChange}
-            />
+            <SubtitleStyler subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} />
+            <StyleControls subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} onStyleChange={onStyleChange} />
           </div>
         )}
 
@@ -259,38 +257,12 @@ const EditorView = ({
       <div className="hidden lg:grid lg:grid-cols-2 gap-8 p-4 flex-1">
         <div className="flex flex-col gap-4">
           <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
-            <VideoPlayer
-              videoRef={videoRef}
-              videoUrl={videoUrl}
-              subtitles={subtitles}
-              onTimeUpdate={onTimeUpdate}
-              activeSubtitleId={activeSubtitleId}
-              onLoadedMetadata={onLoadedMetadata}
-              isPlaying={isPlaying}
-              onPlayPause={onPlayPause}
-            />
+            <VideoPlayer videoRef={videoRef} videoUrl={videoUrl} subtitles={subtitles} onTimeUpdate={onTimeUpdate} activeSubtitleId={activeSubtitleId} onLoadedMetadata={onLoadedMetadata} isPlaying={isPlaying} onPlayPause={onPlayPause} />
           </div>
 
           <div className="flex flex-col gap-2">
-            <SubtitleStyler
-              subtitleFont={subtitleFont}
-              subtitleFontSize={subtitleFontSize}
-              subtitleColor={subtitleColor}
-              subtitleOutlineColor={subtitleOutlineColor}
-              isBold={isBold}
-              isItalic={isItalic}
-              isUnderline={isUnderline}
-            />
-            <StyleControls
-              subtitleFont={subtitleFont}
-              subtitleFontSize={subtitleFontSize}
-              subtitleColor={subtitleColor}
-              subtitleOutlineColor={subtitleOutlineColor}
-              isBold={isBold}
-              isItalic={isItalic}
-              isUnderline={isUnderline}
-              onStyleChange={onStyleChange}
-            />
+            <SubtitleStyler subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} />
+            <StyleControls subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} onStyleChange={onStyleChange} />
           </div>
         </div>
 
@@ -299,23 +271,7 @@ const EditorView = ({
         </div>
 
         <div className="lg:col-span-2 overflow-x-auto">
-          <TimelineEditor
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            onPlayPause={onPlayPause}
-            onSeek={onSeek}
-            subtitles={subtitles}
-            onSplit={onSplit}
-            onUndo={onUndo}
-            onRedo={onRedo}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            activeSubtitleId={activeSubtitleId}
-            onDeleteSubtitle={onDeleteSubtitle}
-            onUpdateSubtitleTime={onUpdateSubtitleTime}
-            videoPublicId={videoPublicId}
-          />
+          <TimelineEditor isPlaying={isPlaying} currentTime={currentTime} duration={duration} onPlayPause={onPlayPause} onSeek={onSeek} subtitles={subtitles} onSplit={onSplit} onUndo={onUndo} onRedo={onRedo} canUndo={canUndo} canRedo={canRedo} activeSubtitleId={activeSubtitleId} onDeleteSubtitle={onDeleteSubtitle} onUpdateSubtitleTime={onUpdateSubtitleTime} videoPublicId={videoPublicId} />
         </div>
       </div>
 
