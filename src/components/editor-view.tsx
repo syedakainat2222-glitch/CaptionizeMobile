@@ -114,7 +114,6 @@ const EditorView = ({
 
   const handleExport = useCallback(async (format: 'srt' | 'vtt') => {
     try {
-      const subtitlesParam = encodeURIComponent(JSON.stringify(subtitles));
       let url = '';
 
       if (format === 'srt') {

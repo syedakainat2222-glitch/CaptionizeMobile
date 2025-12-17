@@ -1,24 +1,25 @@
 'use client';
 
 import { useEffect, useState, memo } from 'react';
-import { Card } from '@/components/ui/card';
 import type { Subtitle } from '@/lib/srt';
 import { formatVtt } from '@/lib/srt';
 import { Button } from '@/components/ui/button';
-
+import { cn } from '@/lib/utils';
 
 type VideoPlayerProps = {
+  className?: string;
   videoRef: React.RefObject<HTMLVideoElement>;
   videoUrl: string;
   subtitles: Subtitle[];
   isPlaying: boolean;
-  onPlayPause: () => void; // To sync state with parent
+  onPlayPause: () => void;
   onTimeUpdate: (time: number) => void;
   onLoadedMetadata: () => void;
   activeSubtitleId: number | null;
 };
 
 const VideoPlayer = ({
+  className,
   videoRef,
   videoUrl,
   subtitles,
@@ -66,9 +67,9 @@ const VideoPlayer = ({
     videoElement.addEventListener('play', handlePlay);
     videoElement.addEventListener('pause', handlePause);
     videoElement.addEventListener('loadedmetadata', onLoadedMetadata);
-    
+
     if (videoElement.textTracks.length > 0) {
-        videoElement.textTracks[0].mode = 'showing';
+      videoElement.textTracks[0].mode = 'showing';
     }
 
     return () => {
@@ -84,52 +85,49 @@ const VideoPlayer = ({
     if (!videoElement) return;
 
     if (isPlaying) {
-        videoElement.play().catch(error => {
-            // Handle interruption errors gracefully, often they are benign
-            if (error.name === 'AbortError') {
-                console.log('Video play was interrupted, most likely by a pause call.');
-            } else {
-                console.error('Error playing video:', error);
-            }
-        });
+      videoElement.play().catch(error => {
+        if (error.name === 'AbortError') {
+          console.log('Video play was interrupted, most likely by a pause call.');
+        } else {
+          console.error('Error playing video:', error);
+        }
+      });
     } else {
-        videoElement.pause();
+      videoElement.pause();
     }
   }, [isPlaying, videoRef]);
 
   return (
-    <Card className="overflow-hidden shadow-lg relative aspect-video">
-      <div className="w-full h-full bg-black">
-        <video
-          ref={videoRef}
-          key={videoUrl} 
-          crossOrigin="anonymous"
-          className="h-full w-full"
+    <div className={cn("relative w-full bg-black", className)}>
+      <video
+        ref={videoRef}
+        key={videoUrl}
+        crossOrigin="anonymous"
+        className="w-full h-auto"
+      >
+        <source src={videoUrl} type="video/mp4" />
+        {vttUrl && (
+          <track
+            label="Subtitles"
+            kind="subtitles"
+            srcLang="en"
+            src={vttUrl}
+            default
+          />
+        )}
+        Your browser does not support the video tag.
+      </video>
+      <div className="absolute bottom-2 right-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePlaybackRateChange}
+          className="bg-black bg-opacity-50 text-white hover:bg-opacity-75"
         >
-          <source src={videoUrl} type="video/mp4" />
-          {vttUrl && (
-            <track
-              label="Subtitles"
-              kind="subtitles"
-              srcLang="en"
-              src={vttUrl}
-              default
-            />
-          )}
-          Your browser does not support the video tag.
-        </video>
-        <div className="absolute bottom-2 right-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePlaybackRateChange}
-            className="bg-black bg-opacity-50 text-white hover:bg-opacity-75"
-          >
-            {playbackRate}x
-          </Button>
-        </div>
+          {playbackRate}x
+        </Button>
       </div>
-    </Card>
+    </div>
   );
 };
 
