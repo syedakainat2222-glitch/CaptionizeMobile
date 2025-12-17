@@ -31,6 +31,7 @@ import TranslationDialog from '@/features/translate/TranslationDialog';
 import StyleControls from './StyleControls';
 import SubtitleStyler from './subtitle-styler';
 import TimelineEditor from './timeline-editor/TimelineEditor';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type EditorViewProps = {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -230,9 +231,8 @@ const EditorView = ({
     <div className="flex flex-col h-screen bg-background text-foreground">
       {header}
 
-      {/* Mobile Layout: Vertical stack for screens smaller than 1024px */}
+      {/* Mobile Layout: Tabbed interface for screens smaller than 1024px */}
       <div className="lg:hidden flex flex-col flex-1 overflow-hidden">
-        {/* Non-scrollable video part */}
         <div className="w-full aspect-video bg-black flex-shrink-0">
           <VideoPlayer
               videoRef={videoRef}
@@ -245,8 +245,13 @@ const EditorView = ({
               onPlayPause={onPlayPause}
           />
         </div>
-        {/* Scrollable content part */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        <Tabs defaultValue="edit" className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
+            <TabsTrigger value="edit">Edit</TabsTrigger>
+            <TabsTrigger value="style">Style</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          </TabsList>
+          <TabsContent value="edit" className="flex-1 overflow-y-auto p-3">
             <SubtitleEditor
               subtitles={subtitles}
               onUpdateSubtitle={onUpdateSubtitle}
@@ -254,6 +259,8 @@ const EditorView = ({
               onSuggestCorrection={onSuggestCorrection}
               onDeleteSubtitle={onDeleteSubtitle}
             />
+          </TabsContent>
+          <TabsContent value="style" className="flex-1 overflow-y-auto p-3 space-y-4">
             <SubtitleStyler
                 subtitleFont={subtitleFont}
                 subtitleFontSize={subtitleFontSize}
@@ -273,7 +280,9 @@ const EditorView = ({
                 isUnderline={isUnderline}
                 onStyleChange={onStyleChange}
             />
-            <div className="overflow-x-auto pb-2">
+          </TabsContent>
+          <TabsContent value="timeline" className="flex-1 overflow-y-auto p-3">
+            <div className="overflow-x-auto">
               <TimelineEditor 
                   isPlaying={isPlaying}
                   currentTime={currentTime}
@@ -292,7 +301,8 @@ const EditorView = ({
                   videoPublicId={videoPublicId}
               />
             </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Desktop Layout: Grid for screens 1024px and wider */}
