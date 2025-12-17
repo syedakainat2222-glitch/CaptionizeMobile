@@ -168,7 +168,7 @@ const EditorView = ({
   };
   
   const header = (
-    <div className="flex justify-between items-center p-2 mb-2 border-b">
+    <div className="flex justify-between items-center p-2 mb-2 border-b flex-shrink-0">
         <TooltipProvider>
         <Tooltip>
             <TooltipTrigger asChild>
@@ -233,7 +233,7 @@ const EditorView = ({
 
       {/* Mobile Layout: Tabbed interface for screens smaller than 1024px */}
       <div className="lg:hidden flex flex-col flex-1 overflow-hidden">
-        <div className="w-full aspect-video bg-black flex-shrink-0">
+        <div className="w-full flex-shrink-0">
           <VideoPlayer
               videoRef={videoRef}
               videoUrl={videoUrl}
@@ -308,7 +308,7 @@ const EditorView = ({
       {/* Desktop Layout: Grid for screens 1024px and wider */}
       <div className="hidden lg:grid lg:grid-cols-2 gap-6 flex-1 p-4 overflow-hidden">
          <div className="flex flex-col gap-4">
-            <div className="w-full aspect-video bg-black rounded-md overflow-hidden shadow-lg">
+            <div className="w-full bg-black rounded-md overflow-hidden shadow-lg">
               <VideoPlayer
                   videoRef={videoRef}
                   videoUrl={videoUrl}
