@@ -17,19 +17,11 @@ type VideoPlayerProps = {
   activeSubtitleId: number | null;
 };
 
-const VideoPlayer = ({
-  videoRef,
-  videoUrl,
-  subtitles,
-  isPlaying,
-  onPlayPause,
-  onTimeUpdate,
-  onLoadedMetadata,
-}: VideoPlayerProps) => {
+const VideoPlayer = ({ videoRef, videoUrl, subtitles, isPlaying, onPlayPause, onTimeUpdate, onLoadedMetadata }: VideoPlayerProps) => {
   const [vttUrl, setVttUrl] = useState<string | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
-
   const playbackRates = [0.5, 1, 1.5, 2];
+
   const handlePlaybackRateChange = () => {
     const i = playbackRates.indexOf(playbackRate);
     setPlaybackRate(playbackRates[(i + 1) % playbackRates.length]);

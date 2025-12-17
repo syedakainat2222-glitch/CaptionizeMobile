@@ -1,13 +1,7 @@
 'use client';
 
 import React, { memo, useCallback, useState } from 'react';
-import {
-  ArrowLeft,
-  Download,
-  FileText,
-  Loader2,
-  Languages,
-} from 'lucide-react';
+import { ArrowLeft, Download, FileText, Loader2, Languages } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -106,38 +100,40 @@ const EditorView = ({
   const { toast } = useToast();
   const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
-
   const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('subtitle');
 
-  const handleExport = useCallback(async (format: 'srt' | 'vtt') => {
-    try {
-      let url = '';
-      if (format === 'srt') {
-        const content = formatSrt(subtitles);
-        const blob = new Blob([content], { type: 'application/x-subrip' });
-        url = URL.createObjectURL(blob);
-      } else {
-        const params = new URLSearchParams({
-          subtitles: JSON.stringify(subtitles),
-          font: subtitleFont,
-        });
-        url = `/api/vtt?${params.toString()}`;
+  const handleExport = useCallback(
+    async (format: 'srt' | 'vtt') => {
+      try {
+        let url = '';
+        if (format === 'srt') {
+          const content = formatSrt(subtitles);
+          const blob = new Blob([content], { type: 'application/x-subrip' });
+          url = URL.createObjectURL(blob);
+        } else {
+          const params = new URLSearchParams({
+            subtitles: JSON.stringify(subtitles),
+            font: subtitleFont,
+          });
+          url = `/api/vtt?${params.toString()}`;
+        }
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${videoName.split('.')[0]}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        if (format === 'srt') URL.revokeObjectURL(url);
+
+        toast({ title: 'Export Successful', description: `Your subtitles have been downloaded as a .${format} file.` });
+      } catch {
+        toast({ variant: 'destructive', title: 'Export Failed', description: 'Could not export subtitles.' });
       }
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${videoName.split('.')[0]}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      if (format === 'srt') URL.revokeObjectURL(url);
-
-      toast({ title: 'Export Successful', description: `Your subtitles have been downloaded as a .${format} file.` });
-    } catch {
-      toast({ variant: 'destructive', title: 'Export Failed', description: 'Could not export subtitles.' });
-    }
-  }, [subtitles, subtitleFont, videoName, toast]);
+    },
+    [subtitles, subtitleFont, videoName, toast]
+  );
 
   const header = (
     <div className="sticky top-0 z-30 bg-background border-b px-2 py-2 flex justify-between items-center">
@@ -158,8 +154,12 @@ const EditorView = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuRadioGroup>
-              <DropdownMenuRadioItem value="srt" onClick={() => handleExport('srt')}>SRT</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="vtt" onClick={() => handleExport('vtt')}>VTT</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="srt" onClick={() => handleExport('srt')}>
+                SRT
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="vtt" onClick={() => handleExport('vtt')}>
+                VTT
+              </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -191,23 +191,23 @@ const EditorView = ({
         </div>
 
         <div className="flex gap-2">
-          <Button variant={mobileTab === 'subtitle' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('subtitle')}>Subtitle</Button>
-          <Button variant={mobileTab === 'style' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('style')}>Style</Button>
-          <Button variant={mobileTab === 'timeline' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('timeline')}>Timeline</Button>
+          <Button variant={mobileTab === 'subtitle' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('subtitle')}>
+            Subtitle
+          </Button>
+          <Button variant={mobileTab === 'style' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('style')}>
+            Style
+          </Button>
+          <Button variant={mobileTab === 'timeline' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('timeline')}>
+            Timeline
+          </Button>
         </div>
 
         {mobileTab === 'subtitle' && (
-          <SubtitleEditor
-            subtitles={subtitles}
-            activeSubtitleId={activeSubtitleId}
-            onUpdateSubtitle={onUpdateSubtitle}
-            onSuggestCorrection={onSuggestCorrection}
-            onDeleteSubtitle={onDeleteSubtitle}
-          />
+          <SubtitleEditor subtitles={subtitles} activeSubtitleId={activeSubtitleId} onUpdateSubtitle={onUpdateSubtitle} onSuggestCorrection={onSuggestCorrection} onDeleteSubtitle={onDeleteSubtitle} />
         )}
 
         {mobileTab === 'style' && (
-          <>
+          <div className="flex flex-col gap-2">
             <SubtitleStyler
               subtitleFont={subtitleFont}
               subtitleFontSize={subtitleFontSize}
@@ -227,12 +227,12 @@ const EditorView = ({
               isUnderline={isUnderline}
               onStyleChange={onStyleChange}
             />
-          </>
+          </div>
         )}
 
         {mobileTab === 'timeline' && (
-          <div className="overflow-x-auto max-h-[140px] p-2">
-            <div className="flex gap-2 items-center min-w-max">
+          <div className="overflow-x-auto p-2">
+            <div className="min-w-[700px] flex gap-2 items-center">
               <TimelineEditor
                 isPlaying={isPlaying}
                 currentTime={currentTime}
@@ -271,36 +271,31 @@ const EditorView = ({
             />
           </div>
 
-          <SubtitleStyler
-            subtitleFont={subtitleFont}
-            subtitleFontSize={subtitleFontSize}
-            subtitleColor={subtitleColor}
-            subtitleOutlineColor={subtitleOutlineColor}
-            isBold={isBold}
-            isItalic={isItalic}
-            isUnderline={isUnderline}
-          />
-
-          <StyleControls
-            subtitleFont={subtitleFont}
-            subtitleFontSize={subtitleFontSize}
-            subtitleColor={subtitleColor}
-            subtitleOutlineColor={subtitleOutlineColor}
-            isBold={isBold}
-            isItalic={isItalic}
-            isUnderline={isUnderline}
-            onStyleChange={onStyleChange}
-          />
+          <div className="flex flex-col gap-2">
+            <SubtitleStyler
+              subtitleFont={subtitleFont}
+              subtitleFontSize={subtitleFontSize}
+              subtitleColor={subtitleColor}
+              subtitleOutlineColor={subtitleOutlineColor}
+              isBold={isBold}
+              isItalic={isItalic}
+              isUnderline={isUnderline}
+            />
+            <StyleControls
+              subtitleFont={subtitleFont}
+              subtitleFontSize={subtitleFontSize}
+              subtitleColor={subtitleColor}
+              subtitleOutlineColor={subtitleOutlineColor}
+              isBold={isBold}
+              isItalic={isItalic}
+              isUnderline={isUnderline}
+              onStyleChange={onStyleChange}
+            />
+          </div>
         </div>
 
         <div className="overflow-y-auto">
-          <SubtitleEditor
-            subtitles={subtitles}
-            activeSubtitleId={activeSubtitleId}
-            onUpdateSubtitle={onUpdateSubtitle}
-            onSuggestCorrection={onSuggestCorrection}
-            onDeleteSubtitle={onDeleteSubtitle}
-          />
+          <SubtitleEditor subtitles={subtitles} activeSubtitleId={activeSubtitleId} onUpdateSubtitle={onUpdateSubtitle} onSuggestCorrection={onSuggestCorrection} onDeleteSubtitle={onDeleteSubtitle} />
         </div>
 
         <div className="lg:col-span-2 overflow-x-auto">
@@ -324,12 +319,7 @@ const EditorView = ({
         </div>
       </div>
 
-      <TranslationDialog
-        open={isTranslationDialogOpen}
-        onOpenChange={setIsTranslationDialogOpen}
-        onTranslate={onTranslate}
-        isTranslating={isTranslating}
-      />
+      <TranslationDialog open={isTranslationDialogOpen} onOpenChange={setIsTranslationDialogOpen} onTranslate={onTranslate} isTranslating={isTranslating} />
     </div>
   );
 };
