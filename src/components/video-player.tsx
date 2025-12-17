@@ -98,12 +98,12 @@ const VideoPlayer = ({
   }, [isPlaying, videoRef]);
 
   return (
-    <div className={cn("relative w-full h-full bg-black", className)}>
+    <div className={cn("relative w-full bg-black", className)}>
       <video
         ref={videoRef}
         key={videoUrl}
         crossOrigin="anonymous"
-        className="h-full w-full object-contain"
+        className="w-full h-auto"
       >
         <source src={videoUrl} type="video/mp4" />
         {vttUrl && (
