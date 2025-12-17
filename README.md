@@ -1,1 +1,1 @@
-Mobilelayout ChatGpt manifest  = 27
+Mobilelayout ChatGpt manifest  = 28
