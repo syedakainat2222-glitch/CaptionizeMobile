@@ -233,9 +233,8 @@ const EditorView = ({
 
       {/* Mobile Layout: Tabbed interface for screens smaller than 1024px */}
       <div className="lg:hidden flex flex-col flex-1 overflow-hidden">
-        <div className="relative w-full aspect-video bg-black flex-shrink-0">
+        <div className="w-full aspect-video bg-black flex-shrink-0">
           <VideoPlayer
-              className="w-full h-full"
               videoRef={videoRef}
               videoUrl={videoUrl}
               subtitles={subtitles}
@@ -309,9 +308,8 @@ const EditorView = ({
       {/* Desktop Layout: Grid for screens 1024px and wider */}
       <div className="hidden lg:grid lg:grid-cols-2 gap-6 flex-1 p-4 overflow-hidden">
          <div className="flex flex-col gap-4">
-            <div className="relative w-full aspect-video bg-black rounded-md overflow-hidden shadow-lg">
+            <div className="w-full aspect-video bg-black rounded-md overflow-hidden shadow-lg">
               <VideoPlayer
-                  className="w-full h-full"
                   videoRef={videoRef}
                   videoUrl={videoUrl}
                   subtitles={subtitles}
