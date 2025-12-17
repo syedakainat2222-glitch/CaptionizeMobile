@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 
 
 type VideoPlayerProps = {
+  className?: string;
   videoRef: React.RefObject<HTMLVideoElement>;
   videoUrl: string;
   subtitles: Subtitle[];
@@ -19,6 +20,7 @@ type VideoPlayerProps = {
 };
 
 const VideoPlayer = ({
+  className,
   videoRef,
   videoUrl,
   subtitles,
@@ -98,7 +100,7 @@ const VideoPlayer = ({
   }, [isPlaying, videoRef]);
 
   return (
-    <Card className="overflow-hidden shadow-lg relative aspect-video">
+    <Card className={`overflow-hidden shadow-lg relative ${className}`}>
       <div className="w-full h-full bg-black">
         <video
           ref={videoRef}
