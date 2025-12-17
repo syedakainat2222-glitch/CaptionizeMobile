@@ -1,1 +1,1 @@
-Mobilelayout Deep seek after blank PC screen = 21
+Mobilelayout Deep seek after blank PC screen = 22
