@@ -17,12 +17,6 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 import VideoPlayer from './video-player';
 import SubtitleEditor from './subtitle-editor';
@@ -113,13 +107,11 @@ const EditorView = ({
   const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
 
-  // mobile tab state
   const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('subtitle');
 
   const handleExport = useCallback(async (format: 'srt' | 'vtt') => {
     try {
       let url = '';
-
       if (format === 'srt') {
         const content = formatSrt(subtitles);
         const blob = new Blob([content], { type: 'application/x-subrip' });
@@ -141,16 +133,9 @@ const EditorView = ({
 
       if (format === 'srt') URL.revokeObjectURL(url);
 
-      toast({
-        title: 'Export Successful',
-        description: `Your subtitles have been downloaded as a .${format} file.`,
-      });
+      toast({ title: 'Export Successful', description: `Your subtitles have been downloaded as a .${format} file.` });
     } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Export Failed',
-        description: 'Could not export subtitles.',
-      });
+      toast({ variant: 'destructive', title: 'Export Failed', description: 'Could not export subtitles.' });
     }
   }, [subtitles, subtitleFont, videoName, toast]);
 
@@ -161,12 +146,7 @@ const EditorView = ({
       </Button>
 
       <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsTranslationDialogOpen(true)}
-          disabled={isTranslating || isExporting}
-        >
+        <Button variant="outline" size="sm" onClick={() => setIsTranslationDialogOpen(true)} disabled={isTranslating || isExporting}>
           <Languages className="h-4 w-4" />
         </Button>
 
@@ -178,12 +158,8 @@ const EditorView = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuRadioGroup>
-              <DropdownMenuRadioItem value="srt" onClick={() => handleExport('srt')}>
-                SRT
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="vtt" onClick={() => handleExport('vtt')}>
-                VTT
-              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="srt" onClick={() => handleExport('srt')}>SRT</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="vtt" onClick={() => handleExport('vtt')}>VTT</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -199,9 +175,8 @@ const EditorView = ({
     <div className="flex flex-col h-full">
       {header}
 
-      {/* ================= MOBILE ================= */}
+      {/* MOBILE */}
       <div className="lg:hidden flex flex-col gap-3 p-2">
-        {/* VIDEO — ALWAYS MOUNTED */}
         <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
           <VideoPlayer
             videoRef={videoRef}
@@ -215,32 +190,12 @@ const EditorView = ({
           />
         </div>
 
-        {/* MOBILE TABS */}
         <div className="flex gap-2">
-          <Button
-            variant={mobileTab === 'subtitle' ? 'default' : 'outline'}
-            className="flex-1"
-            onClick={() => setMobileTab('subtitle')}
-          >
-            Subtitle
-          </Button>
-          <Button
-            variant={mobileTab === 'style' ? 'default' : 'outline'}
-            className="flex-1"
-            onClick={() => setMobileTab('style')}
-          >
-            Style
-          </Button>
-          <Button
-            variant={mobileTab === 'timeline' ? 'default' : 'outline'}
-            className="flex-1"
-            onClick={() => setMobileTab('timeline')}
-          >
-            Timeline
-          </Button>
+          <Button variant={mobileTab === 'subtitle' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('subtitle')}>Subtitle</Button>
+          <Button variant={mobileTab === 'style' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('style')}>Style</Button>
+          <Button variant={mobileTab === 'timeline' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('timeline')}>Timeline</Button>
         </div>
 
-        {/* MOBILE PANELS */}
         {mobileTab === 'subtitle' && (
           <SubtitleEditor
             subtitles={subtitles}
@@ -276,29 +231,31 @@ const EditorView = ({
         )}
 
         {mobileTab === 'timeline' && (
-          <div className="overflow-x-auto max-h-[140px]">
-            <TimelineEditor
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              duration={duration}
-              onPlayPause={onPlayPause}
-              onSeek={onSeek}
-              subtitles={subtitles}
-              onSplit={onSplit}
-              onUndo={onUndo}
-              onRedo={onRedo}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              activeSubtitleId={activeSubtitleId}
-              onDeleteSubtitle={onDeleteSubtitle}
-              onUpdateSubtitleTime={onUpdateSubtitleTime}
-              videoPublicId={videoPublicId}
-            />
+          <div className="overflow-x-auto max-h-[140px] p-2">
+            <div className="flex gap-2 items-center min-w-max">
+              <TimelineEditor
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                duration={duration}
+                onPlayPause={onPlayPause}
+                onSeek={onSeek}
+                subtitles={subtitles}
+                onSplit={onSplit}
+                onUndo={onUndo}
+                onRedo={onRedo}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                activeSubtitleId={activeSubtitleId}
+                onDeleteSubtitle={onDeleteSubtitle}
+                onUpdateSubtitleTime={onUpdateSubtitleTime}
+                videoPublicId={videoPublicId}
+              />
+            </div>
           </div>
         )}
       </div>
 
-      {/* ================= DESKTOP (ORIGINAL) ================= */}
+      {/* DESKTOP */}
       <div className="hidden lg:grid lg:grid-cols-2 gap-8 p-4 flex-1">
         <div className="flex flex-col gap-4">
           <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
