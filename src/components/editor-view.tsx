@@ -31,7 +31,6 @@ import TranslationDialog from '@/features/translate/TranslationDialog';
 import StyleControls from './StyleControls';
 import SubtitleStyler from './subtitle-styler';
 import TimelineEditor from './timeline-editor/TimelineEditor';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type EditorViewProps = {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -114,6 +113,7 @@ const EditorView = ({
 
   const handleExport = useCallback(async (format: 'srt' | 'vtt') => {
     try {
+      const subtitlesParam = encodeURIComponent(JSON.stringify(subtitles));
       let url = '';
 
       if (format === 'srt') {
@@ -167,7 +167,7 @@ const EditorView = ({
   };
   
   const header = (
-    <div className="flex justify-between items-center p-2 mb-2 border-b flex-shrink-0">
+    <div className="flex justify-between items-center p-2 md:p-0 mb-4">
         <TooltipProvider>
         <Tooltip>
             <TooltipTrigger asChild>
@@ -227,12 +227,11 @@ const EditorView = ({
   );
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
+    <div className="container mx-auto p-0 lg:p-4 flex flex-col flex-1 h-full">
       {header}
-
-      {/* Mobile Layout: Tabbed interface for screens smaller than 1024px */}
-      <div className="lg:hidden flex flex-col flex-1 overflow-hidden">
-        <div className="w-full flex-shrink-0">
+      {/* Mobile Layout: Vertical stack, visible on screens smaller than 1024px */}
+      <div className="lg:hidden flex flex-col gap-4 flex-1 px-2 pb-2">
+        <div className="w-full aspect-video bg-black rounded-md overflow-hidden shadow-lg">
           <VideoPlayer
               videoRef={videoRef}
               videoUrl={videoUrl}
@@ -244,13 +243,7 @@ const EditorView = ({
               onPlayPause={onPlayPause}
           />
         </div>
-        <Tabs defaultValue="edit" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
-            <TabsTrigger value="edit">Edit</TabsTrigger>
-            <TabsTrigger value="style">Style</TabsTrigger>
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          </TabsList>
-          <TabsContent value="edit" className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto space-y-4">
             <SubtitleEditor
               subtitles={subtitles}
               onUpdateSubtitle={onUpdateSubtitle}
@@ -258,8 +251,6 @@ const EditorView = ({
               onSuggestCorrection={onSuggestCorrection}
               onDeleteSubtitle={onDeleteSubtitle}
             />
-          </TabsContent>
-          <TabsContent value="style" className="flex-1 overflow-y-auto p-3 space-y-4">
             <SubtitleStyler
                 subtitleFont={subtitleFont}
                 subtitleFontSize={subtitleFontSize}
@@ -279,35 +270,32 @@ const EditorView = ({
                 isUnderline={isUnderline}
                 onStyleChange={onStyleChange}
             />
-          </TabsContent>
-          <TabsContent value="timeline" className="flex-1 overflow-y-auto p-3">
-            <div className="overflow-x-auto">
-              <TimelineEditor 
-                  isPlaying={isPlaying}
-                  currentTime={currentTime}
-                  duration={duration}
-                  onPlayPause={onPlayPause}
-                  onSeek={onSeek}
-                  subtitles={subtitles}
-                  onSplit={onSplit}
-                  onUndo={onUndo}
-                  onRedo={onRedo}
-                  canUndo={canUndo}
-                  canRedo={canRedo}
-                  activeSubtitleId={activeSubtitleId}
-                  onDeleteSubtitle={onDeleteSubtitle}
-                  onUpdateSubtitleTime={onUpdateSubtitleTime}
-                  videoPublicId={videoPublicId}
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
+        </div>
+        <div className="overflow-x-auto py-2">
+          <TimelineEditor 
+              isPlaying={isPlaying}
+              currentTime={currentTime}
+              duration={duration}
+              onPlayPause={onPlayPause}
+              onSeek={onSeek}
+              subtitles={subtitles}
+              onSplit={onSplit}
+              onUndo={onUndo}
+              onRedo={onRedo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              activeSubtitleId={activeSubtitleId}
+              onDeleteSubtitle={onDeleteSubtitle}
+              onUpdateSubtitleTime={onUpdateSubtitleTime}
+              videoPublicId={videoPublicId}
+          />
+        </div>
       </div>
 
-      {/* Desktop Layout: Grid for screens 1024px and wider */}
-      <div className="hidden lg:grid lg:grid-cols-2 gap-6 flex-1 p-4 overflow-hidden">
+      {/* Desktop Layout: Grid, visible on screens 1024px and wider */}
+      <div className="hidden lg:grid lg:grid-cols-2 gap-8 flex-1">
          <div className="flex flex-col gap-4">
-            <div className="w-full bg-black rounded-md overflow-hidden shadow-lg">
+            <div className="w-full aspect-video bg-black rounded-md overflow-hidden shadow-lg">
               <VideoPlayer
                   videoRef={videoRef}
                   videoUrl={videoUrl}
@@ -339,17 +327,17 @@ const EditorView = ({
                 onStyleChange={onStyleChange}
             />
         </div>
-        <div className="flex flex-col gap-4 overflow-hidden">
-            <div className="flex-1 overflow-y-auto pr-2">
-                <SubtitleEditor
-                subtitles={subtitles}
-                onUpdateSubtitle={onUpdateSubtitle}
-                activeSubtitleId={activeSubtitleId}
-                onSuggestCorrection={onSuggestCorrection}
-                onDeleteSubtitle={onDeleteSubtitle}
-                />
-            </div>
-            <div className="flex-shrink-0 overflow-x-auto pb-2">
+        <div className="overflow-y-auto h-[calc(100vh-250px)]">
+            <SubtitleEditor
+            subtitles={subtitles}
+            onUpdateSubtitle={onUpdateSubtitle}
+            activeSubtitleId={activeSubtitleId}
+            onSuggestCorrection={onSuggestCorrection}
+            onDeleteSubtitle={onDeleteSubtitle}
+            />
+        </div>
+        <div className="lg:col-span-2">
+            <div className="overflow-x-auto">
                 <TimelineEditor 
                     isPlaying={isPlaying}
                     currentTime={currentTime}
