@@ -6,13 +6,12 @@ import type { Subtitle } from '@/lib/srt';
 import { formatVtt } from '@/lib/srt';
 import { Button } from '@/components/ui/button';
 
-
 type VideoPlayerProps = {
   videoRef: React.RefObject<HTMLVideoElement>;
   videoUrl: string;
   subtitles: Subtitle[];
   isPlaying: boolean;
-  onPlayPause: () => void; // To sync state with parent
+  onPlayPause: () => void;
   onTimeUpdate: (time: number) => void;
   onLoadedMetadata: () => void;
   activeSubtitleId: number | null;
@@ -33,8 +32,7 @@ const VideoPlayer = ({
 
   const handlePlaybackRateChange = () => {
     const currentIndex = playbackRates.indexOf(playbackRate);
-    const nextIndex = (currentIndex + 1) % playbackRates.length;
-    setPlaybackRate(playbackRates[nextIndex]);
+    setPlaybackRate(playbackRates[(currentIndex + 1) % playbackRates.length]);
   };
 
   useEffect(() => {
@@ -49,85 +47,69 @@ const VideoPlayer = ({
     const url = URL.createObjectURL(blob);
     setVttUrl(url);
 
-    return () => {
-      URL.revokeObjectURL(url);
-    };
+    return () => URL.revokeObjectURL(url);
   }, [subtitles]);
 
   useEffect(() => {
-    const videoElement = videoRef.current;
-    if (!videoElement) return;
+    const video = videoRef.current;
+    if (!video) return;
 
-    const handleTimeUpdate = () => onTimeUpdate(videoElement.currentTime);
-    const handlePlay = () => !isPlaying && onPlayPause();
-    const handlePause = () => isPlaying && onPlayPause();
+    const onTime = () => onTimeUpdate(video.currentTime);
+    const onPlay = () => !isPlaying && onPlayPause();
+    const onPause = () => isPlaying && onPlayPause();
 
-    videoElement.addEventListener('timeupdate', handleTimeUpdate);
-    videoElement.addEventListener('play', handlePlay);
-    videoElement.addEventListener('pause', handlePause);
-    videoElement.addEventListener('loadedmetadata', onLoadedMetadata);
-    
-    if (videoElement.textTracks.length > 0) {
-        videoElement.textTracks[0].mode = 'showing';
+    video.addEventListener('timeupdate', onTime);
+    video.addEventListener('play', onPlay);
+    video.addEventListener('pause', onPause);
+    video.addEventListener('loadedmetadata', onLoadedMetadata);
+
+    if (video.textTracks.length > 0) {
+      video.textTracks[0].mode = 'showing';
     }
 
     return () => {
-      videoElement.removeEventListener('timeupdate', handleTimeUpdate);
-      videoElement.removeEventListener('play', handlePlay);
-      videoElement.removeEventListener('pause', handlePause);
-      videoElement.removeEventListener('loadedmetadata', onLoadedMetadata);
+      video.removeEventListener('timeupdate', onTime);
+      video.removeEventListener('play', onPlay);
+      video.removeEventListener('pause', onPause);
+      video.removeEventListener('loadedmetadata', onLoadedMetadata);
     };
-  }, [videoRef, onTimeUpdate, onLoadedMetadata, isPlaying, onPlayPause]);
+  }, [videoRef, isPlaying, onPlayPause, onTimeUpdate, onLoadedMetadata]);
 
   useEffect(() => {
-    const videoElement = videoRef.current;
-    if (!videoElement) return;
-
-    if (isPlaying) {
-        videoElement.play().catch(error => {
-            // Handle interruption errors gracefully, often they are benign
-            if (error.name === 'AbortError') {
-                console.log('Video play was interrupted, most likely by a pause call.');
-            } else {
-                console.error('Error playing video:', error);
-            }
-        });
-    } else {
-        videoElement.pause();
-    }
+    const video = videoRef.current;
+    if (!video) return;
+    isPlaying ? video.play().catch(() => {}) : video.pause();
   }, [isPlaying, videoRef]);
 
   return (
-    <Card className="overflow-hidden shadow-lg relative aspect-video">
-      <div className="w-full h-full bg-black">
-        <video
-          ref={videoRef}
-          key={videoUrl} 
-          crossOrigin="anonymous"
-          className="h-full w-full"
+    <Card className="relative aspect-video overflow-hidden bg-black">
+      <video
+        ref={videoRef}
+        key={videoUrl}
+        crossOrigin="anonymous"
+        className="w-full h-full object-contain"
+      >
+        <source src={videoUrl} type="video/mp4" />
+        {vttUrl && (
+          <track
+            label="Subtitles"
+            kind="subtitles"
+            srcLang="en"
+            src={vttUrl}
+            default
+          />
+        )}
+      </video>
+
+      <div className="absolute bottom-2 right-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePlaybackRateChange}
+          className="bg-black/60 text-white"
         >
-          <source src={videoUrl} type="video/mp4" />
-          {vttUrl && (
-            <track
-              label="Subtitles"
-              kind="subtitles"
-              srcLang="en"
-              src={vttUrl}
-              default
-            />
-          )}
-          Your browser does not support the video tag.
-        </video>
-        <div className="absolute bottom-2 right-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePlaybackRateChange}
-            className="bg-black bg-opacity-50 text-white hover:bg-opacity-75"
-          >
-            {playbackRate}x
-          </Button>
-        </div>
+          {playbackRate}x
+        </Button>
       </div>
     </Card>
   );

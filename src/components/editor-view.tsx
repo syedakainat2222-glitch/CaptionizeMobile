@@ -67,7 +67,11 @@ type EditorViewProps = {
   canUndo: boolean;
   canRedo: boolean;
   onDeleteSubtitle: (id: number) => void;
-  onUpdateSubtitleTime: (id: number, startTime: string, endTime: string) => void;
+  onUpdateSubtitleTime: (
+    id: number,
+    startTime: string,
+    endTime: string
+  ) => void;
 };
 
 const EditorView = ({
@@ -82,7 +86,6 @@ const EditorView = ({
   videoPublicId,
   videoName,
   subtitles,
-  onUpdateSubtitles,
   activeSubtitleId,
   onTimeUpdate,
   onUpdateSubtitle,
@@ -109,256 +112,269 @@ const EditorView = ({
 }: EditorViewProps) => {
   const { toast } = useToast();
   const [isTranslating, setIsTranslating] = useState(false);
-  const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
+  const [isTranslationDialogOpen, setIsTranslationDialogOpen] =
+    useState(false);
 
-  const handleExport = useCallback(async (format: 'srt' | 'vtt') => {
-    try {
-      const subtitlesParam = encodeURIComponent(JSON.stringify(subtitles));
-      let url = '';
+  const handleExport = useCallback(
+    async (format: 'srt' | 'vtt') => {
+      try {
+        let url = '';
 
-      if (format === 'srt') {
-        const content = formatSrt(subtitles);
-        const blob = new Blob([content], { type: 'application/x-subrip' });
-        url = URL.createObjectURL(blob);
-      } else {
-        const params = new URLSearchParams({
-          subtitles: JSON.stringify(subtitles),
-          font: subtitleFont,
+        if (format === 'srt') {
+          const content = formatSrt(subtitles);
+          const blob = new Blob([content], {
+            type: 'application/x-subrip',
+          });
+          url = URL.createObjectURL(blob);
+        } else {
+          const params = new URLSearchParams({
+            subtitles: JSON.stringify(subtitles),
+            font: subtitleFont,
+          });
+          url = `/api/vtt?${params.toString()}`;
+        }
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${videoName.split('.')[0]}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        if (format === 'srt') {
+          URL.revokeObjectURL(url);
+        }
+
+        toast({
+          title: 'Export Successful',
+          description: `Your subtitles have been downloaded as a .${format} file.`,
         });
-        url = `/api/vtt?${params.toString()}`;
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Export Failed',
+          description: 'Could not export subtitles.',
+        });
       }
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${videoName.split('.')[0]}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      if (format === 'srt') {
-        URL.revokeObjectURL(url);
-      }
-
-      toast({
-        title: 'Export Successful',
-        description: `Your subtitles have been downloaded as a .${format} file.`,
-      });
-
-    } catch (error) {
-      console.error('Export failed:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Export Failed',
-        description: 'Could not export subtitles. Please try again.',
-      });
-    }
-  }, [subtitles, videoName, subtitleFont, toast]);
+    },
+    [subtitles, videoName, subtitleFont, toast]
+  );
 
   const handleTranslateClick = async (targetLanguage: string) => {
     setIsTranslating(true);
     setIsTranslationDialogOpen(false);
     try {
       await onTranslate(targetLanguage);
-    } catch (error) {
-      console.error('Translation failed:', error);
     } finally {
       setIsTranslating(false);
     }
   };
-  
-  const header = (
-    <div className="flex justify-between items-center p-2 md:p-0 mb-4">
-        <TooltipProvider>
-        <Tooltip>
-            <TooltipTrigger asChild>
-            <Button variant="outline" size="icon" onClick={onReset}>
-                <ArrowLeft className="h-5 w-5" />
-            </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-            <p>Back to Upload</p>
-            </TooltipContent>
-        </Tooltip>
-        </TooltipProvider>
 
-        <div className="flex items-center gap-2">
-        <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setIsTranslationDialogOpen(true)} 
-            disabled={isTranslating || isExporting}
-        >
-            {isTranslating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Languages className="mr-2 h-4 w-4" />}
-            <span className="hidden sm:inline">Translate</span>
-        </Button>
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isExporting}>
-                <FileText className="mr-2 h-4 w-4" /> <span className="hidden sm:inline">Export Subtitles</span>
+  const header = (
+    <div className="sticky top-0 z-30 bg-background border-b flex items-center justify-between px-2 py-2">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="icon" onClick={onReset}>
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
+          </TooltipTrigger>
+          <TooltipContent>Back</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsTranslationDialogOpen(true)}
+          disabled={isTranslating || isExporting}
+        >
+          {isTranslating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Languages className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline ml-1">Translate</span>
+        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" disabled={isExporting}>
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1">Subtitles</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
             <DropdownMenuRadioGroup>
-                <DropdownMenuRadioItem value="srt" onClick={() => handleExport('srt')}>
-                SRT (.srt)
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="vtt" onClick={() => handleExport('vtt')}>
-                VTT (.vtt)
-                </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem
+                value="srt"
+                onClick={() => handleExport('srt')}
+              >
+                SRT
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem
+                value="vtt"
+                onClick={() => handleExport('vtt')}
+              >
+                VTT
+              </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
+          </DropdownMenuContent>
         </DropdownMenu>
 
-        <TooltipProvider>
-            <Tooltip>
-            <TooltipTrigger asChild>
-                <Button size="sm" onClick={onExportVideo} disabled={isExporting}>
-                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                <span className="hidden sm:inline">Export Video</span>
-                </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-                <p>Burn subtitles into the video and download</p>
-            </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
-        </div>
+        <Button
+          size="sm"
+          onClick={onExportVideo}
+          disabled={isExporting}
+        >
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline ml-1">Export</span>
+        </Button>
+      </div>
     </div>
   );
 
   return (
-    <div className="container mx-auto p-0 lg:p-4 flex flex-col flex-1 h-full">
+    <div className="container mx-auto flex flex-col h-full">
       {header}
-      {/* Mobile Layout: Vertical stack, visible on screens smaller than 1024px */}
-      <div className="lg:hidden flex flex-col gap-4 flex-1 px-2 pb-2">
-        <div className="w-full aspect-video bg-black rounded-md overflow-hidden shadow-lg">
+
+      {/* MOBILE */}
+      <div className="lg:hidden flex flex-col gap-4 px-2 py-3">
+        <div className="w-full aspect-video rounded-md overflow-hidden bg-black">
           <VideoPlayer
-              videoRef={videoRef}
-              videoUrl={videoUrl}
-              subtitles={subtitles}
-              onTimeUpdate={onTimeUpdate}
-              activeSubtitleId={activeSubtitleId}
-              onLoadedMetadata={onLoadedMetadata}
-              isPlaying={isPlaying}
-              onPlayPause={onPlayPause}
+            videoRef={videoRef}
+            videoUrl={videoUrl}
+            subtitles={subtitles}
+            onTimeUpdate={onTimeUpdate}
+            activeSubtitleId={activeSubtitleId}
+            onLoadedMetadata={onLoadedMetadata}
+            isPlaying={isPlaying}
+            onPlayPause={onPlayPause}
           />
         </div>
-        <div className="flex-1 overflow-y-auto space-y-4">
-            <SubtitleEditor
-              subtitles={subtitles}
-              onUpdateSubtitle={onUpdateSubtitle}
-              activeSubtitleId={activeSubtitleId}
-              onSuggestCorrection={onSuggestCorrection}
-              onDeleteSubtitle={onDeleteSubtitle}
-            />
-            <SubtitleStyler
-                subtitleFont={subtitleFont}
-                subtitleFontSize={subtitleFontSize}
-                subtitleColor={subtitleColor}
-                subtitleOutlineColor={subtitleOutlineColor}
-                isBold={isBold}
-                isItalic={isItalic}
-                isUnderline={isUnderline}
-            />
-            <StyleControls
-                subtitleFont={subtitleFont}
-                subtitleFontSize={subtitleFontSize}
-                subtitleColor={subtitleColor}
-                subtitleOutlineColor={subtitleOutlineColor}
-                isBold={isBold}
-                isItalic={isItalic}
-                isUnderline={isUnderline}
-                onStyleChange={onStyleChange}
-            />
-        </div>
-        <div className="overflow-x-auto py-2">
-          <TimelineEditor 
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              duration={duration}
-              onPlayPause={onPlayPause}
-              onSeek={onSeek}
-              subtitles={subtitles}
-              onSplit={onSplit}
-              onUndo={onUndo}
-              onRedo={onRedo}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              activeSubtitleId={activeSubtitleId}
-              onDeleteSubtitle={onDeleteSubtitle}
-              onUpdateSubtitleTime={onUpdateSubtitleTime}
-              videoPublicId={videoPublicId}
+
+        <SubtitleEditor
+          subtitles={subtitles}
+          onUpdateSubtitle={onUpdateSubtitle}
+          activeSubtitleId={activeSubtitleId}
+          onSuggestCorrection={onSuggestCorrection}
+          onDeleteSubtitle={onDeleteSubtitle}
+        />
+
+        <SubtitleStyler
+          subtitleFont={subtitleFont}
+          subtitleFontSize={subtitleFontSize}
+          subtitleColor={subtitleColor}
+          subtitleOutlineColor={subtitleOutlineColor}
+          isBold={isBold}
+          isItalic={isItalic}
+          isUnderline={isUnderline}
+        />
+
+        <StyleControls
+          subtitleFont={subtitleFont}
+          subtitleFontSize={subtitleFontSize}
+          subtitleColor={subtitleColor}
+          subtitleOutlineColor={subtitleOutlineColor}
+          isBold={isBold}
+          isItalic={isItalic}
+          isUnderline={isUnderline}
+          onStyleChange={onStyleChange}
+        />
+
+        <div className="overflow-x-auto max-h-[140px]">
+          <TimelineEditor
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            onPlayPause={onPlayPause}
+            onSeek={onSeek}
+            subtitles={subtitles}
+            onSplit={onSplit}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            activeSubtitleId={activeSubtitleId}
+            onDeleteSubtitle={onDeleteSubtitle}
+            onUpdateSubtitleTime={onUpdateSubtitleTime}
+            videoPublicId={videoPublicId}
           />
         </div>
       </div>
 
-      {/* Desktop Layout: Grid, visible on screens 1024px and wider */}
-      <div className="hidden lg:grid lg:grid-cols-2 gap-8 flex-1">
-         <div className="flex flex-col gap-4">
-            <div className="w-full aspect-video bg-black rounded-md overflow-hidden shadow-lg">
-              <VideoPlayer
-                  videoRef={videoRef}
-                  videoUrl={videoUrl}
-                  subtitles={subtitles}
-                  onTimeUpdate={onTimeUpdate}
-                  activeSubtitleId={activeSubtitleId}
-                  onLoadedMetadata={onLoadedMetadata}
-                  isPlaying={isPlaying}
-                  onPlayPause={onPlayPause}
-              />
-            </div>
-            <SubtitleStyler
-                subtitleFont={subtitleFont}
-                subtitleFontSize={subtitleFontSize}
-                subtitleColor={subtitleColor}
-                subtitleOutlineColor={subtitleOutlineColor}
-                isBold={isBold}
-                isItalic={isItalic}
-                isUnderline={isUnderline}
-            />
-            <StyleControls
-                subtitleFont={subtitleFont}
-                subtitleFontSize={subtitleFontSize}
-                subtitleColor={subtitleColor}
-                subtitleOutlineColor={subtitleOutlineColor}
-                isBold={isBold}
-                isItalic={isItalic}
-                isUnderline={isUnderline}
-                onStyleChange={onStyleChange}
-            />
+      {/* DESKTOP */}
+      <div className="hidden lg:grid lg:grid-cols-2 gap-8 flex-1 p-4">
+        <div className="flex flex-col gap-4">
+          <VideoPlayer
+            videoRef={videoRef}
+            videoUrl={videoUrl}
+            subtitles={subtitles}
+            onTimeUpdate={onTimeUpdate}
+            activeSubtitleId={activeSubtitleId}
+            onLoadedMetadata={onLoadedMetadata}
+            isPlaying={isPlaying}
+            onPlayPause={onPlayPause}
+          />
+
+          <SubtitleStyler
+            subtitleFont={subtitleFont}
+            subtitleFontSize={subtitleFontSize}
+            subtitleColor={subtitleColor}
+            subtitleOutlineColor={subtitleOutlineColor}
+            isBold={isBold}
+            isItalic={isItalic}
+            isUnderline={isUnderline}
+          />
+
+          <StyleControls
+            subtitleFont={subtitleFont}
+            subtitleFontSize={subtitleFontSize}
+            subtitleColor={subtitleColor}
+            subtitleOutlineColor={subtitleOutlineColor}
+            isBold={isBold}
+            isItalic={isItalic}
+            isUnderline={isUnderline}
+            onStyleChange={onStyleChange}
+          />
         </div>
-        <div className="overflow-y-auto h-[calc(100vh-250px)]">
-            <SubtitleEditor
+
+        <div className="overflow-y-auto">
+          <SubtitleEditor
             subtitles={subtitles}
             onUpdateSubtitle={onUpdateSubtitle}
             activeSubtitleId={activeSubtitleId}
             onSuggestCorrection={onSuggestCorrection}
             onDeleteSubtitle={onDeleteSubtitle}
-            />
+          />
         </div>
-        <div className="lg:col-span-2">
-            <div className="overflow-x-auto">
-                <TimelineEditor 
-                    isPlaying={isPlaying}
-                    currentTime={currentTime}
-                    duration={duration}
-                    onPlayPause={onPlayPause}
-                    onSeek={onSeek}
-                    subtitles={subtitles}
-                    onSplit={onSplit}
-                    onUndo={onUndo}
-                    onRedo={onRedo}
-                    canUndo={canUndo}
-                    canRedo={canRedo}
-                    activeSubtitleId={activeSubtitleId}
-                    onDeleteSubtitle={onDeleteSubtitle}
-                    onUpdateSubtitleTime={onUpdateSubtitleTime}
-                    videoPublicId={videoPublicId}
-                />
-            </div>
+
+        <div className="lg:col-span-2 overflow-x-auto">
+          <TimelineEditor
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            onPlayPause={onPlayPause}
+            onSeek={onSeek}
+            subtitles={subtitles}
+            onSplit={onSplit}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            activeSubtitleId={activeSubtitleId}
+            onDeleteSubtitle={onDeleteSubtitle}
+            onUpdateSubtitleTime={onUpdateSubtitleTime}
+            videoPublicId={videoPublicId}
+          />
         </div>
       </div>
-      
+
       <TranslationDialog
         open={isTranslationDialogOpen}
         onOpenChange={setIsTranslationDialogOpen}
