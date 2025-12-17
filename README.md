@@ -1,1 +1,1 @@
-Mobilelayout Deep seek = 19
+Mobilelayout Deep seek = 20
