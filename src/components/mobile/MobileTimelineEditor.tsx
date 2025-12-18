@@ -265,8 +265,8 @@ const MobileTimelineEditor = ({
                 );
               })}
             </div>
-            <VideoThumbnails videoPublicId={videoPublicId} duration={duration} timelineWidth={timelineWidth} />
-            <AudioWaveform videoPublicId={videoPublicId} />
+            <VideoThumbnails videoPublicId={videoPublicId} duration={duration} timelineWidth={timelineWidth} className="h-10" />
+            <AudioWaveform videoPublicId={videoPublicId} className="h-12" />
           </div>
         </div>
       </div>

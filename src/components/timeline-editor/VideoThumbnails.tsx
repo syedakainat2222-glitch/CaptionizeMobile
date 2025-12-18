@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { cn } from '@/lib/utils';
 
 const THUMBNAIL_WIDTH = 120;
 const THUMBNAIL_HEIGHT = 68;
@@ -10,9 +11,10 @@ type VideoThumbnailsProps = {
   videoPublicId: string;
   duration: number;
   timelineWidth: number;
+  className?: string;
 };
 
-const VideoThumbnails = ({ videoPublicId, duration, timelineWidth }: VideoThumbnailsProps) => {
+const VideoThumbnails = ({ videoPublicId, duration, timelineWidth, className }: VideoThumbnailsProps) => {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 
   const thumbnails = useMemo(() => {
@@ -28,14 +30,14 @@ const VideoThumbnails = ({ videoPublicId, duration, timelineWidth }: VideoThumbn
 
   if (thumbnails.length === 0) {
     return (
-      <div className="h-16 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm">
+      <div className={cn("h-16 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm", className)}>
         Generating Video Thumbnails...
       </div>
     );
   }
 
   return (
-    <div className="h-16 relative overflow-hidden rounded-md bg-gray-800/50 flex">
+    <div className={cn("h-16 relative overflow-hidden rounded-md bg-gray-800/50 flex", className)}>
       {thumbnails.map((thumb, i) => (
         <img
           key={i}

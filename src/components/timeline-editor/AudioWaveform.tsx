@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 
 type AudioWaveformProps = {
   videoPublicId: string;
+  className?: string;
 };
 
-const AudioWaveform = ({ videoPublicId }: AudioWaveformProps) => {
+const AudioWaveform = ({ videoPublicId, className }: AudioWaveformProps) => {
   const [waveformUrl, setWaveformUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +54,7 @@ const AudioWaveform = ({ videoPublicId }: AudioWaveformProps) => {
 
   if (isLoading) {
     return (
-      <div className="h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm">
+      <div className={cn("h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm", className)}>
         Generating audio waveform...
       </div>
     );
@@ -60,7 +62,7 @@ const AudioWaveform = ({ videoPublicId }: AudioWaveformProps) => {
 
   if (error) {
     return (
-      <div className="h-20 bg-red-900/50 rounded-md flex items-center justify-center text-red-400 text-sm">
+      <div className={cn("h-20 bg-red-900/50 rounded-md flex items-center justify-center text-red-400 text-sm", className)}>
         Error: {error}
       </div>
     );
@@ -68,14 +70,14 @@ const AudioWaveform = ({ videoPublicId }: AudioWaveformProps) => {
 
   if (!waveformUrl) {
     return (
-      <div className="h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm">
+      <div className={cn("h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm", className)}>
         No waveform available.
       </div>
     );
   }
 
   return (
-    <div className="h-20 relative bg-gray-800/50 rounded-md overflow-hidden">
+    <div className={cn("h-20 relative bg-gray-800/50 rounded-md overflow-hidden", className)}>
       <img
         src={waveformUrl}
         alt="Audio waveform"
