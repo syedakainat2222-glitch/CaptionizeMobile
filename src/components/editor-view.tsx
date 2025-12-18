@@ -1,7 +1,8 @@
 'use client';
 
-import React, { memo, useCallback, useState, useEffect, useRef } from 'react';
+import React, { memo, useCallback, useState, useEffect } from 'react';
 import { ArrowLeft, Download, FileText, Loader2, Languages } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,11 +11,13 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
 import VideoPlayer from './video-player';
 import SubtitleEditor from './subtitle-editor';
 import SubtitleStyler from './subtitle-styler';
 import StyleControls from './StyleControls';
 import TimelineEditor from './timeline-editor/TimelineEditor';
+
 import { Subtitle, formatSrt } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
 import type { Video } from '@/lib/types';
@@ -99,14 +102,9 @@ const EditorView = ({
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('subtitle');
   const [isLandscape, setIsLandscape] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
-  const hasVideoInitialized = useRef(false);
 
-  // Detect mobile and landscape
+  // Detect mobile landscape
   useEffect(() => {
-    const mobile = typeof window !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    setIsMobile(mobile);
-    
     const handleOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight);
     handleOrientation();
     window.addEventListener('resize', handleOrientation);
@@ -146,42 +144,14 @@ const EditorView = ({
     [subtitles, subtitleFont, videoName, toast]
   );
 
-  // Mobile play/pause - DIRECT video control
   const handleMobilePlayPause = () => {
     if (videoRef.current) {
-      const video = videoRef.current;
-      
-      // Ensure video is ready
-      if (video.readyState < 2) {
-        video.load();
-      }
-      
-      // Direct play/pause - CRITICAL for mobile
-      if (video.paused) {
-        video.play().then(() => {
-          console.log('Mobile video playing successfully');
-        }).catch(error => {
-          console.error('Mobile play failed:', error);
-          // Fallback: try with muted audio
-          video.muted = true;
-          video.play().then(() => {
-            video.muted = false;
-          }).catch(e => {
-            console.error('Muted play also failed:', e);
-          });
-        });
+      if (videoRef.current.paused) {
+        videoRef.current.play();
       } else {
-        video.pause();
+        videoRef.current.pause();
       }
     }
-  };
-
-  // Mobile seek handler
-  const handleMobileSeek = (time: number) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = time;
-    }
-    onSeek(time);
   };
 
   const header = (
@@ -220,7 +190,7 @@ const EditorView = ({
     </div>
   );
 
-  if (!isLandscape && isMobile) {
+  if (!isLandscape) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-background">
         <p className="text-lg font-medium">Please rotate your device to landscape for editing subtitles</p>
@@ -275,8 +245,8 @@ const EditorView = ({
                 isPlaying={isPlaying}
                 currentTime={currentTime}
                 duration={duration}
-                onPlayPause={handleMobilePlayPause} // Use mobile-specific handler
-                onSeek={handleMobileSeek} // Use mobile-specific seek
+                onPlayPause={handleMobilePlayPause}
+                onSeek={onSeek}
                 subtitles={subtitles}
                 onSplit={onSplit}
                 onUndo={onUndo}
@@ -287,7 +257,6 @@ const EditorView = ({
                 onDeleteSubtitle={onDeleteSubtitle}
                 onUpdateSubtitleTime={onUpdateSubtitleTime}
                 videoPublicId={videoPublicId}
-                videoRef={videoRef} // Pass videoRef for direct control
               />
             </div>
           </div>
@@ -312,24 +281,7 @@ const EditorView = ({
         </div>
 
         <div className="lg:col-span-2 overflow-x-auto">
-          <TimelineEditor 
-            isPlaying={isPlaying} 
-            currentTime={currentTime} 
-            duration={duration} 
-            onPlayPause={onPlayPause} 
-            onSeek={onSeek}
-            subtitles={subtitles} 
-            onSplit={onSplit} 
-            onUndo={onUndo} 
-            onRedo={onRedo} 
-            canUndo={canUndo} 
-            canRedo={canRedo} 
-            activeSubtitleId={activeSubtitleId} 
-            onDeleteSubtitle={onDeleteSubtitle} 
-            onUpdateSubtitleTime={onUpdateSubtitleTime} 
-            videoPublicId={videoPublicId}
-            videoRef={videoRef}
-          />
+          <TimelineEditor isPlaying={isPlaying} currentTime={currentTime} duration={duration} onPlayPause={onPlayPause} onSeek={onSeek} subtitles={subtitles} onSplit={onSplit} onUndo={onUndo} onRedo={onRedo} canUndo={canUndo} canRedo={canRedo} activeSubtitleId={activeSubtitleId} onDeleteSubtitle={onDeleteSubtitle} onUpdateSubtitleTime={onUpdateSubtitleTime} videoPublicId={videoPublicId} />
         </div>
       </div>
 

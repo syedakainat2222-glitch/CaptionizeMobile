@@ -43,7 +43,6 @@ type TimelineEditorProps = {
   onDeleteSubtitle: (id: number) => void;
   onUpdateSubtitleTime: (id: number, startTime: string, endTime: string) => void;
   videoPublicId: string;
-  videoRef?: React.RefObject<HTMLVideoElement>;
 };
 
 const TimelineEditor = ({ 
@@ -62,18 +61,11 @@ const TimelineEditor = ({
   onDeleteSubtitle,
   onUpdateSubtitleTime,
   videoPublicId,
-  videoRef
 }: TimelineEditorProps) => {
   const [zoomLevel, setZoomLevel] = useState(1);
   const timelineRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<{subId: number, type: 'start' | 'end' | 'move', startX: number, initialStart: number, initialEnd: number} | null>(null);
   const [tempSubtitles, setTempSubtitles] = useState<Subtitle[]>(subtitles);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const mobile = typeof window !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    setIsMobile(mobile);
-  }, []);
 
   useEffect(() => {
     setTempSubtitles(subtitles);
@@ -89,12 +81,6 @@ const TimelineEditor = ({
       const rect = timelineRef.current.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const time = (clickX / timelineWidth) * duration;
-      
-      // For mobile, seek the video directly
-      if (isMobile && videoRef?.current) {
-        videoRef.current.currentTime = time;
-      }
-      
       onSeek(time);
     }
   };
@@ -102,39 +88,6 @@ const TimelineEditor = ({
   const handleDeleteClick = () => {
     if (activeSubtitleId !== null) {
       onDeleteSubtitle(activeSubtitleId);
-    }
-  };
-
-  // Direct mobile play/pause handler
-  const handleMobilePlayPause = () => {
-    if (isMobile && videoRef?.current) {
-      // Direct control for mobile - most important part!
-      const video = videoRef.current;
-      if (video.paused) {
-        // First ensure video is visible and ready
-        video.style.display = 'block';
-        video.hidden = false;
-        
-        // Try to play - this must be in direct response to user click
-        const playPromise = video.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(err => {
-            console.log('Mobile play error:', err);
-            // If play fails, try again with user gesture workaround
-            video.muted = true;
-            video.play().then(() => {
-              video.muted = false;
-            }).catch(e => {
-              console.log('Second play attempt failed:', e);
-            });
-          });
-        }
-      } else {
-        video.pause();
-      }
-    } else {
-      // Desktop uses the regular handler
-      onPlayPause();
     }
   };
 
@@ -215,14 +168,16 @@ const TimelineEditor = ({
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4 px-2 py-1 bg-gray-800 rounded">
         <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleMobilePlayPause}
-            data-mobile-play // Add data attribute for mobile
+          <button
+            className="p-2 rounded-md hover:bg-gray-700 transition-colors"
+            onClick={onPlayPause}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              onPlayPause();
+            }}
           >
             {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-          </Button>
+          </button>
           <Button variant="ghost" size="icon" onClick={handleZoomOut} disabled={zoomLevel <= 1}>
             <ZoomOut className="h-5 w-5" />
           </Button>
@@ -288,9 +243,6 @@ const TimelineEditor = ({
                     <div 
                       onClick={(e) => { 
                         e.stopPropagation(); 
-                        if (isMobile && videoRef?.current) {
-                          videoRef.current.currentTime = start;
-                        }
                         onSeek(start); 
                       }} 
                       onMouseDown={(e) => handleMouseDown(e, sub.id, 'move')} 
