@@ -107,28 +107,6 @@ const EditorView = ({
   const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('timeline');
   const { isMobile, isLandscape } = useDeviceOrientation();
 
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.innerHTML = `
-      .mobile-editor-active .main-header,
-      .mobile-editor-active .main-footer {
-        display: none;
-      }
-    `;
-    document.head.appendChild(style);
-
-    if (isMobile) {
-      document.body.classList.add('mobile-editor-active');
-    } else {
-      document.body.classList.remove('mobile-editor-active');
-    }
-
-    return () => {
-      document.head.removeChild(style);
-      document.body.classList.remove('mobile-editor-active');
-    };
-  }, [isMobile]);
-
   const handleExport = useCallback(
     async (format: 'srt' | 'vtt') => {
       try {
@@ -216,7 +194,7 @@ const EditorView = ({
 
   return (
     <div className={`flex flex-col ${isMobile ? 'h-screen' : 'h-full'}`}>
-      {!isMobile && header}
+      {header}
 
       {isMobile ? (
         <div className="flex flex-col gap-1 flex-1">
