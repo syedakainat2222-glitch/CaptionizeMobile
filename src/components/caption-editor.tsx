@@ -11,6 +11,7 @@ import { fetchVideoLibrary, addVideo, updateVideo, deleteVideo } from '@/lib/vid
 import type { Video } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
+import { useDeviceOrientation } from '@/hooks/use-device-orientation';
 
 // Custom hook for managing undo/redo state
 const useHistory = <T extends unknown>(initialState: T) => {
@@ -75,6 +76,7 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
 };
 
 export default function CaptionEditor() {
+  const { isMobile, isLandscape } = useDeviceOrientation();
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const { state: subtitles, set: setSubtitles, undo: undoSubtitles, redo: redoSubtitles, canUndo, canRedo } = useHistory<Subtitle[]>([]);
 
@@ -626,6 +628,14 @@ export default function CaptionEditor() {
     return (
       <div className="flex flex-1 items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isMobile && !isLandscape) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-background">
+        <p className="text-lg font-medium">Please rotate your device to landscape to continue.</p>
       </div>
     );
   }

@@ -24,6 +24,7 @@ import { Subtitle, formatSrt } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
 import type { Video } from '@/lib/types';
 import TranslationDialog from '@/features/translate/TranslationDialog';
+import { useDeviceOrientation } from '@/hooks/use-device-orientation';
 
 type EditorViewProps = {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -104,18 +105,7 @@ const EditorView = ({
   const { toast } = useToast();
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('timeline');
-  const [isMobile, setIsMobile] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(true);
-
-  useEffect(() => {
-    const mobile = typeof window !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    setIsMobile(mobile);
-
-    const handleOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight);
-    handleOrientation();
-    window.addEventListener('resize', handleOrientation);
-    return () => window.removeEventListener('resize', handleOrientation);
-  }, []);
+  const { isMobile, isLandscape } = useDeviceOrientation();
 
   const handleExport = useCallback(
     async (format: 'srt' | 'vtt') => {
