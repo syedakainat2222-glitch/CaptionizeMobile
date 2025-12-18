@@ -1,89 +1,57 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 
-type AudioWaveformProps = {
+const THUMBNAIL_INTERVAL = 2;
+
+type VideoThumbnailsProps = {
   videoPublicId: string;
+  duration: number;
+  timelineWidth: number;
+  currentTime: number;
 };
 
-const AudioWaveform = ({ videoPublicId }: AudioWaveformProps) => {
-  const [waveformUrl, setWaveformUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+const VideoThumbnails = ({
+  videoPublicId,
+  duration,
+  timelineWidth,
+  currentTime,
+}: VideoThumbnailsProps) => {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 
-  useEffect(() => {
-    if (!videoPublicId) {
-      setIsLoading(false);
-      return;
-    }
+  const thumbnails = useMemo(() => {
+    if (!duration || !videoPublicId || !cloudName) return [];
+    const count = Math.floor(duration / THUMBNAIL_INTERVAL);
 
-    const fetchWaveform = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await fetch('/api/waveform', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ videoPublicId }),
-        });
+    return Array.from({ length: count }, (_, i) => {
+      const offset = i * THUMBNAIL_INTERVAL;
+      return `https://res.cloudinary.com/${cloudName}/video/upload/so_${offset}/${videoPublicId}.jpg`;
+    });
+  }, [duration, videoPublicId, cloudName]);
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch waveform data');
-        }
-
-        const data = await response.json();
-        if (data.success && data.waveformUrl) {
-          setWaveformUrl(data.waveformUrl);
-        } else {
-          throw new Error(data.error || 'Invalid response from server');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
-        console.error('Error fetching waveform:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchWaveform();
-  }, [videoPublicId]);
-
-  if (isLoading) {
-    return (
-      <div className="h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm">
-        Generating audio waveform...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="h-20 bg-red-900/50 rounded-md flex items-center justify-center text-red-400 text-sm">
-        Error: {error}
-      </div>
-    );
-  }
-
-  if (!waveformUrl) {
-    return (
-      <div className="h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm">
-        No waveform available.
-      </div>
-    );
-  }
+  const playheadLeft = (currentTime / duration) * timelineWidth;
 
   return (
-    <div className="h-20 relative bg-gray-800/50 rounded-md overflow-hidden">
-      <img
-        src={waveformUrl}
-        alt="Audio waveform"
-        className="w-full h-full object-cover"
-        style={{ imageRendering: 'pixelated' }}
+    <div className="relative h-16 overflow-hidden rounded-md bg-gray-800/50">
+      <div className="flex h-full">
+        {thumbnails.map((thumb, i) => (
+          <img
+            key={i}
+            src={thumb}
+            alt=""
+            style={{ width: `${timelineWidth / thumbnails.length}px` }}
+            className="h-full object-cover"
+          />
+        ))}
+      </div>
+
+      {/* SHARED PLAYHEAD */}
+      <div
+        className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-20"
+        style={{ left: playheadLeft }}
       />
     </div>
   );
 };
 
-export default React.memo(AudioWaveform);
+export default React.memo(VideoThumbnails);
