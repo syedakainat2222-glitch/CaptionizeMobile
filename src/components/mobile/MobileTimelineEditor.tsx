@@ -5,8 +5,8 @@ import { Play, Pause, Scissors, Undo, Redo, ZoomIn, ZoomOut, Trash2 } from 'luci
 import { Button } from '@/components/ui/button';
 import type { Subtitle } from '@/lib/srt';
 import { formatTime } from '@/lib/utils';
-import VideoThumbnails from '../timeline-editor/VideoThumbnails';
-import AudioWaveform from '../timeline-editor/AudioWaveform';
+import MobileVideoThumbnails from './MobileVideoThumbnails';
+import MobileAudioWaveform from './MobileAudioWaveform';
 
 // Helper to convert VTT time to seconds
 const vttTimeToSeconds = (vttTime: string | undefined): number => {
@@ -265,8 +265,8 @@ const MobileTimelineEditor = ({
                 );
               })}
             </div>
-            <VideoThumbnails videoPublicId={videoPublicId} duration={duration} timelineWidth={timelineWidth} />
-            <AudioWaveform videoPublicId={videoPublicId} />
+            <MobileVideoThumbnails videoPublicId={videoPublicId} duration={duration} timelineWidth={timelineWidth} />
+            <MobileAudioWaveform videoPublicId={videoPublicId} />
           </div>
         </div>
       </div>
