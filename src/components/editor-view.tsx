@@ -45,6 +45,7 @@ type EditorViewProps = {
   onReset: () => void;
   isExporting: boolean;
   onExportVideo: () => void;
+  isTranslating: boolean;
   subtitleFont: string;
   subtitleFontSize: number;
   subtitleColor: string;
@@ -81,6 +82,7 @@ const EditorView = ({
   onSuggestCorrection,
   onReset,
   isExporting,
+  isTranslating,
   onExportVideo,
   subtitleFont,
   subtitleFontSize,
@@ -100,7 +102,6 @@ const EditorView = ({
   onUpdateSubtitleTime,
 }: EditorViewProps) => {
   const { toast } = useToast();
-  const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('subtitle');
   const [isMobile, setIsMobile] = useState(false);

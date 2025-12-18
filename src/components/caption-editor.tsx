@@ -80,6 +80,7 @@ export default function CaptionEditor() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
   const [isFetchingLibrary, setIsFetchingLibrary] = useState(true);
   const [activeSubtitleId, setActiveSubtitleId] = useState<number | null>(null);
 
@@ -394,7 +395,7 @@ export default function CaptionEditor() {
   const handleTranslate = useCallback(async (targetLanguage: string) => {
     if (!currentVideo) return;
     
-    setIsLoading(true);
+    setIsTranslating(true);
     try {
       const response = await fetch('/api/translate', {
         method: 'POST',
@@ -426,7 +427,7 @@ export default function CaptionEditor() {
         description: error.message || 'Could not translate subtitles',
       });
     } finally {
-      setIsLoading(false);
+      setIsTranslating(false);
     }
   }, [currentVideo, subtitles, handleUpdateSubtitles, toast]);
 
@@ -653,6 +654,7 @@ export default function CaptionEditor() {
             onReset={handleReset}
             isExporting={isExporting}
             onExportVideo={handleExportVideoWithSubtitles}
+            isTranslating={isTranslating}
             subtitleFont={subtitleFont}
             subtitleFontSize={subtitleFontSize}
             subtitleColor={subtitleColor}
