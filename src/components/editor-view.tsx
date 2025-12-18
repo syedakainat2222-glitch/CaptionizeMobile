@@ -215,12 +215,12 @@ const EditorView = ({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-screen">
       {!isMobile && header}
 
       {isMobile ? (
-        <div className="flex flex-col gap-1 p-1">
-          <div className="w-full aspect-video bg-black rounded-md overflow-hidden max-h-[200px]">
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
             <MobileVideoPlayer
               videoRef={videoRef}
               videoUrl={videoUrl}

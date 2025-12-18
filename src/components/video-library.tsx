@@ -29,42 +29,42 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
 export default function VideoLibrary({ videos, onSelectVideo, onDeleteVideo }: VideoLibraryProps) {
   return (
     <Card className="w-full shadow-lg">
-      <CardHeader>
-        <CardTitle className="font-headline">Video Library</CardTitle>
-        <CardDescription>
-          Select a previously uploaded video to continue editing, or delete it.
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="font-headline text-xl sm:text-2xl">Video Library</CardTitle>
+        <CardDescription className="text-xs sm:text-sm">
+          Select a video to edit or delete.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="h-[40vh] overflow-auto pr-4">
-          <div className="space-y-4">
+      <CardContent className="p-0 sm:p-6 sm:pt-0">
+        <div className="overflow-auto pr-4 sm:pr-0">
+          <div className="space-y-2 sm:space-y-4">
             {videos.length > 0 ? (
               videos.map((video) => (
                 <div
                   key={video.id}
-                  className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50 min-w-[500px]"
+                  className="flex items-center justify-between rounded-lg border p-2 sm:p-4 transition-colors hover:bg-muted/50"
                 >
                   <div className="flex-1 overflow-hidden group">
-                    <p className="font-semibold truncate group-hover:whitespace-normal group-hover:overflow-visible">
+                    <p className="font-semibold truncate group-hover:whitespace-normal group-hover:overflow-visible text-sm sm:text-base">
                         {video.name}
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      Last updated: {formatDistanceToNow(toDate(video.updatedAt), { addSuffix: true })}
+                    <p className="text-xs text-muted-foreground">
+                      Updated: {formatDistanceToNow(toDate(video.updatedAt), { addSuffix: true })}
                     </p>
                   </div>
-                  <div className="flex items-center ml-4">
-                    <Button variant="ghost" size="icon" onClick={() => onSelectVideo(video)}>
-                      <PlayCircle className="h-6 w-6 text-primary" />
+                  <div className="flex items-center ml-2 sm:ml-4">
+                    <Button variant="ghost" size="icon" onClick={() => onSelectVideo(video)} className="h-8 w-8 sm:h-auto sm:w-auto">
+                      <PlayCircle className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDeleteVideo(video.id); }}>
-                      <Trash2 className="h-5 w-5 text-destructive" />
+                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDeleteVideo(video.id); }} className="h-8 w-8 sm:h-auto sm:w-auto">
+                      <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
                     </Button>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
-                <p>Your uploaded videos will appear here.</p>
+              <div className="flex h-full items-center justify-center text-muted-foreground p-8">
+                <p className="text-sm sm:text-base">Your videos will appear here.</p>
               </div>
             )}
           </div>

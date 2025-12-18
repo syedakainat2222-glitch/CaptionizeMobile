@@ -136,34 +136,34 @@ export default function VideoUpload({
           className={`cursor-pointer ${isUploading || isLoading ? 'pointer-events-none' : ''}`}
         >
           <CardHeader className="text-center">
-            <CardTitle className="font-headline text-2xl">
-              Upload Your Video
+            <CardTitle className="font-headline text-xl sm:text-2xl">
+              Upload Video
             </CardTitle>
-            <CardDescription>
-              Drag & drop a video file or click to select one
+            <CardDescription className="text-xs sm:text-sm">
+              Drag & drop or click to select a file
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center gap-6 p-8 pt-4">
+          <CardContent className="flex flex-col items-center justify-center gap-4 p-4 sm:p-8 sm:pt-4">
             {isUploading ? (
-              <div className="flex w-full flex-col items-center gap-4 text-primary">
-                 <p className="text-lg font-semibold">Uploading...</p>
-                <Progress value={uploadProgress} className="w-[60%]" />
-                <p className="text-sm text-muted-foreground">{uploadProgress}% complete</p>
+              <div className="flex w-full flex-col items-center gap-2 text-primary">
+                 <p className="text-base sm:text-lg font-semibold">Uploading...</p>
+                <Progress value={uploadProgress} className="w-[80%] sm:w-[60%]" />
+                <p className="text-xs sm:text-sm text-muted-foreground">{uploadProgress}% complete</p>
               </div>
             ) : isLoading ? (
-              <div className="flex flex-col items-center gap-4 text-primary">
-                <Loader2 className="h-16 w-16 animate-spin" />
-                <p className="text-lg font-semibold">Processing video...</p>
-                <p className="text-sm text-muted-foreground">
-                  This may take a few moments. Please be patient.
+              <div className="flex flex-col items-center gap-2 text-primary">
+                <Loader2 className="h-12 w-12 sm:h-16 sm:w-16 animate-spin" />
+                <p className="text-base sm:text-lg font-semibold">Processing...</p>
+                <p className="text-xs sm:text-sm text-center text-muted-foreground">
+                  This may take a moment.
                 </p>
               </div>
             ) : (
               <>
-                <div className="rounded-full border-4 border-dashed border-border p-8">
-                  <UploadCloud className="h-16 w-16 text-muted-foreground" />
+                <div className="rounded-full border-4 border-dashed border-border p-6 sm:p-8">
+                  <UploadCloud className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground" />
                 </div>
-                <Button>Select File</Button>
+                <Button size="sm" className="sm:text-base sm:h-10 sm:px-4 sm:py-2">Select File</Button>
               </>
             )}
             <input
@@ -177,9 +177,9 @@ export default function VideoUpload({
           </CardContent>
         </div>
         {!isLoading && !isUploading && (
-          <CardContent className="px-8 pb-8">
+          <CardContent className="px-4 sm:px-8 pb-4 sm:pb-8">
             <div className="mx-auto max-w-sm space-y-2">
-              <Label htmlFor="language-select">Select Language</Label>
+              <Label htmlFor="language-select" className="text-xs sm:text-sm">Select Language</Label>
               <Select
                 value={language}
                 onValueChange={onLanguageChange}
@@ -198,7 +198,7 @@ export default function VideoUpload({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Choose a language or let us detect it automatically.
+                Choose a language or let us auto-detect.
               </p>
             </div>
           </CardContent>
