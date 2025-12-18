@@ -5,8 +5,8 @@ import { Play, Pause, Scissors, Undo, Redo, ZoomIn, ZoomOut, Trash2 } from 'luci
 import { Button } from '@/components/ui/button';
 import type { Subtitle } from '@/lib/srt';
 import { formatTime } from '@/lib/utils';
-import MobileVideoThumbnails from './MobileVideoThumbnails';
-import MobileAudioWaveform from './MobileAudioWaveform';
+import VideoThumbnails from '../timeline-editor/VideoThumbnails';
+import AudioWaveform from '../timeline-editor/AudioWaveform';
 
 // Helper to convert VTT time to seconds
 const vttTimeToSeconds = (vttTime: string | undefined): number => {
@@ -176,32 +176,32 @@ const MobileTimelineEditor = ({
   const displaySubtitles = dragging ? tempSubtitles : subtitles;
 
   return (
-    <div className="bg-gray-900 border border-gray-700 text-white p-2 rounded-lg flex flex-col gap-1">
+    <div className="bg-gray-900 border border-gray-700 text-white p-1 rounded-lg flex flex-col gap-1">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-2 px-1 py-0.5 bg-gray-800 rounded">
+      <div className="flex items-center justify-between gap-1 px-1 py-0.5 bg-gray-800 rounded">
         <div className="flex items-center gap-1">
           <button
-            className="p-1.5 rounded-md hover:bg-gray-700 transition-colors"
+            className="p-1 rounded-md hover:bg-gray-700 transition-colors"
             onClick={handlePlayPauseClick}
           >
-            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
           </button>
-          <Button variant="ghost" size="icon" onClick={handleZoomOut} disabled={zoomLevel <= 0.5} className="h-7 w-7">
-            <ZoomOut className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={handleZoomOut} disabled={zoomLevel <= 0.5} className="h-6 w-6">
+            <ZoomOut className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleZoomIn} disabled={zoomLevel >= 5} className="h-7 w-7">
-            <ZoomIn className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={handleZoomIn} disabled={zoomLevel >= 5} className="h-6 w-6">
+            <ZoomIn className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" className="px-2 py-1 h-7" onClick={onSplit} disabled={activeSubtitleId === null}>
+          <Button variant="ghost" className="px-1.5 py-0.5 h-6" onClick={onSplit} disabled={activeSubtitleId === null}>
             <Scissors className="mr-1 h-3 w-3" /> <span className="text-xs">Split</span>
           </Button>
-          <Button variant="ghost" className="px-2 py-1 h-7" onClick={onUndo} disabled={!canUndo}>
+          <Button variant="ghost" className="px-1.5 py-0.5 h-6" onClick={onUndo} disabled={!canUndo}>
             <Undo className="mr-1 h-3 w-3" /> <span className="text-xs">Undo</span>
           </Button>
-          <Button variant="ghost" className="px-2 py-1 h-7" onClick={onRedo} disabled={!canRedo}>
+          <Button variant="ghost" className="px-1.5 py-0.5 h-6" onClick={onRedo} disabled={!canRedo}>
             <Redo className="mr-1 h-3 w-3" /> <span className="text-xs">Redo</span>
           </Button>
-          <Button variant="ghost" className="px-2 py-1 h-7" onClick={handleDeleteClick} disabled={activeSubtitleId === null}>
+          <Button variant="ghost" className="px-1.5 py-0.5 h-6" onClick={handleDeleteClick} disabled={activeSubtitleId === null}>
             <Trash2 className="mr-1 h-3 w-3" /> <span className="text-xs">Delete</span>
           </Button>
         </div>
@@ -218,7 +218,7 @@ const MobileTimelineEditor = ({
       >
         <div style={{ width: `${timelineWidth}px` }} className="relative h-full">
           {/* Ruler */}
-          <div className="relative h-5 text-xs text-gray-400">
+          <div className="relative h-4 text-xs text-gray-400">
             {[...Array(Math.floor(duration / 2) + 1)].map((_, i) => (
               <div key={i} style={{ left: `${(i * 2) * (20 * zoomLevel)}px` }} className="absolute top-0 flex flex-col items-start">
                 <span className="text-xxs">{formatTime(i*2)}</span>
@@ -229,13 +229,13 @@ const MobileTimelineEditor = ({
 
           {/* Playhead */}
           <div style={{ left: `${(currentTime / duration) * 100}%` }} className="absolute top-0 w-0.5 h-full bg-white z-20 cursor-pointer">
-            <div className="absolute top-3 -left-1 w-3 h-3 bg-white rounded-full border border-gray-900"></div>
+            <div className="absolute top-2 -left-1 w-2.5 h-2.5 bg-white rounded-full border border-gray-900"></div>
           </div>
 
           {/* Tracks Container*/}
           <div className="flex flex-col gap-y-1 pt-1 relative">
             {/* Subtitle Track */}
-            <div className="h-10 bg-transparent rounded-md relative">
+            <div className="h-8 bg-transparent rounded-md relative">
               {displaySubtitles.map(sub => {
                 const start = vttTimeToSeconds(sub.startTime);
                 const end = vttTimeToSeconds(sub.endTime);
@@ -253,7 +253,7 @@ const MobileTimelineEditor = ({
                         onSeek(start); 
                       }} 
                       onMouseDown={(e) => handleMouseDown(e, sub.id, 'move')} 
-                      className={`bg-yellow-500 text-black text-xs h-8 flex items-center px-1.5 rounded cursor-pointer w-full overflow-hidden whitespace-nowrap ${sub.id === activeSubtitleId ? 'border-2 border-white' : ''}`}
+                      className={`bg-yellow-500 text-black text-xs h-7 flex items-center px-1.5 rounded cursor-pointer w-full overflow-hidden whitespace-nowrap ${sub.id === activeSubtitleId ? 'border-2 border-white' : ''}`}
                     >
                       {sub.text}
                     </div>
@@ -265,8 +265,8 @@ const MobileTimelineEditor = ({
                 );
               })}
             </div>
-            <MobileVideoThumbnails videoPublicId={videoPublicId} duration={duration} timelineWidth={timelineWidth} />
-            <MobileAudioWaveform videoPublicId={videoPublicId} />
+            <VideoThumbnails videoPublicId={videoPublicId} duration={duration} timelineWidth={timelineWidth} />
+            <AudioWaveform videoPublicId={videoPublicId} />
           </div>
         </div>
       </div>

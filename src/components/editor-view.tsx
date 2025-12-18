@@ -104,6 +104,7 @@ const EditorView = ({
 }: EditorViewProps) => {
   const { toast } = useToast();
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('timeline');
   const { isMobile, isLandscape } = useDeviceOrientation();
 
   const handleExport = useCallback(
@@ -196,30 +197,51 @@ const EditorView = ({
       {header}
 
       {isMobile ? (
-        <div className="grid grid-cols-2 gap-2 p-2 flex-1">
-          {/* Left Column */}
-          <div className="flex flex-col gap-2">
-            <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
-              <MobileVideoPlayer
-                videoRef={videoRef}
-                videoUrl={videoUrl}
-                subtitles={subtitles}
-                onTimeUpdate={onTimeUpdate}
-                activeSubtitleId={activeSubtitleId}
-                onLoadedMetadata={onLoadedMetadata}
-                isPlaying={isPlaying}
-                onPlayPause={onPlayPause}
-                subtitleFont={subtitleFont}
-                subtitleFontSize={subtitleFontSize}
-                subtitleColor={subtitleColor}
-                subtitleOutlineColor={subtitleOutlineColor}
-                isBold={isBold}
-                isItalic={isItalic}
-                isUnderline={isUnderline}
-              />
+        <div className="flex flex-col gap-2 p-1">
+          <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
+            <MobileVideoPlayer
+              videoRef={videoRef}
+              videoUrl={videoUrl}
+              subtitles={subtitles}
+              onTimeUpdate={onTimeUpdate}
+              activeSubtitleId={activeSubtitleId}
+              onLoadedMetadata={onLoadedMetadata}
+              isPlaying={isPlaying}
+              onPlayPause={onPlayPause}
+              subtitleFont={subtitleFont}
+              subtitleFontSize={subtitleFontSize}
+              subtitleColor={subtitleColor}
+              subtitleOutlineColor={subtitleOutlineColor}
+              isBold={isBold}
+              isItalic={isItalic}
+              isUnderline={isUnderline}
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant={mobileTab === 'timeline' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('timeline')}>
+              Timeline
+            </Button>
+            <Button variant={mobileTab === 'subtitle' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('subtitle')}>
+              Subtitle
+            </Button>
+            <Button variant={mobileTab === 'style' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('style')}>
+              Style
+            </Button>
+          </div>
+
+          {mobileTab === 'subtitle' && <SubtitleEditor subtitles={subtitles} activeSubtitleId={activeSubtitleId} onUpdateSubtitle={onUpdateSubtitle} onSuggestCorrection={onSuggestCorrection} onDeleteSubtitle={onDeleteSubtitle} />}
+
+          {mobileTab === 'style' && (
+            <div className="flex flex-col gap-2">
+              <SubtitleStyler subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} />
+              <StyleControls subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} onStyleChange={onStyleChange} />
             </div>
-            <div className="overflow-x-auto">
-              <div className="min-w-[600px]">
+          )}
+
+          {mobileTab === 'timeline' && (
+            <div className="overflow-x-auto p-1">
+              <div className="min-w-[600px] flex gap-2 items-center">
                 <MobileTimelineEditor
                   videoRef={videoRef}
                   isPlaying={isPlaying}
@@ -240,39 +262,7 @@ const EditorView = ({
                 />
               </div>
             </div>
-          </div>
-
-          {/* Right Column */}
-          <div className="flex flex-col gap-2 overflow-y-auto">
-            <SubtitleEditor
-              subtitles={subtitles}
-              activeSubtitleId={activeSubtitleId}
-              onUpdateSubtitle={onUpdateSubtitle}
-              onSuggestCorrection={onSuggestCorrection}
-              onDeleteSubtitle={onDeleteSubtitle}
-            />
-            <div className="flex flex-col gap-2 mt-2">
-              <SubtitleStyler
-                subtitleFont={subtitleFont}
-                subtitleFontSize={subtitleFontSize}
-                subtitleColor={subtitleColor}
-                subtitleOutlineColor={subtitleOutlineColor}
-                isBold={isBold}
-                isItalic={isItalic}
-                isUnderline={isUnderline}
-              />
-              <StyleControls
-                subtitleFont={subtitleFont}
-                subtitleFontSize={subtitleFontSize}
-                subtitleColor={subtitleColor}
-                subtitleOutlineColor={subtitleOutlineColor}
-                isBold={isBold}
-                isItalic={isItalic}
-                isUnderline={isUnderline}
-                onStyleChange={onStyleChange}
-              />
-            </div>
-          </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-8 p-4 flex-1">
