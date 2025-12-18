@@ -2,7 +2,6 @@
 
 import React, { memo, useCallback, useState, useEffect } from 'react';
 import { ArrowLeft, Download, FileText, Loader2, Languages } from 'lucide-react';
-
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,17 +10,16 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
 import VideoPlayer from './video-player';
 import SubtitleEditor from './subtitle-editor';
 import SubtitleStyler from './subtitle-styler';
 import StyleControls from './StyleControls';
 import TimelineEditor from './timeline-editor/TimelineEditor';
-
 import { Subtitle, formatSrt } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
 import type { Video } from '@/lib/types';
 import TranslationDialog from '@/features/translate/TranslationDialog';
+import { setupMobileVideoController } from './MobileVideoController';
 
 type EditorViewProps = {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -102,14 +100,25 @@ const EditorView = ({
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('subtitle');
   const [isLandscape, setIsLandscape] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Detect mobile landscape
+  // Detect mobile and landscape
   useEffect(() => {
+    const mobile = typeof window !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    setIsMobile(mobile);
+    
     const handleOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight);
     handleOrientation();
     window.addEventListener('resize', handleOrientation);
     return () => window.removeEventListener('resize', handleOrientation);
   }, []);
+
+  // Set up mobile video controller
+  useEffect(() => {
+    if (isMobile) {
+      setupMobileVideoController(videoRef);
+    }
+  }, [videoRef, isMobile]);
 
   const handleExport = useCallback(
     async (format: 'srt' | 'vtt') => {
@@ -143,16 +152,6 @@ const EditorView = ({
     },
     [subtitles, subtitleFont, videoName, toast]
   );
-
-  const handleMobilePlayPause = () => {
-    if (videoRef.current) {
-      if (videoRef.current.paused) {
-        videoRef.current.play();
-      } else {
-        videoRef.current.pause();
-      }
-    }
-  };
 
   const header = (
     <div className="sticky top-0 z-30 bg-background border-b px-2 py-2 flex justify-between items-center">
@@ -190,7 +189,7 @@ const EditorView = ({
     </div>
   );
 
-  if (!isLandscape) {
+  if (!isLandscape && isMobile) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-background">
         <p className="text-lg font-medium">Please rotate your device to landscape for editing subtitles</p>
@@ -245,7 +244,7 @@ const EditorView = ({
                 isPlaying={isPlaying}
                 currentTime={currentTime}
                 duration={duration}
-                onPlayPause={handleMobilePlayPause}
+                onPlayPause={onPlayPause} // Desktop handler
                 onSeek={onSeek}
                 subtitles={subtitles}
                 onSplit={onSplit}
@@ -257,6 +256,7 @@ const EditorView = ({
                 onDeleteSubtitle={onDeleteSubtitle}
                 onUpdateSubtitleTime={onUpdateSubtitleTime}
                 videoPublicId={videoPublicId}
+                videoRef={videoRef} // Pass videoRef for direct control
               />
             </div>
           </div>
@@ -281,7 +281,24 @@ const EditorView = ({
         </div>
 
         <div className="lg:col-span-2 overflow-x-auto">
-          <TimelineEditor isPlaying={isPlaying} currentTime={currentTime} duration={duration} onPlayPause={onPlayPause} onSeek={onSeek} subtitles={subtitles} onSplit={onSplit} onUndo={onUndo} onRedo={onRedo} canUndo={canUndo} canRedo={canRedo} activeSubtitleId={activeSubtitleId} onDeleteSubtitle={onDeleteSubtitle} onUpdateSubtitleTime={onUpdateSubtitleTime} videoPublicId={videoPublicId} />
+          <TimelineEditor 
+            isPlaying={isPlaying} 
+            currentTime={currentTime} 
+            duration={duration} 
+            onPlayPause={onPlayPause} 
+            onSeek={onSeek}
+            subtitles={subtitles} 
+            onSplit={onSplit} 
+            onUndo={onUndo} 
+            onRedo={onRedo} 
+            canUndo={canUndo} 
+            canRedo={canRedo} 
+            activeSubtitleId={activeSubtitleId} 
+            onDeleteSubtitle={onDeleteSubtitle} 
+            onUpdateSubtitleTime={onUpdateSubtitleTime} 
+            videoPublicId={videoPublicId}
+            videoRef={videoRef}
+          />
         </div>
       </div>
 

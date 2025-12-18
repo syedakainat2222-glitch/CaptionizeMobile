@@ -43,6 +43,7 @@ type TimelineEditorProps = {
   onDeleteSubtitle: (id: number) => void;
   onUpdateSubtitleTime: (id: number, startTime: string, endTime: string) => void;
   videoPublicId: string;
+  videoRef?: React.RefObject<HTMLVideoElement>;
 };
 
 const TimelineEditor = ({ 
@@ -61,11 +62,18 @@ const TimelineEditor = ({
   onDeleteSubtitle,
   onUpdateSubtitleTime,
   videoPublicId,
+  videoRef
 }: TimelineEditorProps) => {
   const [zoomLevel, setZoomLevel] = useState(1);
   const timelineRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<{subId: number, type: 'start' | 'end' | 'move', startX: number, initialStart: number, initialEnd: number} | null>(null);
   const [tempSubtitles, setTempSubtitles] = useState<Subtitle[]>(subtitles);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mobile = typeof window !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    setIsMobile(mobile);
+  }, []);
 
   useEffect(() => {
     setTempSubtitles(subtitles);
@@ -81,6 +89,11 @@ const TimelineEditor = ({
       const rect = timelineRef.current.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const time = (clickX / timelineWidth) * duration;
+      
+      if (isMobile && videoRef?.current) {
+        videoRef.current.currentTime = time;
+      }
+      
       onSeek(time);
     }
   };
@@ -88,6 +101,22 @@ const TimelineEditor = ({
   const handleDeleteClick = () => {
     if (activeSubtitleId !== null) {
       onDeleteSubtitle(activeSubtitleId);
+    }
+  };
+
+  // SIMPLE mobile play handler - directly uses video element
+  const handleMobilePlayPause = () => {
+    if (isMobile && videoRef?.current) {
+      const video = videoRef.current;
+      if (video.paused) {
+        video.play().catch(err => {
+          console.log('Mobile play error:', err);
+        });
+      } else {
+        video.pause();
+      }
+    } else {
+      onPlayPause();
     }
   };
 
@@ -168,16 +197,17 @@ const TimelineEditor = ({
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4 px-2 py-1 bg-gray-800 rounded">
         <div className="flex items-center gap-2">
+          {/* CRITICAL CHANGE: Use a plain button with direct onClick for mobile */}
           <button
-            className="p-2 rounded-md hover:bg-gray-700 transition-colors"
-            onClick={onPlayPause}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              onPlayPause();
-            }}
+            type="button"
+            onClick={handleMobilePlayPause}
+            data-timeline-play="true"
+            className="p-2 hover:bg-gray-700 rounded"
+            style={{ all: 'unset', cursor: 'pointer' }}
           >
             {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
           </button>
+          
           <Button variant="ghost" size="icon" onClick={handleZoomOut} disabled={zoomLevel <= 1}>
             <ZoomOut className="h-5 w-5" />
           </Button>
@@ -243,6 +273,9 @@ const TimelineEditor = ({
                     <div 
                       onClick={(e) => { 
                         e.stopPropagation(); 
+                        if (isMobile && videoRef?.current) {
+                          videoRef.current.currentTime = start;
+                        }
                         onSeek(start); 
                       }} 
                       onMouseDown={(e) => handleMouseDown(e, sub.id, 'move')} 
