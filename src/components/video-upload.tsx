@@ -125,7 +125,7 @@ export default function VideoUpload({
 
 
   return (
-    <div className="container mx-auto flex h-full max-w-4xl flex-grow items-center justify-center p-4 sm:p-8">
+    <div className="container mx-auto flex h-full max-w-4xl flex-grow items-center justify-center p-2 sm:p-8">
       <Card
         className="w-full transition-shadow duration-300 hover:shadow-lg hover:shadow-primary/10"
         onDrop={handleDrop}
@@ -135,35 +135,35 @@ export default function VideoUpload({
           onClick={handleCardClick}
           className={`cursor-pointer ${isUploading || isLoading ? 'pointer-events-none' : ''}`}
         >
-          <CardHeader className="text-center p-4 sm:p-6">
-            <CardTitle className="font-headline text-xl sm:text-2xl">
+          <CardHeader className="text-center p-3 sm:p-6">
+            <CardTitle className="font-headline text-lg sm:text-2xl">
               Upload Your Video
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
               Drag & drop a video file or click to select one
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center gap-4 p-4 pt-0 sm:p-8 sm:pt-4">
+          <CardContent className="flex flex-col items-center justify-center gap-2 p-3 pt-0 sm:p-6 sm:pt-4">
             {isUploading ? (
               <div className="flex w-full flex-col items-center gap-2 text-primary">
-                 <p className="text-base sm:text-lg font-semibold">Uploading...</p>
-                <Progress value={uploadProgress} className="w-[80%] sm:w-[60%]" />
-                <p className="text-xs sm:text-sm text-muted-foreground">{uploadProgress}% complete</p>
+                 <p className="text-base font-semibold">Uploading...</p>
+                <Progress value={uploadProgress} className="w-[80%]" />
+                <p className="text-xs text-muted-foreground">{uploadProgress}% complete</p>
               </div>
             ) : isLoading ? (
               <div className="flex flex-col items-center gap-2 text-primary">
-                <Loader2 className="h-12 w-12 sm:h-16 sm:w-16 animate-spin" />
-                <p className="text-base sm:text-lg font-semibold">Processing video...</p>
-                <p className="text-xs sm:text-sm text-center text-muted-foreground">
+                <Loader2 className="h-10 w-10 sm:h-16 sm:w-16 animate-spin" />
+                <p className="text-base font-semibold">Processing video...</p>
+                <p className="text-xs text-center text-muted-foreground">
                   This may take a few moments. Please be patient.
                 </p>
               </div>
             ) : (
               <>
-                <div className="rounded-full border-4 border-dashed border-border p-6 sm:p-8">
-                  <UploadCloud className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground" />
+                <div className="rounded-full border-2 border-dashed border-border p-4 sm:p-8">
+                  <UploadCloud className="h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground" />
                 </div>
-                <Button size="sm" className="sm:h-10 sm:px-4 sm:py-2">Select File</Button>
+                <Button size="sm">Select File</Button>
               </>
             )}
             <input
@@ -177,9 +177,9 @@ export default function VideoUpload({
           </CardContent>
         </div>
         {!isLoading && !isUploading && (
-          <CardContent className="px-4 pb-4 sm:px-8 sm:pb-8">
-            <div className="mx-auto max-w-sm space-y-2">
-              <Label htmlFor="language-select" className="text-xs sm:text-sm">Select Language</Label>
+          <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
+            <div className="mx-auto max-w-xs space-y-1">
+              <Label htmlFor="language-select" className="text-xs">Select Language</Label>
               <Select
                 value={language}
                 onValueChange={onLanguageChange}
