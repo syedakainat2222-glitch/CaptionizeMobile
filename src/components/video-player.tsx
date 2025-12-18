@@ -65,21 +65,15 @@ const VideoPlayer = ({ videoRef, videoUrl, subtitles, isPlaying, onPlayPause, on
   }, [videoRef, isPlaying, onPlayPause, onTimeUpdate, onLoadedMetadata]);
 
   useEffect(() => {
+    if (isMobile) return; // skip auto-play on mobile
     const video = videoRef.current;
     if (!video) return;
     isPlaying ? video.play().catch(() => {}) : video.pause();
-  }, [isPlaying, videoRef]);
+  }, [isPlaying, videoRef, isMobile]);
 
   return (
     <Card className="relative w-full h-full overflow-hidden">
-      <video
-        ref={videoRef}
-        key={videoUrl}
-        crossOrigin="anonymous"
-        playsInline
-        controls={false}
-        className="w-full h-full object-contain bg-black"
-      >
+      <video ref={videoRef} key={videoUrl} crossOrigin="anonymous" playsInline controls={false} className="w-full h-full object-contain bg-black">
         <source src={videoUrl} type="video/mp4" />
         {vttUrl && <track kind="subtitles" srcLang="en" src={vttUrl} default />}
       </video>
