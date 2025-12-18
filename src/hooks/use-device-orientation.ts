@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 
 export function useDeviceOrientation() {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [isLandscape, setIsLandscape] = useState(true);
 
   useEffect(() => {
-    const mobile = typeof window !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     setIsMobile(mobile);
 
     const handleOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight);

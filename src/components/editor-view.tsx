@@ -176,6 +176,14 @@ const EditorView = ({
     </div>
   );
 
+  if (isMobile === null) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (isMobile && !isLandscape) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-background">
