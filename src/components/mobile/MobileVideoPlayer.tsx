@@ -12,6 +12,13 @@ type MobileVideoPlayerProps = {
   onLoadedMetadata: () => void;
   isPlaying: boolean;
   onPlayPause: () => void;
+  subtitleFont: string;
+  subtitleFontSize: number;
+  subtitleColor: string;
+  subtitleOutlineColor: string;
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
 };
 
 const MobileVideoPlayer = ({ 
@@ -23,6 +30,13 @@ const MobileVideoPlayer = ({
   onLoadedMetadata,
   isPlaying,
   onPlayPause,
+  subtitleFont,
+  subtitleFontSize,
+  subtitleColor,
+  subtitleOutlineColor,
+  isBold,
+  isItalic,
+  isUnderline,
 }: MobileVideoPlayerProps) => {
   const activeSubtitleRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +80,16 @@ const MobileVideoPlayer = ({
 
   const activeSubtitle = subtitles.find(s => s.id === activeSubtitleId);
 
+  const subtitleStyle: React.CSSProperties = {
+    fontFamily: subtitleFont,
+    fontSize: `${subtitleFontSize}px`,
+    color: subtitleColor,
+    textShadow: `2px 2px 4px ${subtitleOutlineColor}`,
+    fontWeight: isBold ? 'bold' : 'normal',
+    fontStyle: isItalic ? 'italic' : 'normal',
+    textDecoration: isUnderline ? 'underline' : 'none',
+  };
+
   return (
     <div className="relative w-full h-full bg-black">
       <video
@@ -79,12 +103,7 @@ const MobileVideoPlayer = ({
         <div 
           ref={activeSubtitleRef}
           className="absolute bottom-4 left-1/2 -translate-x-1/2 p-2 bg-black bg-opacity-70 text-white text-center rounded-md"
-          style={{ 
-            fontFamily: 'Arial', 
-            fontSize: `24px`,
-            color: 'white', 
-            textShadow: '2px 2px 4px black',
-          }}
+          style={subtitleStyle}
         >
           {activeSubtitle.text}
         </div>

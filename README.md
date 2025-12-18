@@ -1,1 +1,1 @@
-Mobilelayout ChatGpt manifest  = 38
+Mobilelayout ChatGpt Substitles Style not being applied on Mobile screen fixed  = 39

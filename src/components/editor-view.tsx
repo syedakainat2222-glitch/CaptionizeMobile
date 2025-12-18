@@ -209,6 +209,13 @@ const EditorView = ({
               onLoadedMetadata={onLoadedMetadata}
               isPlaying={isPlaying}
               onPlayPause={onPlayPause}
+              subtitleFont={subtitleFont}
+              subtitleFontSize={subtitleFontSize}
+              subtitleColor={subtitleColor}
+              subtitleOutlineColor={subtitleOutlineColor}
+              isBold={isBold}
+              isItalic={isItalic}
+              isUnderline={isUnderline}
             />
           </div>
 
