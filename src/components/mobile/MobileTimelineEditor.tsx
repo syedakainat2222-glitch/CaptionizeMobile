@@ -5,8 +5,8 @@ import { Play, Pause, Scissors, Undo, Redo, ZoomIn, ZoomOut, Trash2 } from 'luci
 import { Button } from '@/components/ui/button';
 import type { Subtitle } from '@/lib/srt';
 import { formatTime } from '@/lib/utils';
-import VideoThumbnails from './VideoThumbnails';
-import AudioWaveform from './AudioWaveform';
+import VideoThumbnails from '../timeline-editor/VideoThumbnails';
+import AudioWaveform from '../timeline-editor/AudioWaveform';
 
 // Helper to convert VTT time to seconds
 const vttTimeToSeconds = (vttTime: string | undefined): number => {
@@ -27,7 +27,8 @@ const secondsToVtt = (seconds: number): string => {
   return date.toISOString().substr(11, 12);
 };
 
-type TimelineEditorProps = {
+type MobileTimelineEditorProps = {
+  videoRef: React.RefObject<HTMLVideoElement>;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
@@ -45,7 +46,8 @@ type TimelineEditorProps = {
   videoPublicId: string;
 };
 
-const TimelineEditor = ({ 
+const MobileTimelineEditor = ({ 
+  videoRef,
   isPlaying, 
   currentTime, 
   duration, 
@@ -61,7 +63,7 @@ const TimelineEditor = ({
   onDeleteSubtitle,
   onUpdateSubtitleTime,
   videoPublicId,
-}: TimelineEditorProps) => {
+}: MobileTimelineEditorProps) => {
   const [zoomLevel, setZoomLevel] = useState(1);
   const timelineRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<{subId: number, type: 'start' | 'end' | 'move', startX: number, initialStart: number, initialEnd: number} | null>(null);
@@ -88,6 +90,16 @@ const TimelineEditor = ({
   const handleDeleteClick = () => {
     if (activeSubtitleId !== null) {
       onDeleteSubtitle(activeSubtitleId);
+    }
+  };
+
+  const handlePlayPauseClick = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play();
+      } else {
+        videoRef.current.pause();
+      }
     }
   };
 
@@ -168,13 +180,12 @@ const TimelineEditor = ({
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4 px-2 py-1 bg-gray-800 rounded">
         <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={onPlayPause}
+          <button
+            className="p-2 rounded-md hover:bg-gray-700 transition-colors"
+            onClick={handlePlayPauseClick}
           >
             {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-          </Button>
+          </button>
           <Button variant="ghost" size="icon" onClick={handleZoomOut} disabled={zoomLevel <= 1}>
             <ZoomOut className="h-5 w-5" />
           </Button>
@@ -264,4 +275,4 @@ const TimelineEditor = ({
   );
 };
 
-export default TimelineEditor;
+export default MobileTimelineEditor;

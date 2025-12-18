@@ -2,6 +2,7 @@
 
 import React, { memo, useCallback, useState, useEffect } from 'react';
 import { ArrowLeft, Download, FileText, Loader2, Languages } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,16 +11,19 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
 import VideoPlayer from './video-player';
 import SubtitleEditor from './subtitle-editor';
 import SubtitleStyler from './subtitle-styler';
 import StyleControls from './StyleControls';
 import TimelineEditor from './timeline-editor/TimelineEditor';
+import MobileVideoPlayer from './mobile/MobileVideoPlayer';
+import MobileTimelineEditor from './mobile/MobileTimelineEditor';
+
 import { Subtitle, formatSrt } from '@/lib/srt';
 import { useToast } from '@/hooks/use-toast';
 import type { Video } from '@/lib/types';
 import TranslationDialog from '@/features/translate/TranslationDialog';
-import { setupMobileVideoController } from './MobileVideoController';
 
 type EditorViewProps = {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -99,26 +103,18 @@ const EditorView = ({
   const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('subtitle');
-  const [isLandscape, setIsLandscape] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(true);
 
-  // Detect mobile and landscape
   useEffect(() => {
     const mobile = typeof window !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     setIsMobile(mobile);
-    
+
     const handleOrientation = () => setIsLandscape(window.innerWidth > window.innerHeight);
     handleOrientation();
     window.addEventListener('resize', handleOrientation);
     return () => window.removeEventListener('resize', handleOrientation);
   }, []);
-
-  // Set up mobile video controller
-  useEffect(() => {
-    if (isMobile) {
-      setupMobileVideoController(videoRef);
-    }
-  }, [videoRef, isMobile]);
 
   const handleExport = useCallback(
     async (format: 'srt' | 'vtt') => {
@@ -189,7 +185,7 @@ const EditorView = ({
     </div>
   );
 
-  if (!isLandscape && isMobile) {
+  if (isMobile && !isLandscape) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-background">
         <p className="text-lg font-medium">Please rotate your device to landscape for editing subtitles</p>
@@ -201,106 +197,89 @@ const EditorView = ({
     <div className="flex flex-col h-full">
       {header}
 
-      {/* MOBILE */}
-      <div className="lg:hidden flex flex-col gap-3 p-2">
-        <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
-          <VideoPlayer
-            videoRef={videoRef}
-            videoUrl={videoUrl}
-            subtitles={subtitles}
-            onTimeUpdate={onTimeUpdate}
-            activeSubtitleId={activeSubtitleId}
-            onLoadedMetadata={onLoadedMetadata}
-            isPlaying={isPlaying}
-            onPlayPause={onPlayPause}
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <Button variant={mobileTab === 'subtitle' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('subtitle')}>
-            Subtitle
-          </Button>
-          <Button variant={mobileTab === 'style' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('style')}>
-            Style
-          </Button>
-          <Button variant={mobileTab === 'timeline' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('timeline')}>
-            Timeline
-          </Button>
-        </div>
-
-        {mobileTab === 'subtitle' && <SubtitleEditor subtitles={subtitles} activeSubtitleId={activeSubtitleId} onUpdateSubtitle={onUpdateSubtitle} onSuggestCorrection={onSuggestCorrection} onDeleteSubtitle={onDeleteSubtitle} />}
-
-        {mobileTab === 'style' && (
-          <div className="flex flex-col gap-2">
-            <SubtitleStyler subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} />
-            <StyleControls subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} onStyleChange={onStyleChange} />
+      {isMobile ? (
+        <div className="flex flex-col gap-3 p-2">
+          <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
+            <MobileVideoPlayer
+              videoRef={videoRef}
+              videoUrl={videoUrl}
+              subtitles={subtitles}
+              onTimeUpdate={onTimeUpdate}
+              activeSubtitleId={activeSubtitleId}
+              onLoadedMetadata={onLoadedMetadata}
+              isPlaying={isPlaying}
+              onPlayPause={onPlayPause}
+            />
           </div>
-        )}
 
-        {mobileTab === 'timeline' && (
-          <div className="overflow-x-auto p-2">
-            <div className="min-w-[700px] flex gap-2 items-center">
-              <TimelineEditor
-                isPlaying={isPlaying}
-                currentTime={currentTime}
-                duration={duration}
-                onPlayPause={onPlayPause} // Desktop handler
-                onSeek={onSeek}
-                subtitles={subtitles}
-                onSplit={onSplit}
-                onUndo={onUndo}
-                onRedo={onRedo}
-                canUndo={canUndo}
-                canRedo={canRedo}
-                activeSubtitleId={activeSubtitleId}
-                onDeleteSubtitle={onDeleteSubtitle}
-                onUpdateSubtitleTime={onUpdateSubtitleTime}
-                videoPublicId={videoPublicId}
-                videoRef={videoRef} // Pass videoRef for direct control
-              />
+          <div className="flex gap-2">
+            <Button variant={mobileTab === 'subtitle' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('subtitle')}>
+              Subtitle
+            </Button>
+            <Button variant={mobileTab === 'style' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('style')}>
+              Style
+            </Button>
+            <Button variant={mobileTab === 'timeline' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('timeline')}>
+              Timeline
+            </Button>
+          </div>
+
+          {mobileTab === 'subtitle' && <SubtitleEditor subtitles={subtitles} activeSubtitleId={activeSubtitleId} onUpdateSubtitle={onUpdateSubtitle} onSuggestCorrection={onSuggestCorrection} onDeleteSubtitle={onDeleteSubtitle} />}
+
+          {mobileTab === 'style' && (
+            <div className="flex flex-col gap-2">
+              <SubtitleStyler subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} />
+              <StyleControls subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} onStyleChange={onStyleChange} />
+            </div>
+          )}
+
+          {mobileTab === 'timeline' && (
+            <div className="overflow-x-auto p-2">
+              <div className="min-w-[700px] flex gap-2 items-center">
+                <MobileTimelineEditor
+                  videoRef={videoRef}
+                  isPlaying={isPlaying}
+                  currentTime={currentTime}
+                  duration={duration}
+                  onPlayPause={onPlayPause}
+                  onSeek={onSeek}
+                  subtitles={subtitles}
+                  onSplit={onSplit}
+                  onUndo={onUndo}
+                  onRedo={onRedo}
+                  canUndo={canUndo}
+                  canRedo={canRedo}
+                  activeSubtitleId={activeSubtitleId}
+                  onDeleteSubtitle={onDeleteSubtitle}
+                  onUpdateSubtitleTime={onUpdateSubtitleTime}
+                  videoPublicId={videoPublicId}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-8 p-4 flex-1">
+          <div className="flex flex-col gap-4">
+            <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
+              <VideoPlayer videoRef={videoRef} videoUrl={videoUrl} subtitles={subtitles} onTimeUpdate={onTimeUpdate} activeSubtitleId={activeSubtitleId} onLoadedMetadata={onLoadedMetadata} isPlaying={isPlaying} onPlayPause={onPlayPause} />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <SubtitleStyler subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} />
+              <StyleControls subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} onStyleChange={onStyleChange} />
             </div>
           </div>
-        )}
-      </div>
 
-      {/* DESKTOP */}
-      <div className="hidden lg:grid lg:grid-cols-2 gap-8 p-4 flex-1">
-        <div className="flex flex-col gap-4">
-          <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
-            <VideoPlayer videoRef={videoRef} videoUrl={videoUrl} subtitles={subtitles} onTimeUpdate={onTimeUpdate} activeSubtitleId={activeSubtitleId} onLoadedMetadata={onLoadedMetadata} isPlaying={isPlaying} onPlayPause={onPlayPause} />
+          <div className="overflow-y-auto">
+            <SubtitleEditor subtitles={subtitles} activeSubtitleId={activeSubtitleId} onUpdateSubtitle={onUpdateSubtitle} onSuggestCorrection={onSuggestCorrection} onDeleteSubtitle={onDeleteSubtitle} />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <SubtitleStyler subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} />
-            <StyleControls subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} onStyleChange={onStyleChange} />
+          <div className="col-span-2 overflow-x-auto">
+            <TimelineEditor isPlaying={isPlaying} currentTime={currentTime} duration={duration} onPlayPause={onPlayPause} onSeek={onSeek} subtitles={subtitles} onSplit={onSplit} onUndo={onUndo} onRedo={onRedo} canUndo={canUndo} canRedo={canRedo} activeSubtitleId={activeSubtitleId} onDeleteSubtitle={onDeleteSubtitle} onUpdateSubtitleTime={onUpdateSubtitleTime} videoPublicId={videoPublicId} />
           </div>
         </div>
-
-        <div className="overflow-y-auto">
-          <SubtitleEditor subtitles={subtitles} activeSubtitleId={activeSubtitleId} onUpdateSubtitle={onUpdateSubtitle} onSuggestCorrection={onSuggestCorrection} onDeleteSubtitle={onDeleteSubtitle} />
-        </div>
-
-        <div className="lg:col-span-2 overflow-x-auto">
-          <TimelineEditor 
-            isPlaying={isPlaying} 
-            currentTime={currentTime} 
-            duration={duration} 
-            onPlayPause={onPlayPause} 
-            onSeek={onSeek}
-            subtitles={subtitles} 
-            onSplit={onSplit} 
-            onUndo={onUndo} 
-            onRedo={onRedo} 
-            canUndo={canUndo} 
-            canRedo={canRedo} 
-            activeSubtitleId={activeSubtitleId} 
-            onDeleteSubtitle={onDeleteSubtitle} 
-            onUpdateSubtitleTime={onUpdateSubtitleTime} 
-            videoPublicId={videoPublicId}
-            videoRef={videoRef}
-          />
-        </div>
-      </div>
+      )}
 
       <TranslationDialog open={isTranslationDialogOpen} onOpenChange={setIsTranslationDialogOpen} onTranslate={onTranslate} isTranslating={isTranslating} />
     </div>
