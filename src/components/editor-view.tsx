@@ -107,6 +107,28 @@ const EditorView = ({
   const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('timeline');
   const { isMobile, isLandscape } = useDeviceOrientation();
 
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .mobile-editor-active .main-header,
+      .mobile-editor-active .main-footer {
+        display: none;
+      }
+    `;
+    document.head.appendChild(style);
+
+    if (isMobile) {
+      document.body.classList.add('mobile-editor-active');
+    } else {
+      document.body.classList.remove('mobile-editor-active');
+    }
+
+    return () => {
+      document.head.removeChild(style);
+      document.body.classList.remove('mobile-editor-active');
+    };
+  }, [isMobile]);
+
   const handleExport = useCallback(
     async (format: 'srt' | 'vtt') => {
       try {
@@ -194,11 +216,11 @@ const EditorView = ({
 
   return (
     <div className="flex flex-col h-full">
-      {header}
+      {!isMobile && header}
 
       {isMobile ? (
         <div className="flex flex-col gap-1 p-1">
-          <div className="w-full aspect-video bg-black rounded-md overflow-hidden max-h-[150px]">
+          <div className="w-full aspect-video bg-black rounded-md overflow-hidden max-h-[200px]">
             <MobileVideoPlayer
               videoRef={videoRef}
               videoUrl={videoUrl}
