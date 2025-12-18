@@ -144,6 +144,16 @@ const EditorView = ({
     [subtitles, subtitleFont, videoName, toast]
   );
 
+  const handleMobilePlayPause = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play();
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  };
+
   const header = (
     <div className="sticky top-0 z-30 bg-background border-b px-2 py-2 flex justify-between items-center">
       <Button variant="outline" size="icon" onClick={onReset}>
@@ -235,7 +245,7 @@ const EditorView = ({
                 isPlaying={isPlaying}
                 currentTime={currentTime}
                 duration={duration}
-                onPlayPause={onPlayPause}
+                onPlayPause={handleMobilePlayPause}
                 onSeek={onSeek}
                 subtitles={subtitles}
                 onSplit={onSplit}
