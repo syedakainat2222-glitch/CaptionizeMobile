@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo, useCallback, useState, useEffect } from 'react';
+import React, { memo, useCallback, useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Download, FileText, Loader2, Languages } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -100,6 +100,7 @@ const EditorView = ({
   const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('subtitle');
   const [isLandscape, setIsLandscape] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const hasVideoInitialized = useRef(false);
 
   // Detect mobile and landscape
   useEffect(() => {
@@ -145,29 +146,40 @@ const EditorView = ({
     [subtitles, subtitleFont, videoName, toast]
   );
 
-  // Mobile-specific play/pause handler
+  // Mobile play/pause - DIRECT video control
   const handleMobilePlayPause = () => {
     if (videoRef.current) {
-      if (videoRef.current.paused) {
-        videoRef.current.play().catch(err => {
-          console.log('Mobile play failed in EditorView:', err);
+      const video = videoRef.current;
+      
+      // Ensure video is ready
+      if (video.readyState < 2) {
+        video.load();
+      }
+      
+      // Direct play/pause - CRITICAL for mobile
+      if (video.paused) {
+        video.play().then(() => {
+          console.log('Mobile video playing successfully');
+        }).catch(error => {
+          console.error('Mobile play failed:', error);
+          // Fallback: try with muted audio
+          video.muted = true;
+          video.play().then(() => {
+            video.muted = false;
+          }).catch(e => {
+            console.error('Muted play also failed:', e);
+          });
         });
       } else {
-        videoRef.current.pause();
+        video.pause();
       }
     }
   };
 
-  // Mobile-friendly seek handler
+  // Mobile seek handler
   const handleMobileSeek = (time: number) => {
     if (videoRef.current) {
       videoRef.current.currentTime = time;
-      // Try to play after seeking on mobile
-      if (videoRef.current.paused) {
-        videoRef.current.play().catch(err => {
-          console.log('Mobile play after seek failed in EditorView:', err);
-        });
-      }
     }
     onSeek(time);
   };
@@ -263,8 +275,8 @@ const EditorView = ({
                 isPlaying={isPlaying}
                 currentTime={currentTime}
                 duration={duration}
-                onPlayPause={handleMobilePlayPause}
-                onSeek={handleMobileSeek}
+                onPlayPause={handleMobilePlayPause} // Use mobile-specific handler
+                onSeek={handleMobileSeek} // Use mobile-specific seek
                 subtitles={subtitles}
                 onSplit={onSplit}
                 onUndo={onUndo}
@@ -275,7 +287,7 @@ const EditorView = ({
                 onDeleteSubtitle={onDeleteSubtitle}
                 onUpdateSubtitleTime={onUpdateSubtitleTime}
                 videoPublicId={videoPublicId}
-                videoRef={videoRef} // Pass videoRef to TimelineEditor for direct control
+                videoRef={videoRef} // Pass videoRef for direct control
               />
             </div>
           </div>
@@ -316,7 +328,7 @@ const EditorView = ({
             onDeleteSubtitle={onDeleteSubtitle} 
             onUpdateSubtitleTime={onUpdateSubtitleTime} 
             videoPublicId={videoPublicId}
-            videoRef={videoRef} // Pass videoRef for desktop too for consistency
+            videoRef={videoRef}
           />
         </div>
       </div>

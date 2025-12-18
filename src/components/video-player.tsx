@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, memo } from 'react';
+import { useEffect, useState, memo, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import type { Subtitle } from '@/lib/srt';
 import { formatVtt } from '@/lib/srt';
@@ -30,10 +30,24 @@ const VideoPlayer = ({
   const [playbackRate, setPlaybackRate] = useState(1);
   const playbackRates = [0.5, 1, 1.5, 2];
   const [isMobile, setIsMobile] = useState(false);
+  const hasUserInteracted = useRef(false);
 
   useEffect(() => {
     const mobile = typeof window !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     setIsMobile(mobile);
+    
+    // Add global click handler to detect user interaction
+    const handleGlobalClick = () => {
+      hasUserInteracted.current = true;
+    };
+    
+    window.addEventListener('click', handleGlobalClick, { once: true });
+    window.addEventListener('touchstart', handleGlobalClick, { once: true });
+    
+    return () => {
+      window.removeEventListener('click', handleGlobalClick);
+      window.removeEventListener('touchstart', handleGlobalClick);
+    };
   }, []);
 
   const handlePlaybackRateChange = () => {
@@ -68,40 +82,65 @@ const VideoPlayer = ({
       onLoadedMetadata();
       if (video.textTracks.length > 0) video.textTracks[0].mode = 'showing';
       
-      // On mobile, mute initially and unmute on first user interaction
-      if (isMobile && video.muted) {
-        const unmuteOnInteraction = () => {
-          video.muted = false;
-          video.removeEventListener('play', unmuteOnInteraction);
-          video.removeEventListener('click', unmuteOnInteraction);
-          video.removeEventListener('touchstart', unmuteOnInteraction);
-        };
-        video.addEventListener('play', unmuteOnInteraction);
-        video.addEventListener('click', unmuteOnInteraction);
-        video.addEventListener('touchstart', unmuteOnInteraction);
+      // CRITICAL: On mobile, initially mute the video
+      if (isMobile) {
+        video.muted = true;
+        video.playsInline = true;
+        
+        // Try to play muted video (allowed on mobile)
+        video.play().catch(e => {
+          console.log('Initial muted play failed:', e);
+        });
       }
     });
+
+    // Handle video click for mobile unmute
+    const handleVideoClick = () => {
+      if (isMobile && video.muted) {
+        video.muted = false;
+        hasUserInteracted.current = true;
+      }
+    };
+
+    video.addEventListener('click', handleVideoClick);
 
     return () => {
       video.removeEventListener('timeupdate', onTime);
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
+      video.removeEventListener('click', handleVideoClick);
     };
   }, [videoRef, isPlaying, onPlayPause, onTimeUpdate, onLoadedMetadata, isMobile]);
 
-  // Handle play/pause for desktop only - mobile uses direct user interaction
+  // Handle play/pause for desktop only
   useEffect(() => {
-    if (isMobile) return; // Skip on mobile - handled by direct user interaction
-    
-    const video = videoRef.current;
-    if (!video) return;
-    
-    if (isPlaying) {
-      video.play().catch(err => {
-        console.log('Desktop play failed:', err);
-      });
+    if (isMobile) {
+      // On mobile, only respond if user has interacted
+      if (!hasUserInteracted.current) return;
+      
+      const video = videoRef.current;
+      if (!video) return;
+      
+      // On mobile, after user interaction, we can control playback
+      if (isPlaying && hasUserInteracted.current) {
+        video.play().catch(err => {
+          console.log('Mobile play after interaction failed:', err);
+        });
+      } else if (!isPlaying) {
+        video.pause();
+      }
     } else {
-      video.pause();
+      // Desktop logic
+      const video = videoRef.current;
+      if (!video) return;
+      
+      if (isPlaying) {
+        video.play().catch(err => {
+          console.log('Desktop play failed:', err);
+        });
+      } else {
+        video.pause();
+      }
     }
   }, [isPlaying, videoRef, isMobile]);
 
@@ -111,9 +150,9 @@ const VideoPlayer = ({
         ref={videoRef}
         crossOrigin="anonymous"
         playsInline
-        muted={isMobile} // Mute on mobile initially to allow autoplay
         controls={false}
         className="w-full h-full object-contain bg-black"
+        // Remove key prop to prevent re-renders
       >
         <source src={videoUrl} type="video/mp4" />
         {vttUrl && <track kind="subtitles" srcLang="en" src={vttUrl} default />}

@@ -43,7 +43,7 @@ type TimelineEditorProps = {
   onDeleteSubtitle: (id: number) => void;
   onUpdateSubtitleTime: (id: number, startTime: string, endTime: string) => void;
   videoPublicId: string;
-  videoRef?: React.RefObject<HTMLVideoElement>; // Added videoRef prop for mobile direct control
+  videoRef?: React.RefObject<HTMLVideoElement>;
 };
 
 const TimelineEditor = ({ 
@@ -62,7 +62,7 @@ const TimelineEditor = ({
   onDeleteSubtitle,
   onUpdateSubtitleTime,
   videoPublicId,
-  videoRef // New prop for direct video control
+  videoRef
 }: TimelineEditorProps) => {
   const [zoomLevel, setZoomLevel] = useState(1);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -93,10 +93,6 @@ const TimelineEditor = ({
       // For mobile, seek the video directly
       if (isMobile && videoRef?.current) {
         videoRef.current.currentTime = time;
-        // Try to play after seek
-        videoRef.current.play().catch(err => {
-          console.log('Mobile play after seek failed:', err);
-        });
       }
       
       onSeek(time);
@@ -109,16 +105,32 @@ const TimelineEditor = ({
     }
   };
 
-  // Mobile-friendly play/pause handler
-  const handlePlayPauseClick = () => {
+  // Direct mobile play/pause handler
+  const handleMobilePlayPause = () => {
     if (isMobile && videoRef?.current) {
-      // Direct control for mobile
-      if (videoRef.current.paused) {
-        videoRef.current.play().catch(err => {
-          console.log('Mobile play failed:', err);
-        });
+      // Direct control for mobile - most important part!
+      const video = videoRef.current;
+      if (video.paused) {
+        // First ensure video is visible and ready
+        video.style.display = 'block';
+        video.hidden = false;
+        
+        // Try to play - this must be in direct response to user click
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            console.log('Mobile play error:', err);
+            // If play fails, try again with user gesture workaround
+            video.muted = true;
+            video.play().then(() => {
+              video.muted = false;
+            }).catch(e => {
+              console.log('Second play attempt failed:', e);
+            });
+          });
+        }
       } else {
-        videoRef.current.pause();
+        video.pause();
       }
     } else {
       // Desktop uses the regular handler
@@ -206,12 +218,8 @@ const TimelineEditor = ({
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={handlePlayPauseClick}
-            onTouchStart={(e) => {
-              // Prevent default to ensure immediate response on mobile
-              e.preventDefault();
-              handlePlayPauseClick();
-            }}
+            onClick={handleMobilePlayPause}
+            data-mobile-play // Add data attribute for mobile
           >
             {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
           </Button>
@@ -282,9 +290,6 @@ const TimelineEditor = ({
                         e.stopPropagation(); 
                         if (isMobile && videoRef?.current) {
                           videoRef.current.currentTime = start;
-                          videoRef.current.play().catch(err => {
-                            console.log('Mobile play after subtitle click failed:', err);
-                          });
                         }
                         onSeek(start); 
                       }} 
