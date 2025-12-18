@@ -77,7 +77,7 @@ const VideoPlayer = ({ videoRef, videoUrl, subtitles, isPlaying, onPlayPause, on
         key={videoUrl}
         crossOrigin="anonymous"
         playsInline
-        controls={isMobile}
+        controls={false}
         className="w-full h-full object-contain bg-black"
       >
         <source src={videoUrl} type="video/mp4" />
