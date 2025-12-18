@@ -141,7 +141,7 @@ const EditorView = ({
   );
 
   const header = (
-    <div className="sticky top-0 z-30 bg-background border-b px-2 py-2 flex justify-between items-center">
+    <div className="sticky top-0 z-30 bg-background border-b px-2 py-1 flex justify-between items-center">
       <Button variant="outline" size="icon" onClick={onReset}>
         <ArrowLeft className="h-5 w-5" />
       </Button>
@@ -197,7 +197,7 @@ const EditorView = ({
       {header}
 
       {isMobile ? (
-        <div className="flex flex-col gap-3 p-2">
+        <div className="flex flex-col gap-2 p-1">
           <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
             <MobileVideoPlayer
               videoRef={videoRef}
@@ -240,8 +240,8 @@ const EditorView = ({
           )}
 
           {mobileTab === 'timeline' && (
-            <div className="overflow-x-auto p-2">
-              <div className="min-w-[700px] flex gap-2 items-center">
+            <div className="overflow-x-auto p-1">
+              <div className="min-w-[600px] flex gap-2 items-center">
                 <MobileTimelineEditor
                   videoRef={videoRef}
                   isPlaying={isPlaying}

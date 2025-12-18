@@ -73,8 +73,8 @@ const MobileTimelineEditor = ({
     setTempSubtitles(subtitles);
   }, [subtitles]);
 
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev * 1.5, 10));
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev / 1.5, 1));
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev * 1.5, 5));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev / 1.5, 0.5));
 
   const timelineWidth = useMemo(() => duration * 20 * zoomLevel, [duration, zoomLevel]);
 
@@ -176,37 +176,36 @@ const MobileTimelineEditor = ({
   const displaySubtitles = dragging ? tempSubtitles : subtitles;
 
   return (
-    <div className="bg-gray-900 border border-gray-700 text-white p-4 rounded-lg mt-4 flex flex-col gap-2">
+    <div className="bg-gray-900 border border-gray-700 text-white p-2 rounded-lg flex flex-col gap-1">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-4 px-2 py-1 bg-gray-800 rounded">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 px-1 py-0.5 bg-gray-800 rounded">
+        <div className="flex items-center gap-1">
           <button
-            className="p-2 rounded-md hover:bg-gray-700 transition-colors"
+            className="p-1.5 rounded-md hover:bg-gray-700 transition-colors"
             onClick={handlePlayPauseClick}
           >
-            {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </button>
-          <Button variant="ghost" size="icon" onClick={handleZoomOut} disabled={zoomLevel <= 1}>
-            <ZoomOut className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={handleZoomOut} disabled={zoomLevel <= 0.5} className="h-7 w-7">
+            <ZoomOut className="h-4 w-4" />
           </Button>
-          <div className="w-32 h-2 bg-gray-600 rounded-full"></div>
-          <Button variant="ghost" size="icon" onClick={handleZoomIn} disabled={zoomLevel >= 10}>
-            <ZoomIn className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={handleZoomIn} disabled={zoomLevel >= 5} className="h-7 w-7">
+            <ZoomIn className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" className="px-3" onClick={onSplit} disabled={activeSubtitleId === null}>
-            <Scissors className="mr-2 h-4 w-4" /> Split
+          <Button variant="ghost" className="px-2 py-1 h-7" onClick={onSplit} disabled={activeSubtitleId === null}>
+            <Scissors className="mr-1 h-3 w-3" /> <span className="text-xs">Split</span>
           </Button>
-          <Button variant="ghost" className="px-3" onClick={onUndo} disabled={!canUndo}>
-            <Undo className="mr-2 h-4 w-4" /> Undo
+          <Button variant="ghost" className="px-2 py-1 h-7" onClick={onUndo} disabled={!canUndo}>
+            <Undo className="mr-1 h-3 w-3" /> <span className="text-xs">Undo</span>
           </Button>
-          <Button variant="ghost" className="px-3" onClick={onRedo} disabled={!canRedo}>
-            <Redo className="mr-2 h-4 w-4" /> Redo
+          <Button variant="ghost" className="px-2 py-1 h-7" onClick={onRedo} disabled={!canRedo}>
+            <Redo className="mr-1 h-3 w-3" /> <span className="text-xs">Redo</span>
           </Button>
-          <Button variant="ghost" className="px-3" onClick={handleDeleteClick} disabled={activeSubtitleId === null}>
-            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          <Button variant="ghost" className="px-2 py-1 h-7" onClick={handleDeleteClick} disabled={activeSubtitleId === null}>
+            <Trash2 className="mr-1 h-3 w-3" /> <span className="text-xs">Delete</span>
           </Button>
         </div>
-        <div className="text-sm font-mono bg-black px-2 py-1 rounded">
+        <div className="text-xs font-mono bg-black px-1.5 py-0.5 rounded">
           {formatTime(currentTime)} / {formatTime(duration)}
         </div>
       </div>
@@ -219,10 +218,10 @@ const MobileTimelineEditor = ({
       >
         <div style={{ width: `${timelineWidth}px` }} className="relative h-full">
           {/* Ruler */}
-          <div className="relative h-6 text-xs text-gray-400">
+          <div className="relative h-5 text-xs text-gray-400">
             {[...Array(Math.floor(duration / 2) + 1)].map((_, i) => (
               <div key={i} style={{ left: `${(i * 2) * (20 * zoomLevel)}px` }} className="absolute top-0 flex flex-col items-start">
-                <span>{formatTime(i*2)}</span>
+                <span className="text-xxs">{formatTime(i*2)}</span>
                 <div className="h-2 w-px bg-gray-500"/>
               </div>
             ))}
@@ -230,13 +229,13 @@ const MobileTimelineEditor = ({
 
           {/* Playhead */}
           <div style={{ left: `${(currentTime / duration) * 100}%` }} className="absolute top-0 w-0.5 h-full bg-white z-20 cursor-pointer">
-            <div className="absolute top-4 -left-1.5 w-4 h-4 bg-white rounded-full border-2 border-gray-900"></div>
+            <div className="absolute top-3 -left-1 w-3 h-3 bg-white rounded-full border border-gray-900"></div>
           </div>
 
           {/* Tracks Container*/}
-          <div className="flex flex-col gap-y-1 pt-2 relative">
+          <div className="flex flex-col gap-y-1 pt-1 relative">
             {/* Subtitle Track */}
-            <div className="h-12 bg-transparent rounded-md relative">
+            <div className="h-10 bg-transparent rounded-md relative">
               {displaySubtitles.map(sub => {
                 const start = vttTimeToSeconds(sub.startTime);
                 const end = vttTimeToSeconds(sub.endTime);
@@ -254,7 +253,7 @@ const MobileTimelineEditor = ({
                         onSeek(start); 
                       }} 
                       onMouseDown={(e) => handleMouseDown(e, sub.id, 'move')} 
-                      className={`bg-yellow-500 text-black text-xs h-10 flex items-center px-2 rounded cursor-pointer w-full overflow-hidden whitespace-nowrap ${sub.id === activeSubtitleId ? 'border-2 border-white' : ''}`}
+                      className={`bg-yellow-500 text-black text-xs h-8 flex items-center px-1.5 rounded cursor-pointer w-full overflow-hidden whitespace-nowrap ${sub.id === activeSubtitleId ? 'border-2 border-white' : ''}`}
                     >
                       {sub.text}
                     </div>
