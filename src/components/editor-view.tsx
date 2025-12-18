@@ -103,7 +103,7 @@ const EditorView = ({
 }: EditorViewProps) => {
   const { toast } = useToast();
   const [isTranslationDialogOpen, setIsTranslationDialogOpen] = useState(false);
-  const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('subtitle');
+  const [mobileTab, setMobileTab] = useState<'subtitle' | 'style' | 'timeline'>('timeline');
   const [isMobile, setIsMobile] = useState(false);
   const [isLandscape, setIsLandscape] = useState(true);
 
@@ -221,14 +221,14 @@ const EditorView = ({
           </div>
 
           <div className="flex gap-2">
+            <Button variant={mobileTab === 'timeline' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('timeline')}>
+              Timeline
+            </Button>
             <Button variant={mobileTab === 'subtitle' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('subtitle')}>
               Subtitle
             </Button>
             <Button variant={mobileTab === 'style' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('style')}>
               Style
-            </Button>
-            <Button variant={mobileTab === 'timeline' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('timeline')}>
-              Timeline
             </Button>
           </div>
 
