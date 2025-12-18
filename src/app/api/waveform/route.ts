@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+'use server';
+
+import { NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 
 cloudinary.config({
@@ -7,9 +9,9 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const { videoPublicId } = await request.json();
+    const { videoPublicId, fgColor, bgColor } = await request.json();
 
     if (!videoPublicId) {
       return NextResponse.json(
@@ -18,29 +20,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate the waveform URL using Cloudinary transformations
     const waveformUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: [
         {
-          width: 2000,
-          height: 240, // Taller for better visual representation
-          crop: 'scale',
-        },
-        {
           flags: 'waveform',
-          background: 'transparent', // Transparent background
-          color: '#ffffff' // White waveform peaks
-        }
+          color: fgColor || '#ffffff',
+          background_color: bgColor || '#000000',
+        },
       ],
-      format: 'png' // The output format of the waveform image
+      format: 'png',
     });
 
     return NextResponse.json({ success: true, waveformUrl });
-
   } catch (error) {
-    console.error('=== WAVEFORM GENERATION FAILED ===', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
       { success: false, error: `Failed to generate waveform: ${errorMessage}` },
       { status: 500 }

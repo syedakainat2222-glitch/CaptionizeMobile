@@ -28,7 +28,7 @@ const AudioWaveform = ({ videoPublicId, className }: AudioWaveformProps) => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ videoPublicId }),
+          body: JSON.stringify({ videoPublicId, fgColor: '#FFFFFF', bgColor: '#00000000' }),
         });
 
         if (!response.ok) {
@@ -54,8 +54,8 @@ const AudioWaveform = ({ videoPublicId, className }: AudioWaveformProps) => {
 
   if (isLoading) {
     return (
-      <div className={cn("h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm", className)}>
-        Generating audio waveform...
+      <div className={cn("h-20 rounded-md flex items-center justify-center text-gray-400 text-sm", className)}>
+        {/* Generating audio waveform... */}
       </div>
     );
   }
@@ -63,26 +63,26 @@ const AudioWaveform = ({ videoPublicId, className }: AudioWaveformProps) => {
   if (error) {
     return (
       <div className={cn("h-20 bg-red-900/50 rounded-md flex items-center justify-center text-red-400 text-sm", className)}>
-        Error: {error}
+        Error generating waveform
       </div>
     );
   }
 
   if (!waveformUrl) {
     return (
-      <div className={cn("h-20 bg-gray-800/50 rounded-md flex items-center justify-center text-gray-400 text-sm", className)}>
-        No waveform available.
+      <div className={cn("h-20 rounded-md flex items-center justify-center text-gray-400 text-sm", className)}>
+        {/* No waveform available. */}
       </div>
     );
   }
 
   return (
-    <div className={cn("h-20 relative bg-gray-800/50 rounded-md overflow-hidden", className)}>
+    <div className={cn("h-20 relative rounded-md overflow-hidden", className)}>
       <img
         src={waveformUrl}
         alt="Audio waveform"
         className="w-full h-full object-cover"
-        style={{ imageRendering: 'pixelated' }}
+        style={{ imageRendering: 'pixelated', mixBlendMode: 'screen' }}
       />
     </div>
   );
