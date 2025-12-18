@@ -141,19 +141,19 @@ const EditorView = ({
   );
 
   const header = (
-    <div className="sticky top-0 z-30 bg-background border-b px-2 py-1 flex justify-between items-center">
-      <Button variant="outline" size="icon" onClick={onReset}>
-        <ArrowLeft className="h-5 w-5" />
+    <div className="sticky top-0 z-30 bg-background border-b px-1 py-0.5 flex justify-between items-center">
+      <Button variant="outline" size="icon" onClick={onReset} className="h-8 w-8">
+        <ArrowLeft className="h-4 w-4" />
       </Button>
 
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => setIsTranslationDialogOpen(true)} disabled={isTranslating || isExporting}>
+      <div className="flex gap-1">
+        <Button variant="outline" size="sm" onClick={() => setIsTranslationDialogOpen(true)} disabled={isTranslating || isExporting} className="h-8">
           <Languages className="h-4 w-4" />
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="h-8">
               <FileText className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -169,7 +169,7 @@ const EditorView = ({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button size="sm" onClick={onExportVideo} disabled={isExporting}>
+        <Button size="sm" onClick={onExportVideo} disabled={isExporting} className="h-8">
           {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
         </Button>
       </div>
@@ -197,8 +197,8 @@ const EditorView = ({
       {header}
 
       {isMobile ? (
-        <div className="flex flex-col gap-2 p-1">
-          <div className="w-full aspect-video bg-black rounded-md overflow-hidden">
+        <div className="flex flex-col gap-1 p-1">
+          <div className="w-full aspect-video bg-black rounded-md overflow-hidden max-h-[150px]">
             <MobileVideoPlayer
               videoRef={videoRef}
               videoUrl={videoUrl}
@@ -218,29 +218,29 @@ const EditorView = ({
             />
           </div>
 
-          <div className="flex gap-2">
-            <Button variant={mobileTab === 'timeline' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('timeline')}>
-              Timeline
+          <div className="flex gap-1">
+            <Button variant={mobileTab === 'timeline' ? 'default' : 'outline'} className="flex-1 h-8" onClick={() => setMobileTab('timeline')}>
+              <span className="text-xs">Timeline</span>
             </Button>
-            <Button variant={mobileTab === 'subtitle' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('subtitle')}>
-              Subtitle
+            <Button variant={mobileTab === 'subtitle' ? 'default' : 'outline'} className="flex-1 h-8" onClick={() => setMobileTab('subtitle')}>
+              <span className="text-xs">Subtitle</span>
             </Button>
-            <Button variant={mobileTab === 'style' ? 'default' : 'outline'} className="flex-1" onClick={() => setMobileTab('style')}>
-              Style
+            <Button variant={mobileTab === 'style' ? 'default' : 'outline'} className="flex-1 h-8" onClick={() => setMobileTab('style')}>
+              <span className="text-xs">Style</span>
             </Button>
           </div>
 
-          {mobileTab === 'subtitle' && <SubtitleEditor subtitles={subtitles} activeSubtitleId={activeSubtitleId} onUpdateSubtitle={onUpdateSubtitle} onSuggestCorrection={onSuggestCorrection} onDeleteSubtitle={onDeleteSubtitle} />}
+          {mobileTab === 'subtitle' && <div className="flex-1 overflow-y-auto"><SubtitleEditor subtitles={subtitles} activeSubtitleId={activeSubtitleId} onUpdateSubtitle={onUpdateSubtitle} onSuggestCorrection={onSuggestCorrection} onDeleteSubtitle={onDeleteSubtitle} /></div>}
 
           {mobileTab === 'style' && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
               <SubtitleStyler subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} />
               <StyleControls subtitleFont={subtitleFont} subtitleFontSize={subtitleFontSize} subtitleColor={subtitleColor} subtitleOutlineColor={subtitleOutlineColor} isBold={isBold} isItalic={isItalic} isUnderline={isUnderline} onStyleChange={onStyleChange} />
             </div>
           )}
 
           {mobileTab === 'timeline' && (
-            <div className="overflow-x-auto p-1">
+            <div className="overflow-x-auto p-1 flex-1">
               <div className="min-w-[600px] flex gap-2 items-center">
                 <MobileTimelineEditor
                   videoRef={videoRef}

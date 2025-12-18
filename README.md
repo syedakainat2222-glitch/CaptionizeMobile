@@ -1,1 +1,1 @@
-Mobilelayout Small Content fixed  = 47
+Mobilelayout Small Content fixed  = 48
