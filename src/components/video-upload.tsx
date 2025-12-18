@@ -135,15 +135,15 @@ export default function VideoUpload({
           onClick={handleCardClick}
           className={`cursor-pointer ${isUploading || isLoading ? 'pointer-events-none' : ''}`}
         >
-          <CardHeader className="text-center">
+          <CardHeader className="text-center p-4 sm:p-6">
             <CardTitle className="font-headline text-xl sm:text-2xl">
-              Upload Video
+              Upload Your Video
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              Drag & drop or click to select a file
+              Drag & drop a video file or click to select one
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center gap-4 p-4 sm:p-8 sm:pt-4">
+          <CardContent className="flex flex-col items-center justify-center gap-4 p-4 pt-0 sm:p-8 sm:pt-4">
             {isUploading ? (
               <div className="flex w-full flex-col items-center gap-2 text-primary">
                  <p className="text-base sm:text-lg font-semibold">Uploading...</p>
@@ -153,9 +153,9 @@ export default function VideoUpload({
             ) : isLoading ? (
               <div className="flex flex-col items-center gap-2 text-primary">
                 <Loader2 className="h-12 w-12 sm:h-16 sm:w-16 animate-spin" />
-                <p className="text-base sm:text-lg font-semibold">Processing...</p>
+                <p className="text-base sm:text-lg font-semibold">Processing video...</p>
                 <p className="text-xs sm:text-sm text-center text-muted-foreground">
-                  This may take a moment.
+                  This may take a few moments. Please be patient.
                 </p>
               </div>
             ) : (
@@ -163,7 +163,7 @@ export default function VideoUpload({
                 <div className="rounded-full border-4 border-dashed border-border p-6 sm:p-8">
                   <UploadCloud className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground" />
                 </div>
-                <Button size="sm" className="sm:text-base sm:h-10 sm:px-4 sm:py-2">Select File</Button>
+                <Button size="sm" className="sm:h-10 sm:px-4 sm:py-2">Select File</Button>
               </>
             )}
             <input
@@ -177,7 +177,7 @@ export default function VideoUpload({
           </CardContent>
         </div>
         {!isLoading && !isUploading && (
-          <CardContent className="px-4 sm:px-8 pb-4 sm:pb-8">
+          <CardContent className="px-4 pb-4 sm:px-8 sm:pb-8">
             <div className="mx-auto max-w-sm space-y-2">
               <Label htmlFor="language-select" className="text-xs sm:text-sm">Select Language</Label>
               <Select
@@ -198,7 +198,7 @@ export default function VideoUpload({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Choose a language or let us auto-detect.
+                Choose a language or let us detect it automatically.
               </p>
             </div>
           </CardContent>
