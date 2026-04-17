@@ -23,6 +23,7 @@ const parseRgba = (rgba: string) => {
 
 export async function POST(request: NextRequest) {
   try {
+    const body = await request.json();
     const {
       videoPublicId,
       subtitles,
@@ -35,73 +36,78 @@ export async function POST(request: NextRequest) {
       isBold,
       isItalic,
       isUnderline,
-    } = await request.json();
+      filterName,    // The name of the filter (e.g., "B&W")
+      playbackSpeed  // The speed multiplier (e.g., 1.5)
+    } = body;
 
-    if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
-      return NextResponse.json(
-        { success: false, error: 'Missing or invalid parameters' },
-        { status: 400 }
-      );
+    if (!videoPublicId || !subtitles) {
+      return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
     }
 
+    // 1. Upload Subtitles
     const vttContent = formatVtt(subtitles);
-    const vttBase64 = Buffer.from(vttContent).toString('base64');
-    const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
-
-    const vttUpload = await cloudinary.uploader.upload(vttDataUri, {
+    const vttUpload = await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(vttContent).toString('base64')}`, {
       resource_type: 'raw',
-      overwrite: true,
       public_id: `subtitles-${Date.now()}`,
     });
 
-    const primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    const textDecoration = isUnderline ? 'underline' : 'none';
-    const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
+    const transformations: any[] = [];
 
-    const transformationParams: any = {
+    // 2. Add Filter (Applied FIRST)
+    if (filterName && filterName !== "None") {
+      const effect = filterName === "B&W" ? "grayscale" : 
+                     filterName === "Vintage" ? "sepia" : 
+                     filterName.toLowerCase();
+      transformations.push({ effect });
+    }
+
+    // 3. Add Speed (Using correct Cloudinary 'accelerate' effect)
+    if (playbackSpeed && playbackSpeed !== 1.0) {
+      // speed 1.5 -> accelerate:50, speed 2.0 -> accelerate:100, speed 0.5 -> accelerate:-50
+      const percentage = Math.round((playbackSpeed - 1) * 100);
+      transformations.push({ effect: `accelerate:${percentage}` });
+    }
+
+    // 4. Add Subtitles (Applied LAST so they are on top)
+    const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
+    const subtitleLayer: any = {
       overlay: {
         resource_type: 'subtitles',
         public_id: vttUpload.public_id,
-        font_family: primaryFont,
+        font_family: subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial',
         font_size: subtitleFontSize,
         font_weight: isBold ? 'bold' : 'normal',
         font_style: isItalic ? 'italic' : 'normal',
-        text_decoration: textDecoration,
+        text_decoration: isUnderline ? 'underline' : 'none',
       },
       color: subtitleColor,
       background: bgColor,
       opacity: bgOpacity,
-      flags: 'layer_apply',
       gravity: 'south',
       y: 30,
+      flags: 'layer_apply'
     };
 
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      subtitleLayer.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
-    
-    const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
-    const filename = `${safeFilename}_with_subtitles.mp4`;
+    transformations.push(subtitleLayer);
 
+    // 5. Generate Final URL
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: [transformationParams],
+      transformation: transformations,
       format: 'mp4',
       quality: 'auto',
-      sign_url: true, // Generate a short-lived, secure URL
-      attachment: filename, // Tell browser to download with this filename
+      sign_url: true,
+      invalidate: true
     });
 
-    // Return the URL for the client to handle the download
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
 
   } catch (error) {
-    console.error('=== VIDEO PROCESSING FAILED ===', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return NextResponse.json(
-      { success: false, error: `Failed to process video: ${errorMessage}` },
-      { status: 500 }
-    );
+    console.error('EXPORT ERROR:', error);
+    return NextResponse.json({ success: false, error: 'Export Failed' }, { status: 500 });
   }
 }
