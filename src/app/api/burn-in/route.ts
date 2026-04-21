@@ -3,14 +3,15 @@ import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
 const parseRgba = (rgba: string) => {
-  if (!rgba || !rgba.startsWith('rgba')) return { color: rgba, opacity: 100 };
+  if (!rgba || !rgba.startsWith('rgba')) {
+    // Handle hex or other formats
+    return { color: rgba, opacity: 100 };
+  }
   const match = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
-  if (!match) return { color: '#000000', opacity: 50 };
+  if (!match) return { color: '#000000', opacity: 100 };
   const [, r, g, b, a] = match;
-  return { 
-    color: `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`, 
-    opacity: Math.round(parseFloat(a) * 100) 
-  };
+  const toHex = (c: string) => parseInt(c).toString(16).padStart(2, '0');
+  return { color: `#${toHex(r)}${toHex(g)}${toHex(b)}`, opacity: Math.round(parseFloat(a) * 100) };
 };
 
 export async function POST(request: NextRequest) {
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
       videoPublicId, subtitles, subtitleFont, subtitleFontSize,
       subtitleColor, subtitleBackgroundColor, isBold, isItalic, isUnderline,
       filterName, playbackSpeed, cloud_name, api_key, api_secret,
-      subtitleX, subtitleY
+      subtitleX, subtitleY // These are now percentages (-100 to 100)
     } = body;
 
     cloudinary.config({
@@ -38,16 +39,14 @@ export async function POST(request: NextRequest) {
     });
 
     const transformations: any[] = [];
-    if (filterName && filterName !== "None") {
-      const effect = filterName === "B&W" ? "grayscale" : filterName === "Vintage" ? "sepia" : filterName.toLowerCase();
-      transformations.push({ effect });
-    }
-
-    if (playbackSpeed && playbackSpeed !== 1.0) {
-      transformations.push({ effect: `accelerate:${Math.round((playbackSpeed - 1) * 100)}` });
-    }
+    
+    // Calculate Y offset. 
+    // In Cloudinary 'south' gravity: 0 is the bottom.
+    // We start at 5% from bottom and subtract the user's drag percentage.
+    const finalY = Math.round(5 - (subtitleY || 0)); 
 
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
+
     const subtitleLayer: any = {
       overlay: {
         resource_type: 'subtitles',
@@ -62,9 +61,8 @@ export async function POST(request: NextRequest) {
       background: bgColor,
       opacity: bgOpacity,
       gravity: 'south',
-      // Coordinates Fix
-      x: subtitleX || 0,
-      y: 30 - (subtitleY || 0), 
+      x: `${subtitleX || 0}p`, // 'p' makes it percentage-based
+      y: `${finalY}p`,         // 'p' makes it percentage-based
       flags: 'layer_apply'
     };
     transformations.push(subtitleLayer);
