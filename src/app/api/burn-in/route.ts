@@ -7,8 +7,10 @@ const parseRgba = (rgba: string) => {
   const match = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
   if (!match) return { color: '#000000', opacity: 50 };
   const [, r, g, b, a] = match;
-  const color = `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`;
-  return { color, opacity: Math.round(parseFloat(a) * 100) };
+  return { 
+    color: `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`, 
+    opacity: Math.round(parseFloat(a) * 100) 
+  };
 };
 
 export async function POST(request: NextRequest) {
@@ -40,6 +42,7 @@ export async function POST(request: NextRequest) {
       const effect = filterName === "B&W" ? "grayscale" : filterName === "Vintage" ? "sepia" : filterName.toLowerCase();
       transformations.push({ effect });
     }
+
     if (playbackSpeed && playbackSpeed !== 1.0) {
       transformations.push({ effect: `accelerate:${Math.round((playbackSpeed - 1) * 100)}` });
     }
@@ -59,8 +62,9 @@ export async function POST(request: NextRequest) {
       background: bgColor,
       opacity: bgOpacity,
       gravity: 'south',
+      // Coordinates Fix
       x: subtitleX || 0,
-      y: 30 - (subtitleY || 0), // Use subtraction so dragging UP in app moves it UP in video
+      y: 30 - (subtitleY || 0), 
       flags: 'layer_apply'
     };
     transformations.push(subtitleLayer);
