@@ -1,17 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
+import { NextRequest, NextResponse } from 'next/server';import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
-const parseRgba = (rgba: string) => {
-  if (!rgba || !rgba.startsWith('rgba')) {
-    // Handle hex or other formats
-    return { color: rgba, opacity: 100 };
-  }
-  const match = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
-  if (!match) return { color: '#000000', opacity: 100 };
-  const [, r, g, b, a] = match;
-  const toHex = (c: string) => parseInt(c).toString(16).padStart(2, '0');
-  return { color: `#${toHex(r)}${toHex(g)}${toHex(b)}`, opacity: Math.round(parseFloat(a) * 100) };
+const parseColor = (color: string) => {
+  if (!color || color === 'none') return null;
+  // Convert #FFFFFF to rgb:FFFFFF for Cloudinary
+  return color.startsWith('#') ? `rgb:${color.slice(1)}` : color;
 };
 
 export async function POST(request: NextRequest) {
@@ -21,7 +14,7 @@ export async function POST(request: NextRequest) {
       videoPublicId, subtitles, subtitleFont, subtitleFontSize,
       subtitleColor, subtitleBackgroundColor, isBold, isItalic, isUnderline,
       filterName, playbackSpeed, cloud_name, api_key, api_secret,
-      subtitleX, subtitleY // These are now percentages (-100 to 100)
+      subtitleX, subtitleY
     } = body;
 
     cloudinary.config({
@@ -40,31 +33,31 @@ export async function POST(request: NextRequest) {
 
     const transformations: any[] = [];
     
-    // Calculate Y offset. 
-    // In Cloudinary 'south' gravity: 0 is the bottom.
-    // We start at 5% from bottom and subtract the user's drag percentage.
-    const finalY = Math.round(5 - (subtitleY || 0)); 
-
-    const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
+    // Calculate and Clamp Coordinates (Never allow negative values)
+    const finalY = Math.max(0, Math.round(5 - (subtitleY || 0)));
+    const finalX = subtitleX || 0;
 
     const subtitleLayer: any = {
       overlay: {
         resource_type: 'subtitles',
         public_id: vttUpload.public_id,
         font_family: subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial',
-        font_size: subtitleFontSize,
+        font_size: subtitleFontSize || 20,
         font_weight: isBold ? 'bold' : 'normal',
         font_style: isItalic ? 'italic' : 'normal',
         text_decoration: isUnderline ? 'underline' : 'none',
       },
-      color: subtitleColor,
-      background: bgColor,
-      opacity: bgOpacity,
+      color: parseColor(subtitleColor) || 'white',
       gravity: 'south',
-      x: `${subtitleX || 0}p`, // 'p' makes it percentage-based
-      y: `${finalY}p`,         // 'p' makes it percentage-based
+      x: `${finalX}p`,
+      y: `${finalY}p`,
       flags: 'layer_apply'
     };
+
+    if (subtitleBackgroundColor && subtitleBackgroundColor !== 'none') {
+      subtitleLayer.background = parseColor(subtitleBackgroundColor);
+    }
+
     transformations.push(subtitleLayer);
 
     const finalUrl = cloudinary.url(videoPublicId, {
