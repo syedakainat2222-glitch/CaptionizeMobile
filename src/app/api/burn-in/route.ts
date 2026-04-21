@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
 const parseRgba = (rgba: string) => {
   if (!rgba || !rgba.startsWith('rgba')) {
     return { color: rgba, opacity: 100 };
@@ -36,9 +30,23 @@ export async function POST(request: NextRequest) {
       isBold,
       isItalic,
       isUnderline,
-      filterName,    // The name of the filter (e.g., "B&W")
-      playbackSpeed  // The speed multiplier (e.g., 1.5)
+      filterName,
+      playbackSpeed,
+      // BYOK Support: Keys from Android App
+      cloud_name,
+      api_key,
+      api_secret,
+      // Coordinate Support: Drag position from Android App
+      subtitleX,
+      subtitleY
     } = body;
+
+    // Configure Cloudinary with keys from app or environment
+    cloudinary.config({
+      cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: api_key || process.env.CLOUDINARY_API_KEY,
+      api_secret: api_secret || process.env.CLOUDINARY_API_SECRET,
+    });
 
     if (!videoPublicId || !subtitles) {
       return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
@@ -61,9 +69,8 @@ export async function POST(request: NextRequest) {
       transformations.push({ effect });
     }
 
-    // 3. Add Speed (Using correct Cloudinary 'accelerate' effect)
+    // 3. Add Speed
     if (playbackSpeed && playbackSpeed !== 1.0) {
-      // speed 1.5 -> accelerate:50, speed 2.0 -> accelerate:100, speed 0.5 -> accelerate:-50
       const percentage = Math.round((playbackSpeed - 1) * 100);
       transformations.push({ effect: `accelerate:${percentage}` });
     }
@@ -84,7 +91,10 @@ export async function POST(request: NextRequest) {
       background: bgColor,
       opacity: bgOpacity,
       gravity: 'south',
-      y: 30,
+      // Apply the drag coordinates from Android
+      // 30 is the default margin, we add the drag delta
+      x: subtitleX || 0,
+      y: 30 - (subtitleY || 0), 
       flags: 'layer_apply'
     };
 
