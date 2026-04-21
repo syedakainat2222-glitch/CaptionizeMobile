@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         resource_type: 'subtitles',
         public_id: vttUpload.public_id,
         font_family: primaryFont,
-        font_size: subtitleFontSize,
+        font_size: Math.round(subtitleFontSize * 2), // Multiply by 2 to match mobile view
         font_weight: isBold ? 'bold' : 'normal',
         font_style: isItalic ? 'italic' : 'normal',
         text_decoration: textDecoration,
