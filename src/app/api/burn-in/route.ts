@@ -5,12 +5,10 @@ import { formatVtt } from '@/lib/srt';
 const parseRgba = (rgba: string) => {
   if (!rgba || !rgba.startsWith('rgba')) return { color: rgba, opacity: 100 };
   const match = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
-  if (!match) return { color: '#000000', opacity: 50 };
+  if (!match) return { color: '#000000', opacity: 100 };
   const [, r, g, b, a] = match;
-  return { 
-    color: `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`, 
-    opacity: Math.round(parseFloat(a) * 100) 
-  };
+  const toHex = (c: string) => parseInt(c).toString(16).padStart(2, '0');
+  return { color: `#${toHex(r)}${toHex(g)}${toHex(b)}`, opacity: Math.round(parseFloat(a) * 100) };
 };
 
 export async function POST(request: NextRequest) {
@@ -20,7 +18,7 @@ export async function POST(request: NextRequest) {
       videoPublicId, subtitles, subtitleFont, subtitleFontSize,
       subtitleColor, subtitleBackgroundColor, isBold, isItalic, isUnderline,
       filterName, playbackSpeed, cloud_name, api_key, api_secret,
-      subtitleX, subtitleY
+      subtitleX, subtitleY // These are now percentages (-100 to 100)
     } = body;
 
     cloudinary.config({
@@ -48,6 +46,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
+    
+    // Calculate Y offset. In Cloudinary 'south' gravity: 
+    // y: 0 is bottom. We add a base 5% margin + user's percentage.
+    const finalY = Math.round(50 - (subtitleY || 0)); 
+
     const subtitleLayer: any = {
       overlay: {
         resource_type: 'subtitles',
@@ -62,9 +65,8 @@ export async function POST(request: NextRequest) {
       background: bgColor,
       opacity: bgOpacity,
       gravity: 'south',
-      // Coordinates Fix
-      x: subtitleX || 0,
-      y: 30 - (subtitleY || 0), 
+      x: `${subtitleX || 0}p`, // 'p' suffix makes it percentage based in Cloudinary
+      y: `${finalY}p`,
       flags: 'layer_apply'
     };
     transformations.push(subtitleLayer);
