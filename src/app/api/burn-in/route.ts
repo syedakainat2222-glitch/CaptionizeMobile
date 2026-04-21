@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';import { v2 as cloudinary } from 'cloudinary';
+import { NextRequest, NextResponse } from 'next/server';
+import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
-const parseColor = (color: string) => {
-  if (!color || color === 'none') return null;
-  // Convert #FFFFFF to rgb:FFFFFF for Cloudinary
-  return color.startsWith('#') ? `rgb:${color.slice(1)}` : color;
+// Helper to fix colors for Cloudinary (removes # and adds rgb:)
+const cleanColor = (c: string) => {
+  if (!c || c === 'none' || c === 'Transparent') return null;
+  return c.startsWith('#') ? `rgb:${c.slice(1)}` : c;
 };
 
 export async function POST(request: NextRequest) {
@@ -32,8 +33,10 @@ export async function POST(request: NextRequest) {
     });
 
     const transformations: any[] = [];
-    
-    // Calculate and Clamp Coordinates (Never allow negative values)
+
+    // Calculate Coordinates: 
+    // Android Drag UP = Negative Y. Cloudinary South Y = Distance from bottom.
+    // So 5% (base) - (negative drag) = 25% up.
     const finalY = Math.max(0, Math.round(5 - (subtitleY || 0)));
     const finalX = subtitleX || 0;
 
@@ -42,21 +45,20 @@ export async function POST(request: NextRequest) {
         resource_type: 'subtitles',
         public_id: vttUpload.public_id,
         font_family: subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial',
-        font_size: subtitleFontSize || 20,
+        font_size: subtitleFontSize || 24,
         font_weight: isBold ? 'bold' : 'normal',
         font_style: isItalic ? 'italic' : 'normal',
         text_decoration: isUnderline ? 'underline' : 'none',
       },
-      color: parseColor(subtitleColor) || 'white',
+      color: cleanColor(subtitleColor) || 'rgb:ffffff',
       gravity: 'south',
-      x: `${finalX}p`,
-      y: `${finalY}p`,
+      x: `${finalX}p`, // The 'p' tells Cloudinary to use Percentages
+      y: `${finalY}p`, 
       flags: 'layer_apply'
     };
 
-    if (subtitleBackgroundColor && subtitleBackgroundColor !== 'none') {
-      subtitleLayer.background = parseColor(subtitleBackgroundColor);
-    }
+    const bg = cleanColor(subtitleBackgroundColor);
+    if (bg) { subtitleLayer.background = bg; }
 
     transformations.push(subtitleLayer);
 
@@ -70,6 +72,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
   } catch (error) {
+    console.error("Cloudinary Error:", error);
     return NextResponse.json({ success: false }, { status: 500 });
   }
 }
