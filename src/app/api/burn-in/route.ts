@@ -34,13 +34,26 @@ const parseRgba = (rgba: string) => {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    
     const {
-      videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize,
-      subtitleColor, subtitleBackgroundColor, subtitleOutlineColor,
-      isBold, isItalic, isUnderline, playbackSpeed,
-      cloud_name, api_key, api_secret
+      videoPublicId,
+      subtitles,
+      videoName,
+      subtitleFont,
+      subtitleFontSize,
+      subtitleColor,
+      subtitleBackgroundColor,
+      subtitleOutlineColor,
+      isBold,
+      isItalic,
+      isUnderline,
+      playbackSpeed,
+      cloud_name,
+      api_key,
+      api_secret
     } = body;
 
+    // --- DYNAMIC CONFIGURATION ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
@@ -48,11 +61,11 @@ export async function POST(request: NextRequest) {
       secure: true
     });
 
-    if (!videoPublicId || !subtitles) {
+    if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
       return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
     }
 
-    // --- SYNC SPEED ---
+    // --- SYNC SUBTITLES WITH SPEED ---
     const speedMultiplier = playbackSpeed || 1.0;
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
@@ -70,10 +83,9 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- FONT MAPPING (Fix for Arabic/Urdu/English) ---
-    let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Roboto';
-    
-    // For Google Fonts, we must add the "google:" prefix for Cloudinary to fetch them
+    // --- FONT MAPPING (Android names to Cloudinary names) ---
+    // We add the "google:" prefix so Cloudinary can fetch the correct fonts for Arabic/Urdu
+    let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
     if (primaryFont === 'Cairo') primaryFont = 'google:Cairo';
     else if (primaryFont === 'Changa') primaryFont = 'google:Changa';
     else if (primaryFont === 'Noto Urdu') primaryFont = 'google:Noto Nastaliq Urdu';
@@ -82,15 +94,15 @@ export async function POST(request: NextRequest) {
     else if (primaryFont === 'Serif') primaryFont = 'Times';
     else if (primaryFont === 'SansSerif') primaryFont = 'Arial';
     else if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    else primaryFont = `google:${primaryFont}`; // Default to fetching from Google
+    else if (primaryFont === 'Roboto') primaryFont = 'Arial'; 
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // --- SCALING ADJUSTMENT ---
-    // Reduced multiplier to 2.5 to prevent text from being too big/cut off
+    // --- MODERATED SCALE FIX ---
+    // Multiplier of 2.5x ensures text matches mobile design without overflowing
     const scaledSize = Math.round(subtitleFontSize * 2.5);
-    const scaledY = Math.round(50 * 2.5); 
+    const scaledY = 60; // Better safe vertical offset
 
     const transformationParams: any = {
       overlay: {
@@ -118,11 +130,15 @@ export async function POST(request: NextRequest) {
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
-    const speedEffect = { effect: `accelerate:${Math.round((speedMultiplier - 1) * 100)}` };
+    // --- APPLY SPEED EFFECT TO VIDEO ---
+    const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: [speedEffect, transformationParams],
+      transformation: [
+        { effect: `accelerate:${speedEffectValue}` }, // Step 1: Change Speed
+        transformationParams                          // Step 2: Add Subtitles
+      ],
       format: 'mp4',
       quality: 'auto',
       sign_url: true, 
