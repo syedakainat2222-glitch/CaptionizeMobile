@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
+// Helper to convert SRT time string (00:00:00,000) to milliseconds
+const timeToMs = (timeStr: string) => {
+  const [h, m, s_ms] = timeStr.split(':');
+  const [s, ms] = s_ms.split(',');
+  return parseInt(h) * 3600000 + parseInt(m) * 60000 + parseInt(s) * 1000 + parseInt(ms);
+};
+
+// Helper to convert milliseconds back to SRT time string
+const msToTime = (totalMs: number) => {
+  const h = Math.floor(totalMs / 3600000);
+  const m = Math.floor((totalMs % 3600000) / 60000);
+  const s = Math.floor((totalMs % 60000) / 1000);
+  const ms = Math.floor(totalMs % 1000);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
+};
+
 const parseRgba = (rgba: string) => {
   if (!rgba || !rgba.startsWith('rgba')) {
     return { color: rgba, opacity: 100 };
@@ -19,7 +35,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // Extract everything from the request body
     const {
       videoPublicId,
       subtitles,
@@ -32,14 +47,13 @@ export async function POST(request: NextRequest) {
       isBold,
       isItalic,
       isUnderline,
-      // Keys sent from Android App
+      playbackSpeed, // Received from phone
       cloud_name,
       api_key,
       api_secret
     } = body;
 
-    // --- DYNAMIC CONFIGURATION (The Fix) ---
-    // This forces Cloudinary to use the keys currently sent by the phone
+    // --- DYNAMIC CONFIGURATION ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
@@ -48,17 +62,22 @@ export async function POST(request: NextRequest) {
     });
 
     if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
-      return NextResponse.json(
-        { success: false, error: 'Missing or invalid parameters' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
     }
 
-    const vttContent = formatVtt(subtitles);
+    // --- SYNC SUBTITLES WITH SPEED ---
+    // If the video plays faster, the subtitle timestamps must be scaled down
+    const speedMultiplier = playbackSpeed || 1.0;
+    const adjustedSubtitles = subtitles.map((sub: any) => ({
+      ...sub,
+      startTime: msToTime(timeToMs(sub.startTime) / speedMultiplier),
+      endTime: msToTime(timeToMs(sub.endTime) / speedMultiplier),
+    }));
+
+    const vttContent = formatVtt(adjustedSubtitles);
     const vttBase64 = Buffer.from(vttContent).toString('base64');
     const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
 
-    // Uploads the subtitle file to the account specified by the phone
     const vttUpload = await cloudinary.uploader.upload(vttDataUri, {
       resource_type: 'raw',
       overwrite: true,
@@ -95,10 +114,17 @@ export async function POST(request: NextRequest) {
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
-    // Generates the signed URL using the phone's account keys
+    // --- APPLY SPEED EFFECT TO VIDEO ---
+    // Cloudinary accelerate formula: (multiplier - 1) * 100
+    const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
+    const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
+
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: [transformationParams],
+      transformation: [
+        speedTransformation, // Speed up video first
+        transformationParams  // Add adjusted subtitles second
+      ],
       format: 'mp4',
       quality: 'auto',
       sign_url: true, 
@@ -109,10 +135,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('=== VIDEO PROCESSING FAILED ===', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return NextResponse.json(
-      { success: false, error: `Failed to process video: ${errorMessage}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to process video' }, { status: 500 });
   }
 }
