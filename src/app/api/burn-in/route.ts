@@ -83,26 +83,22 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- FONT MAPPING (Android names to Cloudinary names) ---
-    // We add the "google:" prefix so Cloudinary can fetch the correct fonts for Arabic/Urdu
+    // --- FONT MAPPING (Reliable fonts only for subtitle overlays) ---
     let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    if (primaryFont === 'Cairo') primaryFont = 'google:Cairo';
-    else if (primaryFont === 'Changa') primaryFont = 'google:Changa';
-    else if (primaryFont === 'Noto Urdu') primaryFont = 'google:Noto Nastaliq Urdu';
-    else if (primaryFont === 'Dancing Script') primaryFont = 'google:Dancing Script';
-    else if (primaryFont === 'Pacifico') primaryFont = 'google:Pacifico';
-    else if (primaryFont === 'Serif') primaryFont = 'Times';
+    
+    // Map generic Android names to Cloudinary standards
+    if (primaryFont === 'Serif') primaryFont = 'Times';
     else if (primaryFont === 'SansSerif') primaryFont = 'Arial';
     else if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    else if (primaryFont === 'Roboto') primaryFont = 'Arial'; 
+    else primaryFont = 'Arial'; // Arial is the best standard font for Arabic/Urdu subtitles
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // --- MODERATED SCALE FIX ---
-    // Multiplier of 2.5x ensures text matches mobile design without overflowing
-    const scaledSize = Math.round(subtitleFontSize * 2.5);
-    const scaledY = 60; // Better safe vertical offset
+    // --- MODERATE SCALE FIX ---
+    // Factor of 2.5x makes 18sp look correct on 720p/1080p video
+    const scaledSize = Math.round((subtitleFontSize || 18) * 2.5);
+    const scaledY = 60; 
 
     const transformationParams: any = {
       overlay: {
@@ -130,15 +126,17 @@ export async function POST(request: NextRequest) {
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
-    // --- APPLY SPEED EFFECT TO VIDEO ---
-    const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
+    // --- CONSTRUCT TRANSFORMATIONS ---
+    const transformations: any[] = [];
+    if (speedMultiplier !== 1.0) {
+      const speedValue = Math.round((speedMultiplier - 1) * 100);
+      transformations.push({ effect: `accelerate:${speedValue}` });
+    }
+    transformations.push(transformationParams);
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: [
-        { effect: `accelerate:${speedEffectValue}` }, // Step 1: Change Speed
-        transformationParams                          // Step 2: Add Subtitles
-      ],
+      transformation: transformations,
       format: 'mp4',
       quality: 'auto',
       sign_url: true, 
