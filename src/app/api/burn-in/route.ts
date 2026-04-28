@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
@@ -83,22 +84,20 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- FONT MAPPING (Reliable fonts only for subtitle overlays) ---
+    // --- FONT MAPPING (Android names to Cloudinary names) ---
     let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    
-    // Map generic Android names to Cloudinary standards
     if (primaryFont === 'Serif') primaryFont = 'Times';
-    else if (primaryFont === 'SansSerif') primaryFont = 'Arial';
-    else if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    else primaryFont = 'Arial'; // Arial is the best standard font for Arabic/Urdu subtitles
+    if (primaryFont === 'SansSerif') primaryFont = 'Arial';
+    if (primaryFont === 'Monospace') primaryFont = 'Courier';
+    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Nastaliq Urdu'; // Correct name for Cloudinary
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // --- MODERATE SCALE FIX ---
-    // Factor of 2.5x makes 18sp look correct on 720p/1080p video
-    const scaledSize = Math.round((subtitleFontSize || 18) * 2.5);
-    const scaledY = 60; 
+    // --- SCALE FIX: We multiply the font size to match video resolution ---
+    // A multiplier of 3.0 to 4.0 usually makes mobile font sizes look correct on 1080p video
+    const scaledSize = Math.round(subtitleFontSize * 3.5);
+    const scaledY = Math.round(40 * 3.5);
 
     const transformationParams: any = {
       overlay: {
@@ -126,17 +125,16 @@ export async function POST(request: NextRequest) {
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
-    // --- CONSTRUCT TRANSFORMATIONS ---
-    const transformations: any[] = [];
-    if (speedMultiplier !== 1.0) {
-      const speedValue = Math.round((speedMultiplier - 1) * 100);
-      transformations.push({ effect: `accelerate:${speedValue}` });
-    }
-    transformations.push(transformationParams);
+    // --- APPLY SPEED EFFECT TO VIDEO ---
+    const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
+    const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: transformations,
+      transformation: [
+        speedTransformation,
+        transformationParams
+      ],
       format: 'mp4',
       quality: 'auto',
       sign_url: true, 
