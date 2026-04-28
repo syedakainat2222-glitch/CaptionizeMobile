@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       isBold,
       isItalic,
       isUnderline,
-      playbackSpeed, // Received from phone
+      playbackSpeed,
       cloud_name,
       api_key,
       api_secret
@@ -66,7 +66,6 @@ export async function POST(request: NextRequest) {
     }
 
     // --- SYNC SUBTITLES WITH SPEED ---
-    // If the video plays faster, the subtitle timestamps must be scaled down
     const speedMultiplier = playbackSpeed || 1.0;
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
@@ -84,7 +83,12 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    const primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
+    // --- FONT MAPPING (Fix for Serif, SansSerif, Monospace) ---
+    let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
+    if (primaryFont === 'Serif') primaryFont = 'Times';
+    if (primaryFont === 'SansSerif') primaryFont = 'Arial';
+    if (primaryFont === 'Monospace') primaryFont = 'Courier';
+
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
@@ -115,15 +119,14 @@ export async function POST(request: NextRequest) {
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
     // --- APPLY SPEED EFFECT TO VIDEO ---
-    // Cloudinary accelerate formula: (multiplier - 1) * 100
     const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
     const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: [
-        speedTransformation, // Speed up video first
-        transformationParams  // Add adjusted subtitles second
+        speedTransformation,
+        transformationParams
       ],
       format: 'mp4',
       quality: 'auto',
