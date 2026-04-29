@@ -26,6 +26,106 @@ const parseRgba = (rgba: string) => {
   return { color: `#${toHex(r)}${toHex(g)}${toHex(b)}`, opacity: Math.round(parseFloat(a) * 100) };
 };
 
+// ========== MANUAL ARABIC RESHAPER (No external libraries) ==========
+// Maps Arabic characters to their presentation forms based on context.
+// Handles isolated, initial, medial, and final forms.
+function reshapeArabic(text: string): string {
+  // Return early if no Arabic characters
+  if (!/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(text)) return text;
+
+  // Character mapping tables: isolated, final, initial, medial
+  // Only common Arabic letters mapped; for full coverage, extend as needed.
+  const arabicMap: Record<string, [string, string, string, string]> = {
+    // Alef
+    '\u0627': ['\uFE8D', '\uFE8E', '\uFE8D', '\uFE8D'], // ا
+    // Ba
+    '\u0628': ['\uFE8F', '\uFE90', '\uFE91', '\uFE92'], // ب
+    // Ta
+    '\u062A': ['\uFE95', '\uFE96', '\uFE97', '\uFE98'], // ت
+    // Tha
+    '\u062B': ['\uFE99', '\uFE9A', '\uFE9B', '\uFE9C'], // ث
+    // Jeem
+    '\u062C': ['\uFE9D', '\uFE9E', '\uFE9F', '\uFEA0'], // ج
+    // Ha (ḥā')
+    '\u062D': ['\uFEA1', '\uFEA2', '\uFEA3', '\uFEA4'], // ح
+    // Kha
+    '\u062E': ['\uFEA5', '\uFEA6', '\uFEA7', '\uFEA8'], // خ
+    // Dal
+    '\u062F': ['\uFEA9', '\uFEAA', '\uFEA9', '\uFEA9'], // د
+    // Thal
+    '\u0630': ['\uFEAB', '\uFEAC', '\uFEAB', '\uFEAB'], // ذ
+    // Ra
+    '\u0631': ['\uFEAD', '\uFEAE', '\uFEAD', '\uFEAD'], // ر
+    // Zay
+    '\u0632': ['\uFEAF', '\uFEB0', '\uFEAF', '\uFEAF'], // ز
+    // Seen
+    '\u0633': ['\uFEB1', '\uFEB2', '\uFEB3', '\uFEB4'], // س
+    // Sheen
+    '\u0634': ['\uFEB5', '\uFEB6', '\uFEB7', '\uFEB8'], // ش
+    // Sad
+    '\u0635': ['\uFEB9', '\uFEBA', '\uFEBB', '\uFEBC'], // ص
+    // Dad
+    '\u0636': ['\uFEBD', '\uFEBE', '\uFEBF', '\uFEC0'], // ض
+    // Ta (ṭā')
+    '\u0637': ['\uFEC1', '\uFEC2', '\uFEC3', '\uFEC4'], // ط
+    // Za (ẓā')
+    '\u0638': ['\uFEC5', '\uFEC6', '\uFEC7', '\uFEC8'], // ظ
+    // Ain
+    '\u0639': ['\uFEC9', '\uFECA', '\uFECB', '\uFECC'], // ع
+    // Ghain
+    '\u063A': ['\uFECD', '\uFECE', '\uFECF', '\uFED0'], // غ
+    // Feh (ف)
+    '\u0641': ['\uFED1', '\uFED2', '\uFED3', '\uFED4'],
+    // Qaf (ق)
+    '\u0642': ['\uFED5', '\uFED6', '\uFED7', '\uFED8'],
+    // Kaf (ك)
+    '\u0643': ['\uFED9', '\uFEDA', '\uFEDB', '\uFEDC'],
+    // Lam (ل)
+    '\u0644': ['\uFEDD', '\uFEDE', '\uFEDF', '\uFEE0'],
+    // Meem (م)
+    '\u0645': ['\uFEE1', '\uFEE2', '\uFEE3', '\uFEE4'],
+    // Noon (ن)
+    '\u0646': ['\uFEE5', '\uFEE6', '\uFEE7', '\uFEE8'],
+    // Heh (ه)
+    '\u0647': ['\uFEE9', '\uFEEA', '\uFEEB', '\uFEEC'],
+    // Waw (و)
+    '\u0648': ['\uFEED', '\uFEEE', '\uFEED', '\uFEED'],
+    // Yeh (ي)
+    '\u064A': ['\uFEF1', '\uFEF2', '\uFEF3', '\uFEF4'],
+    // Alef Maqsura (ى)
+    '\u0649': ['\uFEEF', '\uFEF0', '\uFEEF', '\uFEEF'],
+  };
+
+  // Also add tashkeel (diacritics) – keep as is
+  const result: string[] = [];
+  const chars = [...text]; // handle Unicode correctly
+
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    const mapping = arabicMap[ch];
+    if (!mapping) {
+      result.push(ch);
+      continue;
+    }
+    // Determine position: previous char (i-1) and next char (i+1) are Arabic?
+    const prevChar = i > 0 ? chars[i - 1] : null;
+    const nextChar = i < chars.length - 1 ? chars[i + 1] : null;
+    const prevIsArabic = prevChar && arabicMap[prevChar];
+    const nextIsArabic = nextChar && arabicMap[nextChar];
+
+    let form: number;
+    if (!prevIsArabic && !nextIsArabic) form = 0;       // isolated
+    else if (prevIsArabic && !nextIsArabic) form = 1;   // final
+    else if (!prevIsArabic && nextIsArabic) form = 2;   // initial
+    else form = 3;                                      // medial
+
+    result.push(mapping[form]);
+  }
+
+  // Wrap in RTL embedding to ensure proper direction
+  return '\u202B' + result.join('') + '\u202C';
+}
+
 // ========== MAIN EXPORT ==========
 export async function POST(request: NextRequest) {
   try {
@@ -49,20 +149,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
     }
 
-    // Adjust subtitles for playback speed
+    // Adjust subtitles for playback speed and reshape Arabic text
     const speedMultiplier = playbackSpeed || 1.0;
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
+      text: reshapeArabic(sub.text),   // ✅ Apply reshaping here
       startTime: msToTime(timeToMs(sub.startTime) / speedMultiplier),
       endTime: msToTime(timeToMs(sub.endTime) / speedMultiplier),
     }));
 
-    // Generate VTT content using your existing formatter
+    // Generate VTT content
     const vttContent = formatVtt(adjustedSubtitles);
     const vttBase64 = Buffer.from(vttContent, 'utf-8').toString('base64');
     const vttDataUri = `data:text/vtt;charset=utf-8;base64,${vttBase64}`;
 
-    // ✅ Upload VTT: public_id WITHOUT extension, but set format to 'vtt'
+    // Upload VTT: public_id WITHOUT extension, format 'vtt'
     const vttPublicId = `subtitles-${Date.now()}`;
     await cloudinary.uploader.upload(vttDataUri, {
       resource_type: 'raw',
@@ -71,21 +172,26 @@ export async function POST(request: NextRequest) {
       overwrite: true,
     });
 
-    // ========== FONT SELECTION (NATIVE CLOUDINARY FONTS ONLY) ==========
-    // Use 'Noto Sans Arabic' – it supports Arabic joining and works without google: prefix.
-    let primaryFont = 'Noto Sans Arabic';
+    // ========== FONT SELECTION ==========
+    // Use Arial as default (reshaped text will look joined)
+    let primaryFont = 'Arial';
     const requestedFont = subtitleFont ? subtitleFont.split(',')[0].trim() : '';
 
     switch (requestedFont) {
       case 'Cairo':
       case 'Changa':
       case 'Noto Urdu':
-        primaryFont = 'Noto Sans Arabic'; // best native Arabic font for shaping
+        // For Arabic/Urdu, Arial works perfectly after reshaping
+        primaryFont = 'Arial';
         break;
       case 'Pacifico':
+        primaryFont = 'Pacifico';
+        break;
       case 'Dancing Script':
+        primaryFont = 'Dancing Script';
+        break;
       case 'Roboto':
-        primaryFont = 'Arial'; // fallback for Latin fonts
+        primaryFont = 'Roboto';
         break;
       case 'Serif':
         primaryFont = 'Times';
@@ -94,7 +200,7 @@ export async function POST(request: NextRequest) {
         primaryFont = 'Courier';
         break;
       default:
-        primaryFont = 'Noto Sans Arabic';
+        primaryFont = 'Arial';
     }
 
     // Parse background color (if used)
@@ -104,26 +210,27 @@ export async function POST(request: NextRequest) {
     const scaledSize = Math.round((subtitleFontSize || 24) * 2.0);
     const yPosition = 120;
 
-    // ✅ Build overlay WITHOUT any border/outline (they cause 400 errors)
+    // ✅ Build overlay WITHOUT any border/outline
     const overlayParams: any = {
       overlay: {
         resource_type: 'subtitles',
-        public_id: `${vttPublicId}.vtt`,   // Append .vtt here – crucial for subtitle engine
+        public_id: `${vttPublicId}.vtt`,   // Append .vtt here
         font_family: primaryFont,
         font_size: scaledSize,
         font_weight: isBold ? 'bold' : 'normal',
         font_style: isItalic ? 'italic' : 'normal',
         text_decoration: isUnderline ? 'underline' : 'none',
       },
-      color: subtitleColor || '#FFFFFF',   // Apply user's chosen color
+      // ✅ Fix color format: convert #HEX to rgb:HEX
+      color: (subtitleColor || '#FFFFFF').replace('#', 'rgb:'),
       flags: 'layer_apply',
       gravity: 'south',
       y: yPosition,
     };
 
-    // Add background only if it's not transparent
+    // Add background only if not transparent
     if (bgColor && bgColor !== 'transparent' && bgOpacity > 0) {
-      overlayParams.background = bgColor;
+      overlayParams.background = bgColor.replace('#', 'rgb:');
       overlayParams.opacity = bgOpacity;
     }
 
