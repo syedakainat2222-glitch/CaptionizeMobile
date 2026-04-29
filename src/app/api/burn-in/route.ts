@@ -57,16 +57,24 @@ export async function POST(request: NextRequest) {
       resource_type: 'raw', overwrite: true, public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- RELIABLE FONT MAPPING ---
-    // Arial is used for Arabic/Urdu to ensure letter shaping and prevent "White Page" errors
+    // --- NEW: PERFECT FONT SYNC ---
     let primaryFont = 'Arial';
     const requested = subtitleFont ? subtitleFont.split(',')[0].trim() : '';
-    if (requested === 'Serif') primaryFont = 'Times';
+    
+    // This tells Cloudinary to use the exact Google Font
+    if (requested === 'Cairo') primaryFont = 'google:Cairo';
+    else if (requested === 'Changa') primaryFont = 'google:Changa';
+    else if (requested === 'Noto Urdu') primaryFont = 'google:Noto Sans Arabic';
+    else if (requested === 'Pacifico') primaryFont = 'google:Pacifico';
+    else if (requested === 'Dancing Script') primaryFont = 'google:Dancing Script';
+    else if (requested === 'Serif') primaryFont = 'Times';
     else if (requested === 'Monospace') primaryFont = 'Courier';
     else primaryFont = 'Arial'; 
 
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
-    const scaledSize = Math.round((subtitleFontSize || 18) * 2.2);
+    
+    // Adjusted scale (2.0 instead of 2.2) for better fit
+    const scaledSize = Math.round((subtitleFontSize || 18) * 2.0);
 
     const transformationParams: any = {
       overlay: {
@@ -76,12 +84,12 @@ export async function POST(request: NextRequest) {
         text_decoration: isUnderline ? 'underline' : 'none',
       },
       color: subtitleColor, background: bgColor, opacity: bgOpacity,
-      flags: 'layer_apply', gravity: 'south', y: 50,
+      flags: 'layer_apply', gravity: 'south', y: 60, // Moved up slightly
     };
 
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      transformationParams.border = `3px_solid_${outlineColor.replace('#', 'rgb:')}`; // Slightly thicker outline
     }
     
     const transformations: any[] = [];
