@@ -53,7 +53,6 @@ export async function POST(request: NextRequest) {
       api_secret
     } = body;
 
-    // --- DYNAMIC CONFIGURATION ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
@@ -65,7 +64,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
     }
 
-    // --- SYNC SUBTITLES WITH SPEED ---
     const speedMultiplier = playbackSpeed || 1.0;
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
@@ -83,28 +81,28 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // ========== FIXED FONT MAPPING (ONLY CHANGE) ==========
+    // ========== FIXED FONT MAPPING (USES CLOUDINARY NATIVE FONTS) ==========
     let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
     
-    // Map your Android fonts to Cloudinary Google Fonts
+    // Map Android fonts to Cloudinary's supported fonts (NO google: prefix to avoid breaking)
     switch (primaryFont) {
       case 'Cairo':
-        primaryFont = 'google:Cairo';
+        primaryFont = 'Cairo'; // Cloudinary has native Cairo font
         break;
       case 'Changa':
-        primaryFont = 'google:Changa';
+        primaryFont = 'Changa'; // Native Changa
         break;
       case 'Noto Urdu':
-        primaryFont = 'google:Noto Sans Arabic'; // Correct font for Urdu/Arabic
+        primaryFont = 'Noto Kufi Arabic'; // Best Arabic/Urdu font in Cloudinary
         break;
       case 'Pacifico':
-        primaryFont = 'google:Pacifico';
+        primaryFont = 'Pacifico'; // Native Pacifico
         break;
       case 'Dancing Script':
-        primaryFont = 'google:Dancing Script';
+        primaryFont = 'Dancing Script';
         break;
       case 'Roboto':
-        primaryFont = 'google:Roboto';
+        primaryFont = 'Roboto';
         break;
       case 'Serif':
         primaryFont = 'Times';
@@ -116,14 +114,12 @@ export async function POST(request: NextRequest) {
         primaryFont = 'Courier';
         break;
       default:
-        // Keep as is (might already be a Cloudinary font)
+        // Keep original; if not recognized, Cloudinary falls back to Arial
         break;
     }
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
-
-    // Keep your working scale (3.5) and Y position
     const scaledSize = Math.round(subtitleFontSize * 3.5);
     const scaledY = Math.round(40 * 3.5);
 
@@ -140,21 +136,20 @@ export async function POST(request: NextRequest) {
       color: subtitleColor,
       background: bgColor,
       opacity: bgOpacity,
-      flags: 'layer_apply',
+      flags: 'layer_apply', // Removed 'unicode' flag to avoid issues
       gravity: 'south',
       y: scaledY,
     };
 
-    // OPTIONAL: Remove border if it causes 400 errors (uncomment if needed)
-    // if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
-    //   const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-    //   transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
-    // }
+    // Keep border/outline as in your working code
+    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
+      const { color: outlineColor } = parseRgba(subtitleOutlineColor);
+      transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
+    }
     
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
-    // --- APPLY SPEED EFFECT TO VIDEO ---
     const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
     const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
 
