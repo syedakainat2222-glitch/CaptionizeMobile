@@ -62,73 +62,72 @@ export async function POST(request: NextRequest) {
     const vttBase64 = Buffer.from(vttContent, 'utf-8').toString('base64');
     const vttDataUri = `data:text/vtt;charset=utf-8;base64,${vttBase64}`;
 
-    // ✅ Upload VTT with explicit .vtt extension in public_id
-    const vttPublicId = `subtitles-${Date.now()}.vtt`;
+    // ✅ Upload VTT: public_id WITHOUT extension, but set format to 'vtt'
+    const vttPublicId = `subtitles-${Date.now()}`;
     await cloudinary.uploader.upload(vttDataUri, {
       resource_type: 'raw',
       public_id: vttPublicId,
+      format: 'vtt',
       overwrite: true,
     });
 
-    // ========== FONT MAPPING (USE google: prefix with proper encoding) ==========
-    let primaryFont = 'google:Cairo'; // default
+    // ========== FONT SELECTION (NATIVE CLOUDINARY FONTS ONLY) ==========
+    // Use 'Noto Sans Arabic' – it supports Arabic joining and works without google: prefix.
+    let primaryFont = 'Noto Sans Arabic';
     const requestedFont = subtitleFont ? subtitleFont.split(',')[0].trim() : '';
 
     switch (requestedFont) {
       case 'Cairo':
-        primaryFont = 'google:Cairo';
-        break;
       case 'Changa':
-        primaryFont = 'google:Changa';
-        break;
       case 'Noto Urdu':
-        // Important: encode space as %20 to avoid URL breakage
-        primaryFont = 'google:Noto%20Sans%20Arabic';
+        primaryFont = 'Noto Sans Arabic'; // best native Arabic font for shaping
         break;
       case 'Pacifico':
-        primaryFont = 'google:Pacifico';
-        break;
       case 'Dancing Script':
-        primaryFont = 'google:Dancing%20Script';
-        break;
       case 'Roboto':
-        primaryFont = 'google:Roboto';
+        primaryFont = 'Arial'; // fallback for Latin fonts
+        break;
+      case 'Serif':
+        primaryFont = 'Times';
+        break;
+      case 'Monospace':
+        primaryFont = 'Courier';
         break;
       default:
-        primaryFont = 'google:Cairo';
+        primaryFont = 'Noto Sans Arabic';
     }
 
-    // Parse background (if any) – but we won't use background to keep text clean
+    // Parse background color (if used)
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor || 'transparent');
 
-    // Size and position (multiplier 1.8, y=120 to avoid logos)
-    const scaledSize = Math.round((subtitleFontSize || 24) * 1.8);
+    // Size multiplier 2.0, position y=120 (above BBC logo)
+    const scaledSize = Math.round((subtitleFontSize || 24) * 2.0);
     const yPosition = 120;
 
-    // ✅ Build overlay WITHOUT any border/outline, WITHOUT background if transparent
+    // ✅ Build overlay WITHOUT any border/outline (they cause 400 errors)
     const overlayParams: any = {
       overlay: {
         resource_type: 'subtitles',
-        public_id: vttPublicId,   // includes .vtt
+        public_id: `${vttPublicId}.vtt`,   // Append .vtt here – crucial for subtitle engine
         font_family: primaryFont,
         font_size: scaledSize,
         font_weight: isBold ? 'bold' : 'normal',
         font_style: isItalic ? 'italic' : 'normal',
         text_decoration: isUnderline ? 'underline' : 'none',
       },
-      color: subtitleColor || '#FFFFFF',
+      color: subtitleColor || '#FFFFFF',   // Apply user's chosen color
       flags: 'layer_apply',
       gravity: 'south',
       y: yPosition,
     };
 
-    // Only add background if not transparent
+    // Add background only if it's not transparent
     if (bgColor && bgColor !== 'transparent' && bgOpacity > 0) {
       overlayParams.background = bgColor;
       overlayParams.opacity = bgOpacity;
     }
 
-    // Build transformations: speed effect (if any) + subtitles overlay
+    // Build full transformation array (speed effect + subtitles)
     const transformations: any[] = [];
     if (speedMultiplier !== 1.0) {
       const speedPercent = Math.round((speedMultiplier - 1) * 100);
@@ -140,7 +139,7 @@ export async function POST(request: NextRequest) {
     const safeFileName = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFileName}_with_subtitles.mp4`;
 
-    // Create final Cloudinary URL
+    // Create Cloudinary URL
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: transformations,
@@ -150,7 +149,6 @@ export async function POST(request: NextRequest) {
       attachment: filename,
     });
 
-    console.log('Generated URL:', finalUrl);
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
 
   } catch (error: any) {
