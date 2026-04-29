@@ -19,38 +19,22 @@ const msToTime = (totalMs: number) => {
 };
 
 const parseRgba = (rgba: string) => {
-  if (!rgba || !rgba.startsWith('rgba')) {
-    return { color: rgba, opacity: 100 };
-  }
+  if (!rgba || !rgba.startsWith('rgba')) return { color: rgba, opacity: 100 };
   const match = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
   if (!match) return { color: '#000000', opacity: 50 };
   const [, r, g, b, a] = match;
   const toHex = (c: string) => parseInt(c).toString(16).padStart(2, '0');
-  const color = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-  const opacity = Math.round(parseFloat(a) * 100);
-  return { color, opacity };
+  return { color: `#${toHex(r)}${toHex(g)}${toHex(b)}`, opacity: Math.round(parseFloat(a) * 100) };
 };
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
     const {
-      videoPublicId,
-      subtitles,
-      videoName,
-      subtitleFont,
-      subtitleFontSize,
-      subtitleColor,
-      subtitleBackgroundColor,
-      subtitleOutlineColor,
-      isBold,
-      isItalic,
-      isUnderline,
-      playbackSpeed,
-      cloud_name,
-      api_key,
-      api_secret
+      videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize,
+      subtitleColor, subtitleBackgroundColor, subtitleOutlineColor, // outline kept but not used
+      isBold, isItalic, isUnderline, playbackSpeed,
+      cloud_name, api_key, api_secret
     } = body;
 
     cloudinary.config({
@@ -60,10 +44,9 @@ export async function POST(request: NextRequest) {
       secure: true
     });
 
-    if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
-      return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
-    }
+    if (!videoPublicId || !subtitles) return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
 
+    // Adjust subtitles for playback speed
     const speedMultiplier = playbackSpeed || 1.0;
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
@@ -71,104 +54,100 @@ export async function POST(request: NextRequest) {
       endTime: msToTime(timeToMs(sub.endTime) / speedMultiplier),
     }));
 
+    // Generate VTT content
     const vttContent = formatVtt(adjustedSubtitles);
     const vttBase64 = Buffer.from(vttContent).toString('base64');
     const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
 
+    // Upload VTT with explicit .vtt extension
+    const vttPublicId = `subtitles-${Date.now()}.vtt`;
     const vttUpload = await cloudinary.uploader.upload(vttDataUri, {
       resource_type: 'raw',
       overwrite: true,
-      public_id: `subtitles-${Date.now()}`,
+      public_id: vttPublicId,
     });
 
-    // ========== FIXED FONT MAPPING (USES CLOUDINARY NATIVE FONTS) ==========
-    let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
+    // --- FONT MAPPING WITH GOOGLE: PREFIX AND URL-ENCODED SPACES ---
+    let primaryFont = 'Arial';
+    const requested = subtitleFont ? subtitleFont.split(',')[0].trim() : '';
     
-    // Map Android fonts to Cloudinary's supported fonts (NO google: prefix to avoid breaking)
-    switch (primaryFont) {
+    // Important: Use URL-encoded spaces for multi-word Google fonts
+    switch (requested) {
       case 'Cairo':
-        primaryFont = 'Cairo'; // Cloudinary has native Cairo font
+        primaryFont = 'google:Cairo';
         break;
       case 'Changa':
-        primaryFont = 'Changa'; // Native Changa
+        primaryFont = 'google:Changa';
         break;
       case 'Noto Urdu':
-        primaryFont = 'Noto Kufi Arabic'; // Best Arabic/Urdu font in Cloudinary
+        primaryFont = 'google:Noto%20Sans%20Arabic'; // Encoded space for proper URL
         break;
       case 'Pacifico':
-        primaryFont = 'Pacifico'; // Native Pacifico
+        primaryFont = 'google:Pacifico';
         break;
       case 'Dancing Script':
-        primaryFont = 'Dancing Script';
+        primaryFont = 'google:Dancing%20Script';
         break;
       case 'Roboto':
-        primaryFont = 'Roboto';
-        break;
-      case 'Serif':
-        primaryFont = 'Times';
-        break;
-      case 'SansSerif':
-        primaryFont = 'Arial';
-        break;
-      case 'Monospace':
-        primaryFont = 'Courier';
+        primaryFont = 'google:Roboto';
         break;
       default:
-        // Keep original; if not recognized, Cloudinary falls back to Arial
+        primaryFont = 'Arial';
         break;
     }
 
-    const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
-    const scaledSize = Math.round(subtitleFontSize * 3.5);
-    const scaledY = Math.round(40 * 3.5);
+    // Use the requested multiplier 2.2 (not 3.5)
+    const scaledSize = Math.round((subtitleFontSize || 18) * 2.2);
+    // Position: y = 80 (higher than 50, lower than 100)
+    const yPosition = 80;
 
+    // Build overlay WITHOUT any border/outline property (to avoid 400 errors)
     const transformationParams: any = {
       overlay: {
         resource_type: 'subtitles',
-        public_id: vttUpload.public_id,
+        public_id: vttPublicId, // use the .vtt public_id directly
         font_family: primaryFont,
         font_size: scaledSize,
         font_weight: isBold ? 'bold' : 'normal',
         font_style: isItalic ? 'italic' : 'normal',
-        text_decoration: textDecoration,
+        text_decoration: isUnderline ? 'underline' : 'none',
       },
-      color: subtitleColor,
+      color: subtitleColor || '#FFFFFF',
       background: bgColor,
       opacity: bgOpacity,
-      flags: 'layer_apply', // Removed 'unicode' flag to avoid issues
+      flags: 'layer_apply',
       gravity: 'south',
-      y: scaledY,
+      y: yPosition,
     };
 
-    // Keep border/outline as in your working code
-    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
-      const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
+    // Optional: If you need outline, you can add it as a separate text element (advanced).
+    // For now, we completely ignore subtitleOutlineColor to avoid breaking the video.
+
+    // Build transformations array
+    const transformations: any[] = [];
+    if (speedMultiplier !== 1.0) {
+      const speedPercent = Math.round((speedMultiplier - 1) * 100);
+      transformations.push({ effect: `accelerate:${speedPercent}` });
     }
-    
+    transformations.push(transformationParams);
+
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
-    const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
-    const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
-
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: [
-        speedTransformation,
-        transformationParams
-      ],
+      transformation: transformations,
       format: 'mp4',
       quality: 'auto',
-      sign_url: true, 
-      attachment: filename, 
+      sign_url: true,
+      attachment: filename,
     });
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
 
   } catch (error) {
-    console.error('=== VIDEO PROCESSING FAILED ===', error);
+    console.error('Subtitle burn-in error:', error);
     return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
   }
 }
