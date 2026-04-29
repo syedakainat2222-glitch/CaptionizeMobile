@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       cloud_name, api_key, api_secret
     } = body;
 
+    // --- CLOUDINARY CONFIG ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
@@ -53,16 +54,20 @@ export async function POST(request: NextRequest) {
       endTime: msToTime(timeToMs(sub.endTime) / speedMultiplier),
     }));
 
-    // Safe VTT upload
-    const vttPublicId = `subtitles-${Date.now()}`;
+    // --- UPLOAD VTT ---
+    // We add the .vtt extension to the public_id to prevent "Broken Video" errors
+    const vttFileName = `subtitles-${Date.now()}.vtt`;
     const vttUpload = await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(formatVtt(adjustedSubtitles)).toString('base64')}`, {
-      resource_type: 'raw', overwrite: true, public_id: vttPublicId,
+      resource_type: 'raw', 
+      overwrite: true, 
+      public_id: vttFileName,
     });
 
-    // --- GOOGLE FONT MAPPING (Fixes the Boxes) ---
+    // --- FONT SYNC (Matches Editor exactly) ---
     let primaryFont = 'Arial';
     const requested = subtitleFont ? subtitleFont.split(',')[0].trim() : '';
     
+    // Use "google:" prefix to load the beautiful fonts from your editor
     if (requested === 'Cairo') primaryFont = 'google:Cairo';
     else if (requested === 'Changa') primaryFont = 'google:Changa';
     else if (requested === 'Noto Urdu') primaryFont = 'google:Noto Sans Arabic';
@@ -73,12 +78,13 @@ export async function POST(request: NextRequest) {
     else primaryFont = 'Arial'; 
 
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
+    // 2.0 scale is the "sweet spot" for mobile vs video resolution
     const scaledSize = Math.round((subtitleFontSize || 18) * 2.0);
 
     const transformationParams: any = {
       overlay: {
         resource_type: 'subtitles', 
-        public_id: vttPublicId, // Using the ID without .vtt for the overlay call
+        public_id: vttFileName, // Must include the .vtt extension here
         font_family: primaryFont, 
         font_size: scaledSize,
         font_weight: isBold ? 'bold' : 'normal', 
@@ -90,11 +96,13 @@ export async function POST(request: NextRequest) {
       opacity: bgOpacity,
       flags: 'layer_apply', 
       gravity: 'south', 
-      y: 100, // Lifted up significantly to clear logos and bars
+      y: 80, // Lifted up so it's not hidden by the play bar
     };
     
     const transformations: any[] = [];
-    if (speedMultiplier !== 1.0) transformations.push({ effect: `accelerate:${Math.round((speedMultiplier - 1) * 100)}` });
+    if (speedMultiplier !== 1.0) {
+        transformations.push({ effect: `accelerate:${Math.round((speedMultiplier - 1) * 100)}` });
+    }
     transformations.push(transformationParams);
 
     const finalUrl = cloudinary.url(videoPublicId, {
@@ -108,6 +116,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
   } catch (error) {
+    console.error("Export Error:", error);
     return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
   }
 }
