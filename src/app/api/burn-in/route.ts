@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
       cloud_name, api_key, api_secret
     } = body;
 
-    // --- CLOUDINARY CONFIG ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
@@ -54,69 +53,80 @@ export async function POST(request: NextRequest) {
       endTime: msToTime(timeToMs(sub.endTime) / speedMultiplier),
     }));
 
-    // --- UPLOAD VTT ---
-    // We add the .vtt extension to the public_id to prevent "Broken Video" errors
-    const vttFileName = `subtitles-${Date.now()}.vtt`;
-    const vttUpload = await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(formatVtt(adjustedSubtitles)).toString('base64')}`, {
-      resource_type: 'raw', 
-      overwrite: true, 
-      public_id: vttFileName,
+    // Prepare VTT content
+    const vttContent = formatVtt(adjustedSubtitles);
+    // Upload VTT with explicit .vtt extension
+    const vttUpload = await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(vttContent).toString('base64')}`, {
+      resource_type: 'raw',
+      overwrite: true,
+      public_id: `subtitles-${Date.now()}.vtt`, // ✅ .vtt extension added
     });
 
-    // --- FONT SYNC (Matches Editor exactly) ---
-    let primaryFont = 'Arial';
+    // --- CUSTOM FONT MAPPING (Google Fonts) ---
+    let primaryFont = 'Arial'; // fallback
     const requested = subtitleFont ? subtitleFont.split(',')[0].trim() : '';
-    
-    // Use "google:" prefix to load the beautiful fonts from your editor
-    if (requested === 'Cairo') primaryFont = 'google:Cairo';
-    else if (requested === 'Changa') primaryFont = 'google:Changa';
-    else if (requested === 'Noto Urdu') primaryFont = 'google:Noto Sans Arabic';
-    else if (requested === 'Pacifico') primaryFont = 'google:Pacifico';
-    else if (requested === 'Dancing Script') primaryFont = 'google:Dancing Script';
-    else if (requested === 'Serif') primaryFont = 'Times';
-    else if (requested === 'Monospace') primaryFont = 'Courier';
-    else primaryFont = 'Arial'; 
+    switch (requested) {
+      case 'Cairo':
+        primaryFont = 'google:Cairo';
+        break;
+      case 'Changa':
+        primaryFont = 'google:Changa';
+        break;
+      case 'Noto Urdu':
+        primaryFont = 'google:Noto Sans Arabic'; // excellent Arabic/Urdu support
+        break;
+      case 'Pacifico':
+        primaryFont = 'google:Pacifico';
+        break;
+      default:
+        // Keep Arial as safe fallback
+        primaryFont = 'Arial';
+        break;
+    }
 
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
-    // 2.0 scale is the "sweet spot" for mobile vs video resolution
+    // ✅ Use exact 2.0 multiplier as requested
     const scaledSize = Math.round((subtitleFontSize || 18) * 2.0);
 
+    // ✅ Build transformation WITHOUT any border property
     const transformationParams: any = {
       overlay: {
-        resource_type: 'subtitles', 
-        public_id: vttFileName, // Must include the .vtt extension here
-        font_family: primaryFont, 
+        resource_type: 'subtitles',
+        public_id: vttUpload.public_id, // now includes .vtt
+        font_family: primaryFont,
         font_size: scaledSize,
-        font_weight: isBold ? 'bold' : 'normal', 
+        font_weight: isBold ? 'bold' : 'normal',
         font_style: isItalic ? 'italic' : 'normal',
         text_decoration: isUnderline ? 'underline' : 'none',
       },
-      color: subtitleColor, 
-      background: bgColor, 
+      color: subtitleColor,
+      background: bgColor,
       opacity: bgOpacity,
-      flags: 'layer_apply', 
-      gravity: 'south', 
-      y: 80, // Lifted up so it's not hidden by the play bar
+      flags: 'layer_apply',
+      gravity: 'south',
+      y: 100, // ✅ lifted from 50 to 100
     };
-    
+
+    // Speed effect transformation if needed
     const transformations: any[] = [];
     if (speedMultiplier !== 1.0) {
-        transformations.push({ effect: `accelerate:${Math.round((speedMultiplier - 1) * 100)}` });
+      transformations.push({ effect: `accelerate:${Math.round((speedMultiplier - 1) * 100)}` });
     }
     transformations.push(transformationParams);
 
+    // Generate signed download URL
     const finalUrl = cloudinary.url(videoPublicId, {
-      resource_type: 'video', 
+      resource_type: 'video',
       transformation: transformations,
-      format: 'mp4', 
-      quality: 'auto', 
-      sign_url: true, 
+      format: 'mp4',
+      quality: 'auto',
+      sign_url: true,
       attachment: `${videoName || 'video'}_with_subtitles.mp4`,
     });
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
   } catch (error) {
-    console.error("Export Error:", error);
+    console.error('Subtitle burn-in error:', error);
     return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
   }
 }
