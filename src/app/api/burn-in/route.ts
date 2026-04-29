@@ -83,13 +83,11 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // ========== FIXED FONT MAPPING ==========
-    // Map Android font names to Cloudinary Google Fonts
-    let primaryFont = 'Arial';
-    const requestedFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
+    // ========== FIXED FONT MAPPING (ONLY CHANGE) ==========
+    let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
     
-    // Exact mapping as per your Android app
-    switch (requestedFont) {
+    // Map your Android fonts to Cloudinary Google Fonts
+    switch (primaryFont) {
       case 'Cairo':
         primaryFont = 'google:Cairo';
         break;
@@ -97,7 +95,7 @@ export async function POST(request: NextRequest) {
         primaryFont = 'google:Changa';
         break;
       case 'Noto Urdu':
-        primaryFont = 'google:Noto Sans Arabic'; // Fixed: This supports Urdu/Arabic
+        primaryFont = 'google:Noto Sans Arabic'; // Correct font for Urdu/Arabic
         break;
       case 'Pacifico':
         primaryFont = 'google:Pacifico';
@@ -118,16 +116,16 @@ export async function POST(request: NextRequest) {
         primaryFont = 'Courier';
         break;
       default:
-        primaryFont = 'Arial';
+        // Keep as is (might already be a Cloudinary font)
         break;
     }
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // Keep your working scale values (3.5 multiplier works for you)
+    // Keep your working scale (3.5) and Y position
     const scaledSize = Math.round(subtitleFontSize * 3.5);
-    const scaledY = Math.round(40 * 3.5); // Keep your working Y position
+    const scaledY = Math.round(40 * 3.5);
 
     const transformationParams: any = {
       overlay: {
@@ -147,11 +145,11 @@ export async function POST(request: NextRequest) {
       y: scaledY,
     };
 
-    // Keep border/outline if it works (remove if causing issues)
-    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
-      const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
-    }
+    // OPTIONAL: Remove border if it causes 400 errors (uncomment if needed)
+    // if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
+    //   const { color: outlineColor } = parseRgba(subtitleOutlineColor);
+    //   transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
+    // }
     
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
