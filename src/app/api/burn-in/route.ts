@@ -53,27 +53,32 @@ export async function POST(request: NextRequest) {
       endTime: msToTime(timeToMs(sub.endTime) / speedMultiplier),
     }));
 
-    // Added .vtt extension for better compatibility
-    const vttPublicId = `subtitles-${Date.now()}.vtt`;
+    // Safe VTT upload
+    const vttPublicId = `subtitles-${Date.now()}`;
     const vttUpload = await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(formatVtt(adjustedSubtitles)).toString('base64')}`, {
       resource_type: 'raw', overwrite: true, public_id: vttPublicId,
     });
 
-    // --- RELIABLE FONT MAPPING ---
+    // --- GOOGLE FONT MAPPING (Fixes the Boxes) ---
     let primaryFont = 'Arial';
     const requested = subtitleFont ? subtitleFont.split(',')[0].trim() : '';
-    if (requested === 'Serif') primaryFont = 'Times';
+    
+    if (requested === 'Cairo') primaryFont = 'google:Cairo';
+    else if (requested === 'Changa') primaryFont = 'google:Changa';
+    else if (requested === 'Noto Urdu') primaryFont = 'google:Noto Sans Arabic';
+    else if (requested === 'Pacifico') primaryFont = 'google:Pacifico';
+    else if (requested === 'Dancing Script') primaryFont = 'google:Dancing Script';
+    else if (requested === 'Serif') primaryFont = 'Times';
     else if (requested === 'Monospace') primaryFont = 'Courier';
     else primaryFont = 'Arial'; 
 
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
-    // Adjusted scale to 2.0 to prevent text from being too large and cut off
     const scaledSize = Math.round((subtitleFontSize || 18) * 2.0);
 
     const transformationParams: any = {
       overlay: {
         resource_type: 'subtitles', 
-        public_id: vttPublicId,
+        public_id: vttPublicId, // Using the ID without .vtt for the overlay call
         font_family: primaryFont, 
         font_size: scaledSize,
         font_weight: isBold ? 'bold' : 'normal', 
@@ -85,10 +90,8 @@ export async function POST(request: NextRequest) {
       opacity: bgOpacity,
       flags: 'layer_apply', 
       gravity: 'south', 
-      y: 60, // Moved up slightly to ensure it's visible
+      y: 100, // Lifted up significantly to clear logos and bars
     };
-
-    // NOTE: We removed the 'border' logic because it breaks Cloudinary subtitle exports.
     
     const transformations: any[] = [];
     if (speedMultiplier !== 1.0) transformations.push({ effect: `accelerate:${Math.round((speedMultiplier - 1) * 100)}` });
