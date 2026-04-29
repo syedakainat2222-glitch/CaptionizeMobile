@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
-// ========== HELPER FUNCTIONS (unchanged, keep as is) ==========
+// ========== HELPER FUNCTIONS ==========
 const timeToMs = (timeStr: string) => {
   const [h, m, s_ms] = timeStr.split(':');
   const [s, ms] = s_ms.split(',');
@@ -57,64 +57,59 @@ export async function POST(request: NextRequest) {
       endTime: msToTime(timeToMs(sub.endTime) / speedMultiplier),
     }));
 
-    // Generate VTT content
+    // Generate VTT content using your existing formatter
     const vttContent = formatVtt(adjustedSubtitles);
-    const vttBase64 = Buffer.from(vttContent).toString('base64');
-    const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
+    const vttBase64 = Buffer.from(vttContent, 'utf-8').toString('base64');
+    const vttDataUri = `data:text/vtt;charset=utf-8;base64,${vttBase64}`;
 
-    // Upload VTT: public_id WITHOUT extension, but set format: 'vtt'
-    const vttPublicId = `subtitles-${Date.now()}`;
+    // ✅ Upload VTT with explicit .vtt extension in public_id
+    const vttPublicId = `subtitles-${Date.now()}.vtt`;
     await cloudinary.uploader.upload(vttDataUri, {
       resource_type: 'raw',
       public_id: vttPublicId,
-      format: 'vtt',               // ensures .vtt extension in Cloudinary storage
       overwrite: true,
     });
 
-    // ----- FONT MAPPING (NATIVE CLOUDINARY FONTS ONLY, NO google: PREFIX) -----
-    let primaryFont = 'Arial';     // Arial handles Arabic joining reasonably well
+    // ========== FONT MAPPING (USE google: prefix with proper encoding) ==========
+    let primaryFont = 'google:Cairo'; // default
     const requestedFont = subtitleFont ? subtitleFont.split(',')[0].trim() : '';
 
     switch (requestedFont) {
       case 'Cairo':
+        primaryFont = 'google:Cairo';
+        break;
       case 'Changa':
+        primaryFont = 'google:Changa';
+        break;
       case 'Noto Urdu':
-        // For perfect Arabic shaping, Arial is the safest native font.
-        // If Arial still fails, you must upload the actual .ttf file to Cloudinary
-        // as a raw resource and reference it by its public_id (see commented example below).
-        primaryFont = 'Arial';
+        // Important: encode space as %20 to avoid URL breakage
+        primaryFont = 'google:Noto%20Sans%20Arabic';
         break;
       case 'Pacifico':
+        primaryFont = 'google:Pacifico';
+        break;
       case 'Dancing Script':
+        primaryFont = 'google:Dancing%20Script';
+        break;
       case 'Roboto':
-        primaryFont = 'Arial';     // fallback
-        break;
-      case 'Serif':
-        primaryFont = 'Times';
-        break;
-      case 'Monospace':
-        primaryFont = 'Courier';
+        primaryFont = 'google:Roboto';
         break;
       default:
-        primaryFont = 'Arial';
+        primaryFont = 'google:Cairo';
     }
 
-    // --- Optional: Use a custom uploaded font (uncomment and adapt if needed) ---
-    // If you upload Cairo.ttf as a raw file with public_id 'my_fonts/cairo', use:
-    // primaryFont = 'my_fonts/cairo'; // Cloudinary will treat it as a custom font
-
-    // Parse background color
+    // Parse background (if any) – but we won't use background to keep text clean
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor || 'transparent');
 
-    // Size and position (multiplier 2.0, y=80)
-    const scaledSize = Math.round((subtitleFontSize || 18) * 2.0);
-    const yPosition = 80;
+    // Size and position (multiplier 1.8, y=120 to avoid logos)
+    const scaledSize = Math.round((subtitleFontSize || 24) * 1.8);
+    const yPosition = 120;
 
-    // Build subtitles overlay (NO BORDER, NO OUTLINE – causes 400 errors)
-    const transformationParams: any = {
+    // ✅ Build overlay WITHOUT any border/outline, WITHOUT background if transparent
+    const overlayParams: any = {
       overlay: {
         resource_type: 'subtitles',
-        public_id: `${vttPublicId}.vtt`,   // crucial: append .vtt in the overlay reference
+        public_id: vttPublicId,   // includes .vtt
         font_family: primaryFont,
         font_size: scaledSize,
         font_weight: isBold ? 'bold' : 'normal',
@@ -122,26 +117,30 @@ export async function POST(request: NextRequest) {
         text_decoration: isUnderline ? 'underline' : 'none',
       },
       color: subtitleColor || '#FFFFFF',
-      background: bgColor,
-      opacity: bgOpacity,
       flags: 'layer_apply',
       gravity: 'south',
       y: yPosition,
     };
 
-    // Build full transformation array (speed effect + subtitles)
+    // Only add background if not transparent
+    if (bgColor && bgColor !== 'transparent' && bgOpacity > 0) {
+      overlayParams.background = bgColor;
+      overlayParams.opacity = bgOpacity;
+    }
+
+    // Build transformations: speed effect (if any) + subtitles overlay
     const transformations: any[] = [];
     if (speedMultiplier !== 1.0) {
       const speedPercent = Math.round((speedMultiplier - 1) * 100);
       transformations.push({ effect: `accelerate:${speedPercent}` });
     }
-    transformations.push(transformationParams);
+    transformations.push(overlayParams);
 
     // Generate download filename
-    const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
-    const filename = `${safeFilename}_with_subtitles.mp4`;
+    const safeFileName = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
+    const filename = `${safeFileName}_with_subtitles.mp4`;
 
-    // Create Cloudinary URL
+    // Create final Cloudinary URL
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: transformations,
@@ -151,6 +150,7 @@ export async function POST(request: NextRequest) {
       attachment: filename,
     });
 
+    console.log('Generated URL:', finalUrl);
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
 
   } catch (error: any) {
