@@ -8,14 +8,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { 
-        videoPublicId, 
-        subtitles, 
-        subtitleFontSize, 
-        subtitleColor, // This comes as #FFFF00 from Android
-        playbackSpeed, 
-        cloud_name, 
-        api_key, 
-        api_secret 
+        videoPublicId, subtitles, subtitleFont, subtitleFontSize, 
+        subtitleColor, playbackSpeed, cloud_name, api_key, api_secret 
     } = body;
 
     cloudinary.config({ cloud_name, api_key, api_secret, secure: true });
@@ -23,7 +17,7 @@ export async function POST(request: NextRequest) {
     const speedMultiplier = playbackSpeed || 1.0;
     const processedSubs = subtitles.map((s: any) => ({
       ...s,
-      text: reshapeArabic(s.text), // Fixes joining/boxes
+      text: reshapeArabic(s.text),
       startTime: msToTime(timeToMs(s.startTime) / speedMultiplier),
       endTime: msToTime(timeToMs(s.endTime) / speedMultiplier),
     }));
@@ -33,9 +27,15 @@ export async function POST(request: NextRequest) {
       { resource_type: 'raw', overwrite: true, public_id: `subtitles-${Date.now()}` }
     );
 
-    // --- STEP 1: THE COLOR FIX ---
-    // We remove the '#' and add 'rgb:' manually to ensure Cloudinary doesn't ignore it.
-    const finalColor = subtitleColor ? `rgb:${subtitleColor.replace('#', '')}` : 'rgb:FFFFFF';
+    // --- FIX: FONT SYNC (Cairo) ---
+    let primaryFont = 'google:Cairo'; 
+    const requested = subtitleFont ? subtitleFont.split(',')[0].trim() : '';
+    if (requested === 'Changa') primaryFont = 'google:Changa';
+    else if (requested === 'Noto Urdu') primaryFont = 'google:Noto%20Sans%20Arabic';
+    else if (requested === 'Cairo') primaryFont = 'google:Cairo';
+
+    // --- FIX: COLOR SYNC ---
+    const cleanColor = (subtitleColor || "#FFFFFF").replace("#", "rgb:");
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
@@ -44,13 +44,13 @@ export async function POST(request: NextRequest) {
         {
           overlay: { 
             resource_type: 'subtitles', 
-            public_id: vttUpload.public_id, 
-            font_family: 'Arial', 
+            public_id: `${vttUpload.public_id}.vtt`, // Must add .vtt for stability
+            font_family: primaryFont, // Now uses Google Cairo
             font_size: Math.round(subtitleFontSize * 2.2) 
           },
-          color: finalColor, // Use the clean rgb:XXXXXX format here
+          color: cleanColor,
           gravity: 'south',
-          y: 120, // Lifted slightly to clear the logo
+          y: 150, // Lifted high to clear logo
           flags: 'layer_apply'
         }
       ],
