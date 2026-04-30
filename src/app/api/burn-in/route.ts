@@ -2,83 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
-// ========== 1. ARABIC RESHAPER (Fixes Boxes & Joining) ==========
-function reshapeArabic(text: string): string {
-    const charMap: Record<string, [string, string, string, string]> = {
-        '\u0627': ['\uFE8D', '\uFE8E', '\uFE8D', '\uFE8E'], // Alef
-        '\u0628': ['\uFE8F', '\uFE90', '\uFE91', '\uFE92'], // Ba
-        '\u062A': ['\uFE95', '\uFE96', '\uFE97', '\uFE98'], // Ta
-        '\u062C': ['\uFE9D', '\uFE9E', '\uFE9F', '\uFEA0'], // Jeem
-        '\u062D': ['\uFEA1', '\uFEA2', '\uFEA3', '\uFEA4'], // Ha
-        '\u062E': ['\uFEA5', '\uFEA6', '\uFEA7', '\uFEA8'], // Kha
-        '\u062F': ['\uFEA9', '\uFEAA', '\uFEA9', '\uFEAA'], // Dal
-        '\u0631': ['\uFEAD', '\uFEAE', '\uFEAD', '\uFEAE'], // Ra
-        '\u0633': ['\uFEB1', '\uFEB2', '\uFEB3', '\uFEB4'], // Seen
-        '\u0634': ['\uFEB5', '\uFEB6', '\uFEB7', '\uFEB8'], // Sheen
-        '\u0635': ['\uFEB9', '\uFEBA', '\uFEBB', '\uFEBC'], // Sad
-        '\u0637': ['\uFEC1', '\uFEC2', '\uFEC3', '\uFEC4'], // Taa
-        '\u0639': ['\uFEC9', '\uFECA', '\uFECB', '\uFECC'], // Ain
-        '\u0641': ['\uFED1', '\uFED2', '\uFED3', '\uFED4'], // Fa
-        '\u0642': ['\uFED5', '\uFED6', '\uFED7', '\uFED8'], // Qaf
-        '\u0643': ['\uFED9', '\uFEDA', '\uFEDB', '\uFEDC'], // Kaf
-        '\u0644': ['\uFEDD', '\uFEDE', '\uFEDF', '\uFEE0'], // Lam
-        '\u0645': ['\uFEE1', '\uFEE2', '\uFEE3', '\uFEE4'], // Meem
-        '\u0646': ['\uFEE5', '\uFEE6', '\uFEE7', '\uFEE8'], // Noon
-        '\u0647': ['\uFEE9', '\uFEEA', '\uFEEB', '\uFEEC'], // Heh
-        '\u0648': ['\uFEED', '\uFEEE', '\uFEED', '\uFEEE'], // Waw
-        '\u064A': ['\uFEF1', '\uFEF2', '\uFEF3', '\uFEF4'], // Yeh
-    };
-    if (!/[\u0600-\u06FF]/.test(text)) return text;
-    let output = "";
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        const forms = charMap[ch];
-        if (!forms) { output += ch; continue; }
-        const prev = text[i - 1], next = text[i + 1];
-        if (prev && charMap[prev] && next && charMap[next]) output += forms[3]; 
-        else if (prev && charMap[prev]) output += forms[1]; 
-        else if (next && charMap[next]) output += forms[2]; 
-        else output += forms[0];
-    }
-    return "\u202B" + output + "\u202C"; 
-}
+// ... (Keep your reshapeArabic, timeToMs, and msToTime functions here) ...
 
-// ========== 2. TIMING HELPERS ==========
-const timeToMs = (t: string) => {
-  const [h, m, s_ms] = t.split(':');
-  const [s, ms] = s_ms.split(',');
-  return parseInt(h) * 3600000 + parseInt(m) * 60000 + parseInt(s) * 1000 + parseInt(ms);
-};
-const msToTime = (ms: number) => {
-  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000), mss = Math.floor(ms % 1000);
-  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')},${mss.toString().padStart(3,'0')}`;
-};
-
-// ========== 3. MAIN EXPORT ==========
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { videoPublicId, subtitles, subtitleFontSize, subtitleColor, playbackSpeed, cloud_name, api_key, api_secret } = body;
+    const { 
+        videoPublicId, 
+        subtitles, 
+        subtitleFontSize, 
+        subtitleColor, // This comes as #FFFF00 from Android
+        playbackSpeed, 
+        cloud_name, 
+        api_key, 
+        api_secret 
+    } = body;
 
     cloudinary.config({ cloud_name, api_key, api_secret, secure: true });
 
     const speedMultiplier = playbackSpeed || 1.0;
     const processedSubs = subtitles.map((s: any) => ({
       ...s,
-      text: reshapeArabic(s.text),
+      text: reshapeArabic(s.text), // Fixes joining/boxes
       startTime: msToTime(timeToMs(s.startTime) / speedMultiplier),
       endTime: msToTime(timeToMs(s.endTime) / speedMultiplier),
     }));
 
-    // Upload VTT using the exact logic that worked for you before
-    const vttUpload = await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(formatVtt(processedSubs)).toString('base64')}`, {
-      resource_type: 'raw',
-      overwrite: true,
-      public_id: `subtitles-${Date.now()}`
-    });
+    const vttUpload = await cloudinary.uploader.upload(
+      `data:text/vtt;base64,${Buffer.from(formatVtt(processedSubs)).toString('base64')}`, 
+      { resource_type: 'raw', overwrite: true, public_id: `subtitles-${Date.now()}` }
+    );
 
-    // CRITICAL FIX: Convert #FFFF00 to rgb:FFFF00 to prevent crash
-    const safeColor = (subtitleColor || "#FFFFFF").replace("#", "rgb:");
+    // --- STEP 1: THE COLOR FIX ---
+    // We remove the '#' and add 'rgb:' manually to ensure Cloudinary doesn't ignore it.
+    const finalColor = subtitleColor ? `rgb:${subtitleColor.replace('#', '')}` : 'rgb:FFFFFF';
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
@@ -88,12 +45,12 @@ export async function POST(request: NextRequest) {
           overlay: { 
             resource_type: 'subtitles', 
             public_id: vttUpload.public_id, 
-            font_family: 'Arial', // Arial is safe; Reshaper fixes the design
+            font_family: 'Arial', 
             font_size: Math.round(subtitleFontSize * 2.2) 
           },
-          color: safeColor,
+          color: finalColor, // Use the clean rgb:XXXXXX format here
           gravity: 'south',
-          y: 80,
+          y: 120, // Lifted slightly to clear the logo
           flags: 'layer_apply'
         }
       ],
