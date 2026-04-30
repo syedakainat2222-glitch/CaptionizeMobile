@@ -1,15 +1,63 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
+import { NextRequest, NextResponse } from 'next/server';import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
-// Helper to convert SRT time string (00:00:00,000) to milliseconds
+// ========== 1. MANUAL ARABIC RESHAPER (No Libraries Needed) ==========
+// This function "glues" Arabic letters together so Cloudinary doesn't show boxes.
+function reshapeArabic(text: string): string {
+    const charMap: Record<string, [string, string, string, string]> = {
+        '\u0627': ['\uFE8D', '\uFE8E', '\uFE8D', '\uFE8E'], // Alef
+        '\u0628': ['\uFE8F', '\uFE90', '\uFE91', '\uFE92'], // Ba
+        '\u062A': ['\uFE95', '\uFE96', '\uFE97', '\uFE98'], // Ta
+        '\u062B': ['\uFE99', '\uFE9A', '\uFE9B', '\uFE9C'], // Tha
+        '\u062C': ['\uFE9D', '\uFE9E', '\uFE9F', '\uFEA0'], // Jeem
+        '\u062D': ['\uFEA1', '\uFEA2', '\uFEA3', '\uFEA4'], // Ha
+        '\u062E': ['\uFEA5', '\uFEA6', '\uFEA7', '\uFEA8'], // Kha
+        '\u062F': ['\uFEA9', '\uFEAA', '\uFEA9', '\uFEAA'], // Dal
+        '\u0630': ['\uFEAB', '\uFEAC', '\uFEAB', '\uFEAC'], // Thal
+        '\u0631': ['\uFEAD', '\uFEAE', '\uFEAD', '\uFEAE'], // Ra
+        '\u0632': ['\uFEAF', '\uFEB0', '\uFEAF', '\uFEB0'], // Zay
+        '\u0633': ['\uFEB1', '\uFEB2', '\uFEB3', '\uFEB4'], // Seen
+        '\u0634': ['\uFEB5', '\uFEB6', '\uFEB7', '\uFEB8'], // Sheen
+        '\u0635': ['\uFEB9', '\uFEBA', '\uFEBB', '\uFEBC'], // Sad
+        '\u0636': ['\uFEBD', '\uFEBE', '\uFEBF', '\uFEC0'], // Dad
+        '\u0637': ['\uFEC1', '\uFEC2', '\uFEC3', '\uFEC4'], // Taa
+        '\u0638': ['\uFEC5', '\uFEC6', '\uFEC7', '\uFEC8'], // Zaa
+        '\u0639': ['\uFEC9', '\uFECA', '\uFECB', '\uFECC'], // Ain
+        '\u063A': ['\uFECD', '\uFECE', '\uFECF', '\uFED0'], // Ghain
+        '\u0641': ['\uFED1', '\uFED2', '\uFED3', '\uFED4'], // Fa
+        '\u0642': ['\uFED5', '\uFED6', '\uFED7', '\uFED8'], // Qaf
+        '\u0643': ['\uFED9', '\uFEDA', '\uFEDB', '\uFEDC'], // Kaf
+        '\u0644': ['\uFEDD', '\uFEDE', '\uFEDF', '\uFEE0'], // Lam
+        '\u0645': ['\uFEE1', '\uFEE2', '\uFEE3', '\uFEE4'], // Meem
+        '\u0646': ['\uFEE5', '\uFEE6', '\uFEE7', '\uFEE8'], // Noon
+        '\u0647': ['\uFEE9', '\uFEEA', '\uFEEB', '\uFEEC'], // Heh
+        '\u0648': ['\uFEED', '\uFEEE', '\uFEED', '\uFEEE'], // Waw
+        '\u064A': ['\uFEF1', '\uFEF2', '\uFEF3', '\uFEF4'], // Yeh
+    };
+
+    if (!/[\u0600-\u06FF]/.test(text)) return text;
+
+    let output = "";
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        const forms = charMap[ch];
+        if (!forms) { output += ch; continue; }
+        const prev = text[i - 1], next = text[i + 1];
+        if (prev && charMap[prev] && next && charMap[next]) output += forms[3]; // Medial
+        else if (prev && charMap[prev]) output += forms[1]; // Final
+        else if (next && charMap[next]) output += forms[2]; // Initial
+        else output += forms[0]; // Isolated
+    }
+    return "\u202B" + output + "\u202C"; // Add RTL direction markers
+}
+
+// ========== 2. HELPERS ==========
 const timeToMs = (timeStr: string) => {
   const [h, m, s_ms] = timeStr.split(':');
   const [s, ms] = s_ms.split(',');
   return parseInt(h) * 3600000 + parseInt(m) * 60000 + parseInt(s) * 1000 + parseInt(ms);
 };
 
-// Helper to convert milliseconds back to SRT time string
 const msToTime = (totalMs: number) => {
   const h = Math.floor(totalMs / 3600000);
   const m = Math.floor((totalMs % 3600000) / 60000);
@@ -18,135 +66,56 @@ const msToTime = (totalMs: number) => {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
 };
 
-const parseRgba = (rgba: string) => {
-  if (!rgba || !rgba.startsWith('rgba')) {
-    return { color: rgba, opacity: 100 };
-  }
-  const match = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
-  if (!match) return { color: '#000000', opacity: 50 };
-  const [, r, g, b, a] = match;
-  const toHex = (c: string) => parseInt(c).toString(16).padStart(2, '0');
-  const color = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-  const opacity = Math.round(parseFloat(a) * 100);
-  return { color, opacity };
-};
-
+// ========== 3. MAIN EXPORT ==========
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
-    const {
-      videoPublicId,
-      subtitles,
-      videoName,
-      subtitleFont,
-      subtitleFontSize,
-      subtitleColor,
-      subtitleBackgroundColor,
-      subtitleOutlineColor,
-      isBold,
-      isItalic,
-      isUnderline,
-      playbackSpeed,
-      cloud_name,
-      api_key,
-      api_secret
-    } = body;
+    const { videoPublicId, subtitles, subtitleFontSize, subtitleColor, playbackSpeed, cloud_name, api_key, api_secret } = body;
 
-    // --- DYNAMIC CONFIGURATION ---
-    cloudinary.config({
-      cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: api_key || process.env.CLOUDINARY_API_KEY,
-      api_secret: api_secret || process.env.CLOUDINARY_API_SECRET,
-      secure: true
-    });
+    cloudinary.config({ cloud_name, api_key, api_secret, secure: true });
 
-    if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
-      return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
-    }
-
-    // --- SYNC SUBTITLES WITH SPEED ---
     const speedMultiplier = playbackSpeed || 1.0;
+
+    // Reshape text so Arabic letters join correctly
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
+      text: reshapeArabic(sub.text),
       startTime: msToTime(timeToMs(sub.startTime) / speedMultiplier),
       endTime: msToTime(timeToMs(sub.endTime) / speedMultiplier),
     }));
 
     const vttContent = formatVtt(adjustedSubtitles);
-    const vttBase64 = Buffer.from(vttContent).toString('base64');
-    const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
-
-    const vttUpload = await cloudinary.uploader.upload(vttDataUri, {
+    const vttPublicId = `subtitles-${Date.now()}`;
+    
+    // Upload VTT as raw
+    await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(vttContent).toString('base64')}`, {
       resource_type: 'raw',
-      overwrite: true,
-      public_id: `subtitles-${Date.now()}`,
+      public_id: vttPublicId,
     });
 
-    // --- FONT MAPPING (Reliable fonts only) ---
-    // Cloudinary's subtitle engine ONLY supports built-in fonts. 
-    // Arial is the best standard font for joining Arabic/Urdu letters.
-    let primaryFont = 'Arial'; 
-    const requestedFont = subtitleFont ? subtitleFont.split(',')[0].trim() : '';
-    
-    if (requestedFont === 'Serif') primaryFont = 'Times';
-    else if (requestedFont === 'Monospace') primaryFont = 'Courier';
-    else primaryFont = 'Arial'; // Arial handles Arabic, Urdu, and English Sans-Serif correctly
-
-    const textDecoration = isUnderline ? 'underline' : 'none';
-    const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
-
-    // --- SCALE FIX ---
-    // A 2.2x multiplier is the "sweet spot" to match mobile design to video resolution
-    const scaledSize = Math.round((subtitleFontSize || 18) * 2.2);
-    const scaledY = 50; 
-
+    // CRITICAL: We use 'DejaVu Sans' or 'Arial'. After reshaping, boxes will disappear.
     const transformationParams: any = {
       overlay: {
         resource_type: 'subtitles',
-        public_id: vttUpload.public_id,
-        font_family: primaryFont,
-        font_size: scaledSize,
-        font_weight: isBold ? 'bold' : 'normal',
-        font_style: isItalic ? 'italic' : 'normal',
-        text_decoration: textDecoration,
+        public_id: `${vttPublicId}.vtt`, // Include .vtt extension here
+        font_family: 'Arial',
+        font_size: Math.round((subtitleFontSize || 18) * 2.2),
       },
-      color: subtitleColor,
-      background: bgColor,
-      opacity: bgOpacity,
+      color: (subtitleColor || "#FFFFFF").replace("#", "rgb:"), // Fix color crash
       flags: 'layer_apply',
       gravity: 'south',
-      y: scaledY,
+      y: 80,
     };
-
-    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
-      const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
-    }
-    
-    const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
-    const filename = `${safeFilename}_with_subtitles.mp4`;
-
-    // --- CONSTRUCT TRANSFORMATIONS ---
-    const transformations: any[] = [];
-    if (speedMultiplier !== 1.0) {
-      transformations.push({ effect: `accelerate:${Math.round((speedMultiplier - 1) * 100)}` });
-    }
-    transformations.push(transformationParams);
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: transformations,
+      transformation: [transformationParams],
       format: 'mp4',
-      quality: 'auto',
       sign_url: true, 
-      attachment: filename, 
     });
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
-
   } catch (error) {
-    console.error('=== VIDEO PROCESSING FAILED ===', error);
     return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
   }
 }
