@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       api_secret
     } = body;
 
-    // --- DYNAMIC CONFIGURATION ---
+    // --- CONFIGURATION ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
     }
 
-    // --- SYNC SUBTITLES WITH SPEED ---
+    // --- SYNC SUBTITLES ---
     const speedMultiplier = playbackSpeed || 1.0;
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
@@ -83,27 +83,19 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- UPDATED FONT MAPPING FOR ARABIC ---
+    // --- CRITICAL FONT FIX ---
     let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
     
-    // Explicit mapping for Cairo to use Google Fonts with correct shaping
+    // Using 'Google:Cairo:700' forces Cloudinary to fetch the font with full Arabic shaping support
     if (primaryFont.toLowerCase() === 'cairo') {
-      primaryFont = 'Google:Cairo';
+      primaryFont = 'Google:Cairo:700'; 
     } else if (primaryFont === 'Noto Urdu') {
-      primaryFont = 'Noto Nastaliq Urdu';
-    } else if (primaryFont === 'Serif') {
-      primaryFont = 'Times';
-    } else if (primaryFont === 'SansSerif') {
-      primaryFont = 'Arial';
-    } else if (primaryFont === 'Monospace') {
-      primaryFont = 'Courier';
+      primaryFont = 'Google:Noto Nastaliq Urdu';
     }
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
-
     const scaledSize = Math.round(subtitleFontSize * 3.5);
-    const scaledY = Math.round(40 * 3.5);
 
     const transformationParams: any = {
       overlay: {
@@ -120,36 +112,35 @@ export async function POST(request: NextRequest) {
       opacity: bgOpacity,
       flags: 'layer_apply',
       gravity: 'south',
-      y: scaledY,
+      y: 140, // Static offset for bottom placement
     };
 
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      transformationParams.border = `4px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
     
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
-    const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
-    const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
-
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: [
-        speedTransformation,
+        { effect: `accelerate:${Math.round((speedMultiplier - 1) * 100)}` },
         transformationParams
       ],
       format: 'mp4',
       quality: 'auto',
       sign_url: true, 
-      attachment: filename, 
     });
 
-    return NextResponse.json({ success: true, downloadUrl: finalUrl });
+    // Append download headers to URL
+    const downloadUrl = `${finalUrl}&attachment=${encodeURIComponent(filename)}`;
+
+    return NextResponse.json({ success: true, downloadUrl });
 
   } catch (error) {
-    console.error('=== VIDEO PROCESSING FAILED ===', error);
+    console.error('=== PROCESSING FAILED ===', error);
     return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
   }
 }
