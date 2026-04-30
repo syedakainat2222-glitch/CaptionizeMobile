@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
-// ========== 1. MANUAL ARABIC RESHAPER (Fixes Boxes & Joining) ==========
-// This function manually joins Arabic letters so they don't look like separate sticks.
+// ========== 1. ARABIC RESHAPER (Fixes Boxes & Joining) ==========
 function reshapeArabic(text: string): string {
     const charMap: Record<string, [string, string, string, string]> = {
         '\u0627': ['\uFE8D', '\uFE8E', '\uFE8D', '\uFE8E'], // Alef
@@ -29,39 +28,33 @@ function reshapeArabic(text: string): string {
         '\u0648': ['\uFEED', '\uFEEE', '\uFEED', '\uFEEE'], // Waw
         '\u064A': ['\uFEF1', '\uFEF2', '\uFEF3', '\uFEF4'], // Yeh
     };
-
     if (!/[\u0600-\u06FF]/.test(text)) return text;
-
     let output = "";
     for (let i = 0; i < text.length; i++) {
         const ch = text[i];
         const forms = charMap[ch];
         if (!forms) { output += ch; continue; }
         const prev = text[i - 1], next = text[i + 1];
-        if (prev && charMap[prev] && next && charMap[next]) output += forms[3]; // Medial
-        else if (prev && charMap[prev]) output += forms[1]; // Final
-        else if (next && charMap[next]) output += forms[2]; // Initial
-        else output += forms[0]; // Isolated
+        if (prev && charMap[prev] && next && charMap[next]) output += forms[3]; 
+        else if (prev && charMap[prev]) output += forms[1]; 
+        else if (next && charMap[next]) output += forms[2]; 
+        else output += forms[0];
     }
-    return "\u202B" + output + "\u202C"; // Add RTL direction markers
+    return "\u202B" + output + "\u202C"; 
 }
 
-// ========== 2. HELPERS (Timing) ==========
-const timeToMs = (timeStr: string) => {
-  const [h, m, s_ms] = timeStr.split(':');
+// ========== 2. TIMING HELPERS ==========
+const timeToMs = (t: string) => {
+  const [h, m, s_ms] = t.split(':');
   const [s, ms] = s_ms.split(',');
   return parseInt(h) * 3600000 + parseInt(m) * 60000 + parseInt(s) * 1000 + parseInt(ms);
 };
-
-const msToTime = (totalMs: number) => {
-  const h = Math.floor(totalMs / 3600000);
-  const m = Math.floor((totalMs % 3600000) / 60000);
-  const s = Math.floor((totalMs % 60000) / 1000);
-  const ms = Math.floor(totalMs % 1000);
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
+const msToTime = (ms: number) => {
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000), mss = Math.floor(ms % 1000);
+  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')},${mss.toString().padStart(3,'0')}`;
 };
 
-// ========== 3. MAIN API EXPORT ==========
+// ========== 3. MAIN EXPORT ==========
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -69,54 +62,47 @@ export async function POST(request: NextRequest) {
 
     cloudinary.config({ cloud_name, api_key, api_secret, secure: true });
 
-    if (!videoPublicId || !subtitles) return NextResponse.json({ success: false }, { status: 400 });
-
     const speedMultiplier = playbackSpeed || 1.0;
-
-    // Reshape text so Arabic letters join correctly and boxes disappear
-    const adjustedSubtitles = subtitles.map((sub: any) => ({
-      ...sub,
-      text: reshapeArabic(sub.text),
-      startTime: msToTime(timeToMs(sub.startTime) / speedMultiplier),
-      endTime: msToTime(timeToMs(sub.endTime) / speedMultiplier),
+    const processedSubs = subtitles.map((s: any) => ({
+      ...s,
+      text: reshapeArabic(s.text),
+      startTime: msToTime(timeToMs(s.startTime) / speedMultiplier),
+      endTime: msToTime(timeToMs(s.endTime) / speedMultiplier),
     }));
 
-    const vttContent = formatVtt(adjustedSubtitles);
-    const vttPublicId = `subtitles-${Date.now()}`;
-    
-    await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(vttContent).toString('base64')}`, {
+    // Upload VTT using the exact logic that worked for you before
+    const vttUpload = await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(formatVtt(processedSubs)).toString('base64')}`, {
       resource_type: 'raw',
-      public_id: vttPublicId,
+      overwrite: true,
+      public_id: `subtitles-${Date.now()}`
     });
 
-    // FIX: Convert #FFFFFF to rgb:FFFFFF to prevent 400 Broken Video error
-    const cleanColor = (subtitleColor || "#FFFFFF").replace("#", "rgb:");
-
-    const transformationParams: any = {
-      overlay: {
-        resource_type: 'subtitles',
-        public_id: `${vttPublicId}.vtt`,
-        font_family: 'Arial', // Arial works perfectly once text is reshaped
-        font_size: Math.round((subtitleFontSize || 18) * 2.2),
-      },
-      color: cleanColor,
-      flags: 'layer_apply',
-      gravity: 'south',
-      y: 80,
-    };
+    // CRITICAL FIX: Convert #FFFF00 to rgb:FFFF00 to prevent crash
+    const safeColor = (subtitleColor || "#FFFFFF").replace("#", "rgb:");
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: [
         { effect: `accelerate:${Math.round((speedMultiplier - 1) * 100)}` },
-        transformationParams
+        {
+          overlay: { 
+            resource_type: 'subtitles', 
+            public_id: vttUpload.public_id, 
+            font_family: 'Arial', // Arial is safe; Reshaper fixes the design
+            font_size: Math.round(subtitleFontSize * 2.2) 
+          },
+          color: safeColor,
+          gravity: 'south',
+          y: 80,
+          flags: 'layer_apply'
+        }
       ],
       format: 'mp4',
       sign_url: true, 
     });
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
