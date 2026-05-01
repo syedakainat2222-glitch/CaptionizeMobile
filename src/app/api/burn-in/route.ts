@@ -36,13 +36,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     const {
-      videoPublicId, subtitles, videoName, subtitleFont,
-      subtitleFontSize, subtitleColor, subtitleBackgroundColor,
-      subtitleOutlineColor, isBold, isItalic, isUnderline,
-      playbackSpeed, cloud_name, api_key, api_secret
+      videoPublicId,
+      subtitles,
+      videoName,
+      subtitleFont,
+      subtitleFontSize,
+      subtitleColor,
+      subtitleBackgroundColor,
+      subtitleOutlineColor,
+      isBold,
+      isItalic,
+      isUnderline,
+      playbackSpeed,
+      cloud_name,
+      api_key,
+      api_secret
     } = body;
 
-    // --- CLOUDINARY CONFIG ---
+    // --- DYNAMIC CONFIGURATION ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
@@ -64,7 +75,9 @@ export async function POST(request: NextRequest) {
 
     const vttContent = formatVtt(adjustedSubtitles);
     const vttBase64 = Buffer.from(vttContent).toString('base64');
-    const vttUpload = await cloudinary.uploader.upload(`data:text/vtt;base64,${vttBase64}`, {
+    const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
+
+    const vttUpload = await cloudinary.uploader.upload(vttDataUri, {
       resource_type: 'raw',
       overwrite: true,
       public_id: `subtitles-${Date.now()}`,
@@ -81,20 +94,20 @@ export async function POST(request: NextRequest) {
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
     // --- SIZE MISMATCH FIX ---
-    // Scale reduced to 1.5 to perfectly match the editor's look
-    const scaledSize = Math.round(subtitleFontSize * 1.5);
-    const scaledY = Math.round(45 * 1.5);
+    // Reduced multiplier from 3.5 to 2.5 to match the mobile editor's visual scale
+    const scaledSize = Math.round(subtitleFontSize * 2.5);
+    const scaledY = Math.round(50 * 2.5);
 
     const transformations: any[] = [];
 
-    // 1. Only apply speed if changed (fixes the broken video error)
+    // 1. Only apply acceleration if speed is NOT 1.0 (Fixes the crash)
     if (speedMultiplier !== 1.0) {
-      const speedValue = Math.round((speedMultiplier - 1) * 100);
-      transformations.push({ effect: `accelerate:${speedValue}` });
+      const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
+      transformations.push({ effect: `accelerate:${speedEffectValue}` });
     }
 
-    // 2. Build the Subtitle Layer
-    const subLayer: any = {
+    // 2. Add Subtitle Layer
+    const subParams: any = {
       overlay: {
         resource_type: 'subtitles',
         public_id: vttUpload.public_id,
@@ -107,18 +120,18 @@ export async function POST(request: NextRequest) {
       color: subtitleColor,
       background: bgColor,
       opacity: bgOpacity,
+      flags: 'layer_apply',
       gravity: 'south',
       y: scaledY,
-      flags: 'layer_apply'
     };
 
-    // 3. Apply Thick Outline (6px)
+    // 3. Apply Outline (Increased to 8px to match the bold look in editor)
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      subLayer.border = `6px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      subParams.border = `8px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
 
-    transformations.push(subLayer);
+    transformations.push(subParams);
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
