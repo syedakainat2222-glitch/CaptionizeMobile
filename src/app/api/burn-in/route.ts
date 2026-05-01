@@ -2,14 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
-// Helper to convert SRT time string (00:00:00,000) to milliseconds
 const timeToMs = (timeStr: string) => {
   const [h, m, s_ms] = timeStr.split(':');
   const [s, ms] = s_ms.split(',');
   return parseInt(h) * 3600000 + parseInt(m) * 60000 + parseInt(s) * 1000 + parseInt(ms);
 };
 
-// Helper to convert milliseconds back to SRT time string
 const msToTime = (totalMs: number) => {
   const h = Math.floor(totalMs / 3600000);
   const m = Math.floor((totalMs % 3600000) / 60000);
@@ -36,24 +34,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     const {
-      videoPublicId,
-      subtitles,
-      videoName,
-      subtitleFont,
-      subtitleFontSize,
-      subtitleColor,
-      subtitleBackgroundColor,
-      subtitleOutlineColor,
-      isBold,
-      isItalic,
-      isUnderline,
-      playbackSpeed,
-      cloud_name,
-      api_key,
-      api_secret
+      videoPublicId, subtitles, videoName, subtitleFont,
+      subtitleFontSize, subtitleColor, subtitleBackgroundColor,
+      subtitleOutlineColor, isBold, isItalic, isUnderline,
+      playbackSpeed, cloud_name, api_key, api_secret
     } = body;
 
-    // --- DYNAMIC CONFIGURATION ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
@@ -61,11 +47,6 @@ export async function POST(request: NextRequest) {
       secure: true
     });
 
-    if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
-      return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
-    }
-
-    // --- SYNC SUBTITLES WITH SPEED ---
     const speedMultiplier = playbackSpeed || 1.0;
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
@@ -75,37 +56,40 @@ export async function POST(request: NextRequest) {
 
     const vttContent = formatVtt(adjustedSubtitles);
     const vttBase64 = Buffer.from(vttContent).toString('base64');
-    const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
-
-    const vttUpload = await cloudinary.uploader.upload(vttDataUri, {
+    const vttUpload = await cloudinary.uploader.upload(`data:text/vtt;base64,${vttBase64}`, {
       resource_type: 'raw',
       overwrite: true,
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- FONT MAPPING (Android names to Cloudinary names) ---
-    let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    if (primaryFont === 'Serif') primaryFont = 'Times';
-    if (primaryFont === 'SansSerif') primaryFont = 'Arial';
-    if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Nastaliq Urdu'; // Correct name for Cloudinary
+    // --- FONT FIX: Use 'google:' prefix to ensure Cloudinary loads Cairo, Pacifico, etc. ---
+    let fontBase = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
+    let cloudinaryFont = fontBase;
+    
+    if (fontBase === 'Serif') cloudinaryFont = 'Times';
+    else if (fontBase === 'SansSerif') cloudinaryFont = 'Arial';
+    else if (fontBase === 'Monospace') cloudinaryFont = 'Courier';
+    else if (fontBase === 'Noto Urdu') cloudinaryFont = 'Noto Nastaliq Urdu';
+    else {
+        // This forces Cloudinary to fetch the font from Google Fonts
+        cloudinaryFont = `google:${fontBase}`;
+    }
 
-    const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // --- SCALE FIX: We multiply the font size to match video resolution ---
-    const scaledSize = Math.round(subtitleFontSize * 3.5);
-    const scaledY = Math.round(40 * 3.5);
+    // --- SCALE FIX: Increased multiplier to 4.0 for bolder text ---
+    const scaledSize = Math.round(subtitleFontSize * 4.0);
+    const scaledY = Math.round(60 * 4.0);
 
     const transformationParams: any = {
       overlay: {
         resource_type: 'subtitles',
         public_id: vttUpload.public_id,
-        font_family: primaryFont,
+        font_family: cloudinaryFont,
         font_size: scaledSize,
         font_weight: isBold ? 'bold' : 'normal',
         font_style: isItalic ? 'italic' : 'normal',
-        text_decoration: textDecoration,
+        text_decoration: isUnderline ? 'underline' : 'none',
       },
       color: subtitleColor,
       background: bgColor,
@@ -115,35 +99,28 @@ export async function POST(request: NextRequest) {
       y: scaledY,
     };
 
-    // --- OUTLINE FIX: Changed 2px to 8px to match Android's 7f stroke ---
+    // --- OUTLINE FIX: Increased to 14px for that thick "Editor" look ---
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `8px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      transformationParams.border = `14px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
     
-    const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
-    const filename = `${safeFilename}_with_subtitles.mp4`;
-
-    // --- APPLY SPEED EFFECT TO VIDEO ---
     const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
-    const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
-
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation: [
-        speedTransformation,
+        { effect: `accelerate:${speedEffectValue}` },
         transformationParams
       ],
       format: 'mp4',
       quality: 'auto',
       sign_url: true, 
-      attachment: filename, 
+      attachment: `${videoName || 'video'}_processed.mp4`, 
     });
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
 
   } catch (error) {
-    console.error('=== VIDEO PROCESSING FAILED ===', error);
     return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
   }
 }
