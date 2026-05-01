@@ -93,21 +93,11 @@ export async function POST(request: NextRequest) {
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // --- SIZE MISMATCH FIX ---
-    // Reduced multiplier from 3.5 to 2.5 to match the mobile editor's visual scale
-    const scaledSize = Math.round(subtitleFontSize * 2.5);
-    const scaledY = Math.round(50 * 2.5);
+    // --- SCALE FIX: Reduced multiplier to match Editor size ---
+    const scaledSize = Math.round(subtitleFontSize * 1.8); 
+    const scaledY = Math.round(35 * 1.8); // Sits lower on the screen
 
-    const transformations: any[] = [];
-
-    // 1. Only apply acceleration if speed is NOT 1.0 (Fixes the crash)
-    if (speedMultiplier !== 1.0) {
-      const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
-      transformations.push({ effect: `accelerate:${speedEffectValue}` });
-    }
-
-    // 2. Add Subtitle Layer
-    const subParams: any = {
+    const transformationParams: any = {
       overlay: {
         resource_type: 'subtitles',
         public_id: vttUpload.public_id,
@@ -125,13 +115,23 @@ export async function POST(request: NextRequest) {
       y: scaledY,
     };
 
-    // 3. Apply Outline (Increased to 8px to match the bold look in editor)
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      subParams.border = `8px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      transformationParams.border = `6px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
+    
+    const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
+    const filename = `${safeFilename}_processed.mp4`;
 
-    transformations.push(subParams);
+    // Build transformation array
+    const transformations: any[] = [];
+    
+    // Only apply acceleration if speed is changed (fixes broken video crash)
+    if (speedMultiplier !== 1.0) {
+      const speedValue = Math.round((speedMultiplier - 1) * 100);
+      transformations.push({ effect: `accelerate:${speedValue}` });
+    }
+    transformations.push(transformationParams);
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       format: 'mp4',
       quality: 'auto',
       sign_url: true, 
-      attachment: `${videoName || 'video'}_processed.mp4`, 
+      attachment: filename, 
     });
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
