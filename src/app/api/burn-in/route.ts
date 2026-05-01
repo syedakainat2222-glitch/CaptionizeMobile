@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
+// Helper to convert SRT time string (00:00:00,000) to milliseconds
 const timeToMs = (timeStr: string) => {
   const [h, m, s_ms] = timeStr.split(':');
   const [s, ms] = s_ms.split(',');
   return parseInt(h) * 3600000 + parseInt(m) * 60000 + parseInt(s) * 1000 + parseInt(ms);
 };
 
+// Helper to convert milliseconds back to SRT time string
 const msToTime = (totalMs: number) => {
   const h = Math.floor(totalMs / 3600000);
   const m = Math.floor((totalMs % 3600000) / 60000);
@@ -62,30 +64,31 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- FONT FIX: Use 'google:' prefix to ensure Cloudinary loads Cairo, Pacifico, etc. ---
-    let fontBase = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    let cloudinaryFont = fontBase;
-    
-    if (fontBase === 'Serif') cloudinaryFont = 'Times';
-    else if (fontBase === 'SansSerif') cloudinaryFont = 'Arial';
-    else if (fontBase === 'Monospace') cloudinaryFont = 'Courier';
-    else if (fontBase === 'Noto Urdu') cloudinaryFont = 'Noto Nastaliq Urdu';
-    else {
-        // This forces Cloudinary to fetch the font from Google Fonts
-        cloudinaryFont = `google:${fontBase}`;
-    }
+    // --- FONT FIX ---
+    let finalFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
+    if (finalFont === 'Serif') finalFont = 'Times';
+    else if (finalFont === 'SansSerif') finalFont = 'Arial';
+    else if (finalFont === 'Monospace') finalFont = 'Courier';
+    else if (finalFont === 'Noto Urdu') finalFont = 'Noto Nastaliq Urdu';
 
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
+    const scaledSize = Math.round(subtitleFontSize * 3.8); // Slightly bigger for visibility
+    const scaledY = Math.round(45 * 3.8);
 
-    // --- SCALE FIX: Increased multiplier to 4.0 for bolder text ---
-    const scaledSize = Math.round(subtitleFontSize * 4.0);
-    const scaledY = Math.round(60 * 4.0);
+    const transformations: any[] = [];
 
-    const transformationParams: any = {
+    // --- 1. CRASH FIX: Only apply acceleration if speed is NOT 1.0 ---
+    if (speedMultiplier !== 1.0) {
+      const speedValue = Math.round((speedMultiplier - 1) * 100);
+      transformations.push({ effect: `accelerate:${speedValue}` });
+    }
+
+    // --- 2. SUBTITLE LAYER ---
+    const subLayer: any = {
       overlay: {
         resource_type: 'subtitles',
         public_id: vttUpload.public_id,
-        font_family: cloudinaryFont,
+        font_family: finalFont,
         font_size: scaledSize,
         font_weight: isBold ? 'bold' : 'normal',
         font_style: isItalic ? 'italic' : 'normal',
@@ -94,24 +97,22 @@ export async function POST(request: NextRequest) {
       color: subtitleColor,
       background: bgColor,
       opacity: bgOpacity,
-      flags: 'layer_apply',
       gravity: 'south',
       y: scaledY,
+      flags: 'layer_apply',
     };
 
-    // --- OUTLINE FIX: Increased to 14px for that thick "Editor" look ---
+    // --- 3. OUTLINE FIX: Increased to 12px for bold look ---
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
-      const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `14px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      const { color: outColor } = parseRgba(subtitleOutlineColor);
+      subLayer.border = `12px_solid_${outColor.replace('#', 'rgb:')}`;
     }
-    
-    const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
+
+    transformations.push(subLayer);
+
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: [
-        { effect: `accelerate:${speedEffectValue}` },
-        transformationParams
-      ],
+      transformation: transformations,
       format: 'mp4',
       quality: 'auto',
       sign_url: true, 
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
 
   } catch (error) {
+    console.error('EXPORT FAILED:', error);
     return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
   }
 }
