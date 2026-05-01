@@ -23,7 +23,7 @@ const parseRgba = (rgba: string) => {
     return { color: rgba, opacity: 100 };
   }
   const match = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
-  if (!match) return { color: '#000000', opacity: 100 };
+  if (!match) return { color: '#000000', opacity: 50 };
   const [, r, g, b, a] = match;
   const toHex = (c: string) => parseInt(c).toString(16).padStart(2, '0');
   const color = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
@@ -83,31 +83,22 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- FONT MAPPING ---
+    // --- FONT MAPPING (Android names to Cloudinary names) ---
     let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
     if (primaryFont === 'Serif') primaryFont = 'Times';
     if (primaryFont === 'SansSerif') primaryFont = 'Arial';
     if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Nastaliq Urdu';
+    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Nastaliq Urdu'; // Correct name for Cloudinary
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // --- SIZE MISMATCH FIX ---
-    // Reduced multiplier from 3.5 to 2.5 to match the mobile editor's visual scale
-    const scaledSize = Math.round(subtitleFontSize * 2.5);
-    const scaledY = Math.round(50 * 2.5);
+    // --- SCALE FIX: We multiply the font size to match video resolution ---
+    // A multiplier of 3.0 to 4.0 usually makes mobile font sizes look correct on 1080p video
+    const scaledSize = Math.round(subtitleFontSize * 3.5);
+    const scaledY = Math.round(40 * 3.5);
 
-    const transformations: any[] = [];
-
-    // 1. Only apply acceleration if speed is NOT 1.0 (Fixes the crash)
-    if (speedMultiplier !== 1.0) {
-      const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
-      transformations.push({ effect: `accelerate:${speedEffectValue}` });
-    }
-
-    // 2. Add Subtitle Layer
-    const subParams: any = {
+    const transformationParams: any = {
       overlay: {
         resource_type: 'subtitles',
         public_id: vttUpload.public_id,
@@ -125,21 +116,28 @@ export async function POST(request: NextRequest) {
       y: scaledY,
     };
 
-    // 3. Apply Outline (Increased to 8px to match the bold look in editor)
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      subParams.border = `8px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
+    
+    const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
+    const filename = `${safeFilename}_with_subtitles.mp4`;
 
-    transformations.push(subParams);
+    // --- APPLY SPEED EFFECT TO VIDEO ---
+    const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
+    const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: transformations,
+      transformation: [
+        speedTransformation,
+        transformationParams
+      ],
       format: 'mp4',
       quality: 'auto',
       sign_url: true, 
-      attachment: `${videoName || 'video'}_processed.mp4`, 
+      attachment: filename, 
     });
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
