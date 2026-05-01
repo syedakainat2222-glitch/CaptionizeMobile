@@ -94,7 +94,6 @@ export async function POST(request: NextRequest) {
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
     // --- SCALE FIX: We multiply the font size to match video resolution ---
-    // A multiplier of 3.0 to 4.0 usually makes mobile font sizes look correct on 1080p video
     const scaledSize = Math.round(subtitleFontSize * 3.5);
     const scaledY = Math.round(40 * 3.5);
 
@@ -116,9 +115,10 @@ export async function POST(request: NextRequest) {
       y: scaledY,
     };
 
+    // --- OUTLINE FIX: Changed 2px to 8px to match Android's 7f stroke ---
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      transformationParams.border = `8px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
     
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
