@@ -36,24 +36,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     const {
-      videoPublicId,
-      subtitles,
-      videoName,
-      subtitleFont,
-      subtitleFontSize,
-      subtitleColor,
-      subtitleBackgroundColor,
-      subtitleOutlineColor,
-      isBold,
-      isItalic,
-      isUnderline,
-      playbackSpeed,
-      cloud_name,
-      api_key,
-      api_secret
+      videoPublicId, subtitles, videoName, subtitleFont,
+      subtitleFontSize, subtitleColor, subtitleBackgroundColor,
+      subtitleOutlineColor, isBold, isItalic, isUnderline,
+      playbackSpeed, cloud_name, api_key, api_secret
     } = body;
 
-    // --- DYNAMIC CONFIGURATION ---
+    // --- CLOUDINARY CONFIG ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
@@ -75,9 +64,7 @@ export async function POST(request: NextRequest) {
 
     const vttContent = formatVtt(adjustedSubtitles);
     const vttBase64 = Buffer.from(vttContent).toString('base64');
-    const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
-
-    const vttUpload = await cloudinary.uploader.upload(vttDataUri, {
+    const vttUpload = await cloudinary.uploader.upload(`data:text/vtt;base64,${vttBase64}`, {
       resource_type: 'raw',
       overwrite: true,
       public_id: `subtitles-${Date.now()}`,
@@ -93,11 +80,21 @@ export async function POST(request: NextRequest) {
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // --- SCALE FIX: Reduced multiplier to match Editor size ---
-    const scaledSize = Math.round(subtitleFontSize * 1.8); 
-    const scaledY = Math.round(35 * 1.8); // Sits lower on the screen
+    // --- SIZE MISMATCH FIX ---
+    // Scale reduced to 1.5 to perfectly match the editor's look
+    const scaledSize = Math.round(subtitleFontSize * 1.5);
+    const scaledY = Math.round(45 * 1.5);
 
-    const transformationParams: any = {
+    const transformations: any[] = [];
+
+    // 1. Only apply speed if changed (fixes the broken video error)
+    if (speedMultiplier !== 1.0) {
+      const speedValue = Math.round((speedMultiplier - 1) * 100);
+      transformations.push({ effect: `accelerate:${speedValue}` });
+    }
+
+    // 2. Build the Subtitle Layer
+    const subLayer: any = {
       overlay: {
         resource_type: 'subtitles',
         public_id: vttUpload.public_id,
@@ -110,28 +107,18 @@ export async function POST(request: NextRequest) {
       color: subtitleColor,
       background: bgColor,
       opacity: bgOpacity,
-      flags: 'layer_apply',
       gravity: 'south',
       y: scaledY,
+      flags: 'layer_apply'
     };
 
+    // 3. Apply Thick Outline (6px)
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `6px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      subLayer.border = `6px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
-    
-    const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
-    const filename = `${safeFilename}_processed.mp4`;
 
-    // Build transformation array
-    const transformations: any[] = [];
-    
-    // Only apply acceleration if speed is changed (fixes broken video crash)
-    if (speedMultiplier !== 1.0) {
-      const speedValue = Math.round((speedMultiplier - 1) * 100);
-      transformations.push({ effect: `accelerate:${speedValue}` });
-    }
-    transformations.push(transformationParams);
+    transformations.push(subLayer);
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
@@ -139,7 +126,7 @@ export async function POST(request: NextRequest) {
       format: 'mp4',
       quality: 'auto',
       sign_url: true, 
-      attachment: filename, 
+      attachment: `${videoName || 'video'}_processed.mp4`, 
     });
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
