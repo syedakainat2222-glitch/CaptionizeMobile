@@ -88,14 +88,15 @@ export async function POST(request: NextRequest) {
     if (primaryFont === 'Serif') primaryFont = 'Times';
     if (primaryFont === 'SansSerif') primaryFont = 'Arial';
     if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Nastaliq Urdu';
+    
+    // Corrected: Use Noto Sans Arabic which is reliably supported for Urdu script on Cloudinary
+    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Sans Arabic';
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // --- SCALE FIX: Matches Android multiplier (0.0028 * 1080 approx 3.0) ---
+    // --- SCALE FIX: Matches Android multiplier ---
     const scaledSize = Math.round(subtitleFontSize * 0.8);
-    // Position text at roughly 8% from bottom to match editor padding
     const scaledY = Math.round(1080 * 0.08); 
 
     const transformationParams: any = {
