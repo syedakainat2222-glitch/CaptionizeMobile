@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
     // --- SCALE FIX: Matches Android multiplier (0.0028 * 1080 approx 3.0) ---
-    const scaledSize = Math.round(subtitleFontSize * 1.5);
+    const scaledSize = Math.round(subtitleFontSize * 0.5);
     // Position text at roughly 8% from bottom to match editor padding
     const scaledY = Math.round(1080 * 0.08); 
 
