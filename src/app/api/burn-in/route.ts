@@ -88,15 +88,15 @@ export async function POST(request: NextRequest) {
     if (primaryFont === 'Serif') primaryFont = 'Times';
     if (primaryFont === 'SansSerif') primaryFont = 'Arial';
     if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Nastaliq Urdu'; // Correct name for Cloudinary
+    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Nastaliq Urdu';
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // --- SCALE FIX: We multiply the font size to match video resolution ---
-    // A multiplier of 3.0 to 4.0 usually makes mobile font sizes look correct on 1080p video
-    const scaledSize = Math.round(subtitleFontSize * 3.5);
-    const scaledY = Math.round(40 * 3.5);
+    // --- SCALE FIX: Matches Android multiplier (0.0028 * 1080 approx 3.0) ---
+    const scaledSize = Math.round(subtitleFontSize * 3.0);
+    // Position text at roughly 8% from bottom to match editor padding
+    const scaledY = Math.round(1080 * 0.08); 
 
     const transformationParams: any = {
       overlay: {
