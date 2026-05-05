@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';import { v2 as cloudinary } from 'cloudinary';
+import { NextRequest, NextResponse } from 'next/server';
+import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
 const timeToMs = (timeStr: string) => {
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
     }));
 
     const vttContent = formatVtt(adjustedSubtitles);
+    // CRITICAL: Ensure the VTT has the .vtt extension in the public_id
     const vttPublicId = `subs-${Date.now()}.vtt`;
     
     await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(vttContent).toString('base64')}`, {
@@ -56,39 +58,36 @@ export async function POST(request: NextRequest) {
       public_id: vttPublicId,
     });
 
-    // --- Technical Font Mapping (Aligns App names to Google Fonts) ---
+    // --- Technical Font Mapping ---
     let fontName = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
     const fontMapping: { [key: string]: string } = {
-      'Noto Urdu': 'Google:Noto_Nastaliq_Urdu',
-      'Roboto': 'Google:Roboto',
-      'Dancing Script': 'Google:Dancing_Script',
-      'Pacifico': 'Google:Pacifico',
-      'Changa': 'Google:Changa',
-      'Serif': 'Times',
-      'SansSerif': 'Arial',
-      'Monospace': 'Courier'
+      'Noto Urdu': 'Noto Sans Arabic', // This triggers correct shaping on Cloudinary
+      'Changa': 'Changa',
+      'Pacifico': 'Pacifico',
+      'Dancing Script': 'Dancing Script',
+      'Roboto': 'Roboto',
     };
     if (fontMapping[fontName]) fontName = fontMapping[fontName];
 
-    // --- Color & Scale Fixes ---
+    // COLOR FIX: Replace '#' with 'rgb:' for Cloudinary transformation strings
     const sColor = subtitleColor.replace('#', 'rgb:');
     const { color: bgHex, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
     const bColor = bgHex.replace('#', 'rgb:');
-    
-    // Scale matching: 1080p height * (subtitleFontSize * 0.0022) approx 42px
-    const scaledSize = Math.round(subtitleFontSize * 2.3); 
 
     const transformation: any[] = [];
     if (playbackSpeed && playbackSpeed !== 1.0) {
       transformation.push({ effect: `accelerate:${Math.round((playbackSpeed - 1) * 100)}` });
     }
 
-    // --- OVERLAY FIX (Escaped Colon Syntax) ---
-    const escapedFont = fontName.replace(':', '%3A');
-    const weight = isBold ? '_bold' : '';
-    
+    // --- OVERLAY: The most robust syntax to avoid 400 errors ---
     transformation.push({
-      overlay: `subtitles:${escapedFont}_${scaledSize}${weight}:${vttPublicId}`,
+      overlay: { 
+        resource_type: 'subtitles', 
+        public_id: vttPublicId 
+      },
+      font_family: fontName,
+      font_size: Math.round(subtitleFontSize * 2.3), 
+      font_weight: isBold ? 'bold' : 'normal',
       color: sColor,
       background: bColor === 'transparent' ? undefined : bColor,
       opacity: bgOpacity,
