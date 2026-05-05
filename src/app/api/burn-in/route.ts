@@ -41,7 +41,9 @@ export async function POST(request: NextRequest) {
       secure: true
     });
 
-    if (!videoPublicId || !subtitles) return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
+    if (!videoPublicId || !subtitles) {
+      return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
+    }
 
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
@@ -57,15 +59,21 @@ export async function POST(request: NextRequest) {
       public_id: vttPublicId,
     });
 
-    // --- FONT FIX ---
-    // Mapping "Noto Urdu" to the specific Google Font name Cloudinary understands
+    // --- Technical Font Mapping ---
     let fontName = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    if (fontName === 'Noto Urdu') {
-      fontName = 'Google:Noto Nastaliq Urdu'; 
-    }
+    const fontMapping: { [key: string]: string } = {
+      'Noto Urdu': 'Google:Noto_Sans_Arabic', // Best for Urdu letter joining on Cloudinary
+      'Changa': 'Google:Changa',
+      'Pacifico': 'Google:Pacifico',
+      'Dancing Script': 'Google:Dancing_Script',
+      'Roboto': 'Google:Roboto',
+      'Serif': 'Times',
+      'SansSerif': 'Arial',
+      'Monospace': 'Courier'
+    };
+    if (fontMapping[fontName]) fontName = fontMapping[fontName];
 
-    // --- COLOR FIX ---
-    // Cloudinary URLs require '#' to be replaced with 'rgb:' for transformations
+    // Color conversion for Cloudinary URL stability (replace # with rgb:)
     const sColor = subtitleColor.replace('#', 'rgb:');
     const { color: bgHex, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
     const bColor = bgHex.replace('#', 'rgb:');
@@ -76,11 +84,15 @@ export async function POST(request: NextRequest) {
       transformation.push({ effect: `accelerate:${Math.round((playbackSpeed - 1) * 100)}` });
     }
 
-    // --- OVERLAY FIX ---
-    // Using string-based syntax for the subtitle overlay to ensure maximum compatibility
+    // Subtitle Overlay
     transformation.push({
-      overlay: `subtitles:${fontName}:${vttPublicId}`,
-      font_size: Math.round(subtitleFontSize * 0.8),
+      overlay: { 
+        resource_type: 'subtitles', 
+        public_id: vttPublicId 
+      },
+      font_family: fontName,
+      font_size: Math.round(subtitleFontSize * 2.5), // Increased scale for mobile visibility
+      font_weight: isBold ? 'bold' : 'normal',
       color: sColor,
       background: bColor === 'transparent' ? undefined : bColor,
       opacity: bgOpacity,
