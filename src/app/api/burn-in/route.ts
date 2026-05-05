@@ -57,28 +57,29 @@ export async function POST(request: NextRequest) {
       public_id: vttPublicId,
     });
 
-    // FONT: Noto Sans Arabic is the gold standard for shaping Urdu/Arabic on Cloudinary
+    // --- FONT FIX ---
+    // Mapping "Noto Urdu" to the specific Google Font name Cloudinary understands
     let fontName = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    if (fontName === 'Noto Urdu') fontName = 'Noto Sans Arabic';
-    
-    // COLOR FIX: Cloudinary transformations hate '#' - they need 'rgb:XXXXXX'
+    if (fontName === 'Noto Urdu') {
+      fontName = 'Google:Noto Nastaliq Urdu'; 
+    }
+
+    // --- COLOR FIX ---
+    // Cloudinary URLs require '#' to be replaced with 'rgb:' for transformations
     const sColor = subtitleColor.replace('#', 'rgb:');
     const { color: bgHex, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
     const bColor = bgHex.replace('#', 'rgb:');
 
     const transformation: any[] = [];
     
-    // 1. Add Speed Effect
     if (playbackSpeed && playbackSpeed !== 1.0) {
       transformation.push({ effect: `accelerate:${Math.round((playbackSpeed - 1) * 100)}` });
     }
 
-    // 2. Add Subtitle Overlay (Manual Syntax for maximum compatibility)
+    // --- OVERLAY FIX ---
+    // Using string-based syntax for the subtitle overlay to ensure maximum compatibility
     transformation.push({
-      overlay: {
-        resource_type: 'subtitles',
-        public_id: `${fontName}:${vttPublicId}`
-      },
+      overlay: `subtitles:${fontName}:${vttPublicId}`,
       font_size: Math.round(subtitleFontSize * 0.8),
       color: sColor,
       background: bColor === 'transparent' ? undefined : bColor,
