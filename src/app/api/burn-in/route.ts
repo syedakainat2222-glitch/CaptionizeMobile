@@ -27,7 +27,7 @@ const msToTime = (totalMs: number) => {
     .padStart(3, '0')}`;
 };
 
-// Escape unsafe characters (fixes Cloudinary 400 errors)
+// Escape characters that break Cloudinary transformation URLs
 const sanitizeText = (text: string) => {
   return text
     .replace(/#/g, '＃')
@@ -47,7 +47,6 @@ const parseRgba = (rgba: string) => {
   if (!match) return { color: '#000000', opacity: 100 };
 
   const [, r, g, b, a] = match;
-
   const toHex = (c: string) =>
     parseInt(c).toString(16).padStart(2, '0');
 
@@ -57,24 +56,6 @@ const parseRgba = (rgba: string) => {
   };
 };
 
-// --- Font Mapping (CRITICAL FIX) ---
-const mapFont = (font: string) => {
-  const f = font?.toLowerCase() || '';
-
-  // Best shaping support
-  if (f.includes('urdu') || f.includes('nastaliq')) {
-    return 'Noto Nastaliq Urdu';
-  }
-
-  // Safe Arabic shaping fallback
-  if (f.includes('arabic') || f.includes('noto')) {
-    return 'Noto Sans Arabic';
-  }
-
-  return 'Arial';
-};
-
-// --- API Route ---
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -95,11 +76,9 @@ export async function POST(request: NextRequest) {
 
     // --- Cloudinary Config ---
     cloudinary.config({
-      cloud_name:
-        cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
+      cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
-      api_secret:
-        api_secret || process.env.CLOUDINARY_API_SECRET,
+      api_secret: api_secret || process.env.CLOUDINARY_API_SECRET,
       secure: true,
     });
 
@@ -110,70 +89,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // --- Adjust Timing + SANITIZE TEXT ---
+    // --- Sync Timing & Sanitize Text ---
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
-      text: sanitizeText(sub.text), // 🔥 FIX
-      startTime: msToTime(
-        timeToMs(sub.startTime) / (playbackSpeed || 1.0)
-      ),
-      endTime: msToTime(
-        timeToMs(sub.endTime) / (playbackSpeed || 1.0)
-      ),
+      text: sanitizeText(sub.text),
+      startTime: msToTime(timeToMs(sub.startTime) / (playbackSpeed || 1.0)),
+      endTime: msToTime(timeToMs(sub.endTime) / (playbackSpeed || 1.0)),
     }));
 
-    // --- Generate VTT ---
     const vttContent = formatVtt(adjustedSubtitles);
+    const vttPublicId = `subs-${Date.now()}.vtt`;
 
-    const vttPublicId = `subs-${Date.now()}`;
-
+    // Upload VTT as raw
     await cloudinary.uploader.upload(
-      `data:text/vtt;charset=utf-8;base64,${Buffer.from(
-        vttContent,
-        'utf-8'
-      ).toString('base64')}`,
+      `data:text/vtt;charset=utf-8;base64,${Buffer.from(vttContent).toString('base64')}`,
       {
         resource_type: 'raw',
         public_id: vttPublicId,
       }
     );
 
-    // --- Font Fix ---
-    const fontName = mapFont(subtitleFont);
+    // --- Font Mapping ---
+    let fontName = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
+    if (fontName === 'Noto Urdu') {
+        // Noto Sans Arabic is pre-installed on Cloudinary and handles Urdu shaping perfectly
+        fontName = 'Noto Sans Arabic'; 
+    }
 
-    // --- Colors ---
+    // --- Color Formatting ---
     const sColor = subtitleColor.replace('#', 'rgb:');
+    const { color: bgHex, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
+    const bColor = bgHex && bgHex !== 'transparent' ? bgHex.replace('#', 'rgb:') : undefined;
 
-    const { color: bgHex, opacity: bgOpacity } =
-      parseRgba(subtitleBackgroundColor);
-
-    const bColor =
-      bgHex && bgHex !== 'transparent'
-        ? bgHex.replace('#', 'rgb:')
-        : undefined;
-
-    // --- Transformations ---
     const transformation: any[] = [];
 
-    // Speed
+    // Speed transformation
     if (playbackSpeed && playbackSpeed !== 1.0) {
       transformation.push({
-        effect: `accelerate:${Math.round(
-          (playbackSpeed - 1) * 100
-        )}`,
+        effect: `accelerate:${Math.round((playbackSpeed - 1) * 100)}`,
       });
     }
 
-    // Subtitle overlay
+    // Subtitle Overlay transformation
     transformation.push({
       overlay: {
         resource_type: 'subtitles',
         public_id: vttPublicId,
       },
       font_family: fontName,
-      font_size: Math.round(
-        (subtitleFontSize || 24) * 2.2
-      ), // 🔥 tuned for 1080p
+      font_size: Math.round((subtitleFontSize || 18) * 2.3),
       font_weight: isBold ? 'bold' : 'normal',
       color: sColor,
       background: bColor,
@@ -183,7 +147,6 @@ export async function POST(request: NextRequest) {
       flags: 'layer_apply',
     });
 
-    // --- Final URL ---
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
       transformation,
@@ -191,13 +154,10 @@ export async function POST(request: NextRequest) {
       sign_url: true,
     });
 
-    return NextResponse.json({
-      success: true,
-      downloadUrl: finalUrl,
-    });
+    return NextResponse.json({ success: true, downloadUrl: finalUrl });
+
   } catch (error) {
     console.error('EXPORT ERROR:', error);
-
     return NextResponse.json(
       { success: false, error: 'Internal Error' },
       { status: 500 }
