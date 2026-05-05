@@ -41,9 +41,7 @@ export async function POST(request: NextRequest) {
       secure: true
     });
 
-    if (!videoPublicId || !subtitles) {
-      return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
-    }
+    if (!videoPublicId || !subtitles) return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
 
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
@@ -52,7 +50,6 @@ export async function POST(request: NextRequest) {
     }));
 
     const vttContent = formatVtt(adjustedSubtitles);
-    // Explicitly use .vtt extension for the raw resource
     const vttPublicId = `subs-${Date.now()}.vtt`;
     
     await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(vttContent).toString('base64')}`, {
@@ -60,24 +57,31 @@ export async function POST(request: NextRequest) {
       public_id: vttPublicId,
     });
 
-    // Font Mapping: Arial is highly reliable for Urdu shaping on Cloudinary
+    // FONT: Noto Sans Arabic is the gold standard for shaping Urdu/Arabic on Cloudinary
     let fontName = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    if (fontName === 'Noto Urdu') fontName = 'Arial'; 
+    if (fontName === 'Noto Urdu') fontName = 'Noto Sans Arabic';
+    
+    // COLOR FIX: Cloudinary transformations hate '#' - they need 'rgb:XXXXXX'
+    const sColor = subtitleColor.replace('#', 'rgb:');
+    const { color: bgHex, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
+    const bColor = bgHex.replace('#', 'rgb:');
 
-    const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
     const transformation: any[] = [];
     
+    // 1. Add Speed Effect
     if (playbackSpeed && playbackSpeed !== 1.0) {
       transformation.push({ effect: `accelerate:${Math.round((playbackSpeed - 1) * 100)}` });
     }
 
-    // Use string-based overlay to prevent 400 errors from SDK colons
+    // 2. Add Subtitle Overlay (Manual Syntax for maximum compatibility)
     transformation.push({
-      overlay: `subtitles:${fontName}:${vttPublicId}`,
+      overlay: {
+        resource_type: 'subtitles',
+        public_id: `${fontName}:${vttPublicId}`
+      },
       font_size: Math.round(subtitleFontSize * 0.8),
-      font_weight: isBold ? 'bold' : 'normal',
-      color: subtitleColor,
-      background: bgColor === 'transparent' ? undefined : bgColor,
+      color: sColor,
+      background: bColor === 'transparent' ? undefined : bColor,
       opacity: bgOpacity,
       gravity: 'south',
       y: 80,
