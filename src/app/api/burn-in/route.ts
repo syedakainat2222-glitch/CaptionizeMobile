@@ -22,18 +22,16 @@ const parseRgba = (rgba: string) => {
   if (!match) return { color: '#000000', opacity: 100 };
   const [, r, g, b, a] = match;
   const toHex = (c: string) => parseInt(c).toString(16).padStart(2, '0');
-  const color = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-  return { color, opacity: Math.round(parseFloat(a) * 100) };
+  return { color: `#${toHex(r)}${toHex(g)}${toHex(b)}`, opacity: Math.round(parseFloat(a) * 100) };
 };
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
     const {
-      videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize,
+      videoPublicId, subtitles, subtitleFont, subtitleFontSize,
       subtitleColor, subtitleBackgroundColor, playbackSpeed,
-      cloud_name, api_key, api_secret
+      cloud_name, api_key, api_secret, isBold
     } = body;
 
     cloudinary.config({
@@ -43,52 +41,43 @@ export async function POST(request: NextRequest) {
       secure: true
     });
 
-    if (!videoPublicId || !subtitles) {
-      return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
-    }
+    if (!videoPublicId || !subtitles) return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
 
-    const speedMultiplier = playbackSpeed || 1.0;
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
-      startTime: msToTime(timeToMs(sub.startTime) / speedMultiplier),
-      endTime: msToTime(timeToMs(sub.endTime) / speedMultiplier),
+      startTime: msToTime(timeToMs(sub.startTime) / (playbackSpeed || 1.0)),
+      endTime: msToTime(timeToMs(sub.endTime) / (playbackSpeed || 1.0)),
     }));
 
     const vttContent = formatVtt(adjustedSubtitles);
-    const vttBase64 = Buffer.from(vttContent).toString('base64');
-    const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
-
-    // Added .vtt extension to ensure Cloudinary recognizes the file type correctly
-    const vttPublicId = `subtitles-${Date.now()}.vtt`;
-    await cloudinary.uploader.upload(vttDataUri, {
+    const vttPublicId = `sub-${Date.now()}.vtt`;
+    
+    // Upload the VTT file
+    await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(vttContent).toString('base64')}`, {
       resource_type: 'raw',
       public_id: vttPublicId,
     });
 
-    let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    
-    // FIX: Map Urdu font to Noto Sans Arabic for proper character joining (shaping)
-    if (primaryFont === 'Noto Urdu') {
-      primaryFont = 'Noto Sans Arabic';
-    }
+    // Map font name
+    let fontName = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
+    if (fontName === 'Noto Urdu') fontName = 'Arial'; 
 
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
-    const scaledSize = Math.round(subtitleFontSize * 0.8);
-
     const transformation: any[] = [];
     
-    if (speedMultiplier !== 1.0) {
-      transformation.push({ effect: `accelerate:${Math.round((speedMultiplier - 1) * 100)}` });
+    if (playbackSpeed && playbackSpeed !== 1.0) {
+      transformation.push({ effect: `accelerate:${Math.round((playbackSpeed - 1) * 100)}` });
     }
 
+    // Corrected Overlay syntax for Subtitles with Font
     transformation.push({
       overlay: {
         resource_type: 'subtitles',
-        public_id: vttPublicId,
-        font_family: primaryFont,
-        font_size: scaledSize,
-        font_weight: body.isBold ? 'bold' : 'normal',
+        // Syntax must be font_name:public_id_with_extension
+        public_id: `${fontName}:${vttPublicId}`
       },
+      font_size: Math.round(subtitleFontSize * 0.8),
+      font_weight: isBold ? 'bold' : 'normal',
       color: subtitleColor,
       background: bgColor === 'transparent' ? undefined : bgColor,
       opacity: bgOpacity,
