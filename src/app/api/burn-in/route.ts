@@ -1,17 +1,12 @@
-
-
-import { NextRequest, NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
+import { NextRequest, NextResponse } from 'next/server';import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
-// Helper to convert SRT time string (00:00:00,000) to milliseconds
 const timeToMs = (timeStr: string) => {
   const [h, m, s_ms] = timeStr.split(':');
   const [s, ms] = s_ms.split(',');
   return parseInt(h) * 3600000 + parseInt(m) * 60000 + parseInt(s) * 1000 + parseInt(ms);
 };
 
-// Helper to convert milliseconds back to SRT time string
 const msToTime = (totalMs: number) => {
   const h = Math.floor(totalMs / 3600000);
   const m = Math.floor((totalMs % 3600000) / 60000);
@@ -21,41 +16,23 @@ const msToTime = (totalMs: number) => {
 };
 
 const parseRgba = (rgba: string) => {
-  if (!rgba || !rgba.startsWith('rgba')) {
-    return { color: rgba, opacity: 100 };
-  }
+  if (!rgba || !rgba.startsWith('rgba')) return { color: rgba, opacity: 100 };
   const match = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
-  if (!match) return { color: '#000000', opacity: 50 };
+  if (!match) return { color: '#000000', opacity: 100 };
   const [, r, g, b, a] = match;
   const toHex = (c: string) => parseInt(c).toString(16).padStart(2, '0');
-  const color = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-  const opacity = Math.round(parseFloat(a) * 100);
-  return { color, opacity };
+  return { color: `#${toHex(r)}${toHex(g)}${toHex(b)}`, opacity: Math.round(parseFloat(a) * 100) };
 };
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
     const {
-      videoPublicId,
-      subtitles,
-      videoName,
-      subtitleFont,
-      subtitleFontSize,
-      subtitleColor,
-      subtitleBackgroundColor,
-      subtitleOutlineColor,
-      isBold,
-      isItalic,
-      isUnderline,
-      playbackSpeed,
-      cloud_name,
-      api_key,
-      api_secret
+      videoPublicId, subtitles, subtitleFont, subtitleFontSize,
+      subtitleColor, subtitleBackgroundColor, playbackSpeed,
+      cloud_name, api_key, api_secret, isBold
     } = body;
 
-    // --- DYNAMIC CONFIGURATION ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
@@ -63,89 +40,73 @@ export async function POST(request: NextRequest) {
       secure: true
     });
 
-    if (!videoPublicId || !subtitles || !Array.isArray(subtitles)) {
-      return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
-    }
+    if (!videoPublicId || !subtitles) return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
 
-    // --- SYNC SUBTITLES WITH SPEED ---
-    const speedMultiplier = playbackSpeed || 1.0;
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
-      startTime: msToTime(timeToMs(sub.startTime) / speedMultiplier),
-      endTime: msToTime(timeToMs(sub.endTime) / speedMultiplier),
+      startTime: msToTime(timeToMs(sub.startTime) / (playbackSpeed || 1.0)),
+      endTime: msToTime(timeToMs(sub.endTime) / (playbackSpeed || 1.0)),
     }));
 
     const vttContent = formatVtt(adjustedSubtitles);
-    const vttBase64 = Buffer.from(vttContent).toString('base64');
-    const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
-
-    const vttUpload = await cloudinary.uploader.upload(vttDataUri, {
+    const vttPublicId = `subs-${Date.now()}.vtt`;
+    
+    await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(vttContent).toString('base64')}`, {
       resource_type: 'raw',
-      overwrite: true,
-      public_id: `subtitles-${Date.now()}`,
+      public_id: vttPublicId,
     });
 
-    // --- FONT MAPPING (Android names to Cloudinary names) ---
-    let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    if (primaryFont === 'Serif') primaryFont = 'Times';
-    if (primaryFont === 'SansSerif') primaryFont = 'Arial';
-    if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Nastaliq Urdu'; // Correct name for Cloudinary
-
-    const textDecoration = isUnderline ? 'underline' : 'none';
-    const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
-
-    // --- SCALE FIX: We multiply the font size to match video resolution ---
-    // A multiplier of 3.0 to 4.0 usually makes mobile font sizes look correct on 1080p video
-    const scaledSize = Math.round(subtitleFontSize * 3.5);
-    const scaledY = Math.round(40 * 3.5);
-
-    const transformationParams: any = {
-      overlay: {
-        resource_type: 'subtitles',
-        public_id: vttUpload.public_id,
-        font_family: primaryFont,
-        font_size: scaledSize,
-        font_weight: isBold ? 'bold' : 'normal',
-        font_style: isItalic ? 'italic' : 'normal',
-        text_decoration: textDecoration,
-      },
-      color: subtitleColor,
-      background: bgColor,
-      opacity: bgOpacity,
-      flags: 'layer_apply',
-      gravity: 'south',
-      y: scaledY,
+    // --- Technical Font Mapping (Aligns App names to Google Fonts) ---
+    let fontName = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
+    const fontMapping: { [key: string]: string } = {
+      'Noto Urdu': 'Google:Noto_Nastaliq_Urdu',
+      'Roboto': 'Google:Roboto',
+      'Dancing Script': 'Google:Dancing_Script',
+      'Pacifico': 'Google:Pacifico',
+      'Changa': 'Google:Changa',
+      'Serif': 'Times',
+      'SansSerif': 'Arial',
+      'Monospace': 'Courier'
     };
+    if (fontMapping[fontName]) fontName = fontMapping[fontName];
 
-    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
-      const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
-    }
+    // --- Color & Scale Fixes ---
+    const sColor = subtitleColor.replace('#', 'rgb:');
+    const { color: bgHex, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
+    const bColor = bgHex.replace('#', 'rgb:');
     
-    const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
-    const filename = `${safeFilename}_with_subtitles.mp4`;
+    // Scale matching: 1080p height * (subtitleFontSize * 0.0022) approx 42px
+    const scaledSize = Math.round(subtitleFontSize * 2.3); 
 
-    // --- APPLY SPEED EFFECT TO VIDEO ---
-    const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
-    const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
+    const transformation: any[] = [];
+    if (playbackSpeed && playbackSpeed !== 1.0) {
+      transformation.push({ effect: `accelerate:${Math.round((playbackSpeed - 1) * 100)}` });
+    }
+
+    // --- OVERLAY FIX (Escaped Colon Syntax) ---
+    const escapedFont = fontName.replace(':', '%3A');
+    const weight = isBold ? '_bold' : '';
+    
+    transformation.push({
+      overlay: `subtitles:${escapedFont}_${scaledSize}${weight}:${vttPublicId}`,
+      color: sColor,
+      background: bColor === 'transparent' ? undefined : bColor,
+      opacity: bgOpacity,
+      gravity: 'south',
+      y: 80,
+      flags: 'layer_apply'
+    });
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: [
-        speedTransformation,
-        transformationParams
-      ],
+      transformation: transformation,
       format: 'mp4',
-      quality: 'auto',
-      sign_url: true, 
-      attachment: filename, 
+      sign_url: true,
     });
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
-
   } catch (error) {
-    console.error('=== VIDEO PROCESSING FAILED ===', error);
+    console.error('EXPORT ERROR:', error);
     return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
   }
 }
