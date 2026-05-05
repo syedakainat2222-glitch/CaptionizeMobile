@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
-// --- Timing Helpers (Mobile Specific) ---
+// --- Timing Helpers (Required for Mobile Speed Sync) ---
 const timeToMs = (timeStr: string) => {
   const [h, m, s_ms] = timeStr.split(':');
   const [s, ms] = s_ms.split(',');
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       endTime: msToTime(timeToMs(sub.endTime) / speed),
     }));
 
-    // --- WEBSITE VTT UPLOAD METHOD ---
+    // --- WEBSITE VTT METHOD ---
     const vttContent = formatVtt(adjustedSubtitles);
     const vttBase64 = Buffer.from(vttContent).toString('base64');
     const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
@@ -64,21 +64,20 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- WEBSITE FONT & STYLE METHOD ---
+    // --- WEBSITE FONT METHOD ---
     let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    // If Noto Urdu is picked, we use Arial which Cloudinary uses to render Urdu correctly
-    if (primaryFont === 'Noto Urdu') primaryFont = 'Arial'; 
     
+    // Map Noto Urdu to Arial because your website uses Arial and it works for Urdu
+    if (primaryFont === 'Noto Urdu') primaryFont = 'Arial'; 
+
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
     const transformation: any[] = [];
-    
-    // Add speed effect
     if (speed !== 1.0) {
       transformation.push({ effect: `accelerate:${Math.round((speed - 1) * 100)}` });
     }
 
-    // --- WEBSITE TRANSFORMATION METHOD ---
+    // --- WEBSITE OVERLAY METHOD ---
     transformation.push({
       overlay: {
         resource_type: 'subtitles',
