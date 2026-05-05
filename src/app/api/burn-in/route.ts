@@ -2,16 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
-// --- Helpers ---
+// --- Timing Helpers (Mobile Specific) ---
 const timeToMs = (timeStr: string) => {
   const [h, m, s_ms] = timeStr.split(':');
   const [s, ms] = s_ms.split(',');
-  return (
-    parseInt(h) * 3600000 +
-    parseInt(m) * 60000 +
-    parseInt(s) * 1000 +
-    parseInt(ms)
-  );
+  return parseInt(h) * 3600000 + parseInt(m) * 60000 + parseInt(s) * 1000 + parseInt(ms);
 };
 
 const msToTime = (totalMs: number) => {
@@ -19,148 +14,98 @@ const msToTime = (totalMs: number) => {
   const m = Math.floor((totalMs % 3600000) / 60000);
   const s = Math.floor((totalMs % 60000) / 1000);
   const ms = Math.floor(totalMs % 1000);
-
-  return `${h.toString().padStart(2, '0')}:${m
-    .toString()
-    .padStart(2, '0')}:${s.toString().padStart(2, '0')},${ms
-    .toString()
-    .padStart(3, '0')}`;
-};
-
-// Escape characters that break Cloudinary transformation URLs
-const sanitizeText = (text: string) => {
-  return text
-    .replace(/#/g, '＃')
-    .replace(/:/g, '：')
-    .replace(/\n/g, ' ')
-    .trim();
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
 };
 
 const parseRgba = (rgba: string) => {
-  if (!rgba || !rgba.startsWith('rgba'))
-    return { color: rgba, opacity: 100 };
-
-  const match = rgba.match(
-    /rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/
-  );
-
+  if (!rgba || !rgba.startsWith('rgba')) return { color: rgba, opacity: 100 };
+  const match = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
   if (!match) return { color: '#000000', opacity: 100 };
-
   const [, r, g, b, a] = match;
-  const toHex = (c: string) =>
-    parseInt(c).toString(16).padStart(2, '0');
-
-  return {
-    color: `#${toHex(r)}${toHex(g)}${toHex(b)}`,
-    opacity: Math.round(parseFloat(a) * 100),
-  };
+  const toHex = (c: string) => parseInt(c).toString(16).padStart(2, '0');
+  return { color: `#${toHex(r)}${toHex(g)}${toHex(b)}`, opacity: Math.round(parseFloat(a) * 100) };
 };
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
     const {
-      videoPublicId,
-      subtitles,
-      subtitleFont,
-      subtitleFontSize,
-      subtitleColor,
-      subtitleBackgroundColor,
-      playbackSpeed,
-      cloud_name,
-      api_key,
-      api_secret,
-      isBold,
+      videoPublicId, subtitles, subtitleFont, subtitleFontSize,
+      subtitleColor, subtitleBackgroundColor, playbackSpeed,
+      cloud_name, api_key, api_secret, isBold, isItalic
     } = body;
 
-    // --- Cloudinary Config ---
+    // --- CONFIG ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
       api_secret: api_secret || process.env.CLOUDINARY_API_SECRET,
-      secure: true,
+      secure: true
     });
 
-    if (!videoPublicId || !subtitles) {
-      return NextResponse.json(
-        { success: false, error: 'Missing parameters' },
-        { status: 400 }
-      );
-    }
+    if (!videoPublicId || !subtitles) return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
 
-    // --- Sync Timing & Sanitize Text ---
+    // --- SYNC TIMING ---
+    const speed = playbackSpeed || 1.0;
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
-      text: sanitizeText(sub.text),
-      startTime: msToTime(timeToMs(sub.startTime) / (playbackSpeed || 1.0)),
-      endTime: msToTime(timeToMs(sub.endTime) / (playbackSpeed || 1.0)),
+      startTime: msToTime(timeToMs(sub.startTime) / speed),
+      endTime: msToTime(timeToMs(sub.endTime) / speed),
     }));
 
+    // --- WEBSITE VTT UPLOAD METHOD ---
     const vttContent = formatVtt(adjustedSubtitles);
-    const vttPublicId = `subs-${Date.now()}.vtt`;
+    const vttBase64 = Buffer.from(vttContent).toString('base64');
+    const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
 
-    // Upload VTT as raw
-    await cloudinary.uploader.upload(
-      `data:text/vtt;charset=utf-8;base64,${Buffer.from(vttContent).toString('base64')}`,
-      {
-        resource_type: 'raw',
-        public_id: vttPublicId,
-      }
-    );
+    const vttUpload = await cloudinary.uploader.upload(vttDataUri, {
+      resource_type: 'raw',
+      overwrite: true,
+      public_id: `subtitles-${Date.now()}`,
+    });
 
-    // --- Font Mapping ---
-    let fontName = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    if (fontName === 'Noto Urdu') {
-        // Noto Sans Arabic is pre-installed on Cloudinary and handles Urdu shaping perfectly
-        fontName = 'Noto Sans Arabic'; 
-    }
-
-    // --- Color Formatting ---
-    const sColor = subtitleColor.replace('#', 'rgb:');
-    const { color: bgHex, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
-    const bColor = bgHex && bgHex !== 'transparent' ? bgHex.replace('#', 'rgb:') : undefined;
+    // --- WEBSITE FONT & STYLE METHOD ---
+    let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
+    // If Noto Urdu is picked, we use Arial which Cloudinary uses to render Urdu correctly
+    if (primaryFont === 'Noto Urdu') primaryFont = 'Arial'; 
+    
+    const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
     const transformation: any[] = [];
-
-    // Speed transformation
-    if (playbackSpeed && playbackSpeed !== 1.0) {
-      transformation.push({
-        effect: `accelerate:${Math.round((playbackSpeed - 1) * 100)}`,
-      });
+    
+    // Add speed effect
+    if (speed !== 1.0) {
+      transformation.push({ effect: `accelerate:${Math.round((speed - 1) * 100)}` });
     }
 
-    // Subtitle Overlay transformation
+    // --- WEBSITE TRANSFORMATION METHOD ---
     transformation.push({
       overlay: {
         resource_type: 'subtitles',
-        public_id: vttPublicId,
+        public_id: vttUpload.public_id,
+        font_family: primaryFont,
+        font_size: Math.round(subtitleFontSize * 2.1), // Adjusted for mobile resolution
+        font_weight: isBold ? 'bold' : 'normal',
+        font_style: isItalic ? 'italic' : 'normal',
       },
-      font_family: fontName,
-      font_size: Math.round((subtitleFontSize || 18) * 2.3),
-      font_weight: isBold ? 'bold' : 'normal',
-      color: sColor,
-      background: bColor,
+      color: subtitleColor,
+      background: bgColor === 'transparent' ? undefined : bgColor,
       opacity: bgOpacity,
-      gravity: 'south',
-      y: 80,
       flags: 'layer_apply',
+      gravity: 'south',
+      y: 40,
     });
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation,
+      transformation: transformation,
       format: 'mp4',
       sign_url: true,
     });
 
     return NextResponse.json({ success: true, downloadUrl: finalUrl });
-
   } catch (error) {
     console.error('EXPORT ERROR:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal Error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
   }
 }
