@@ -41,7 +41,9 @@ export async function POST(request: NextRequest) {
       secure: true
     });
 
-    if (!videoPublicId || !subtitles) return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
+    if (!videoPublicId || !subtitles) {
+      return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
+    }
 
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
@@ -50,15 +52,15 @@ export async function POST(request: NextRequest) {
     }));
 
     const vttContent = formatVtt(adjustedSubtitles);
-    const vttPublicId = `sub-${Date.now()}.vtt`;
+    // Explicitly use .vtt extension for the raw resource
+    const vttPublicId = `subs-${Date.now()}.vtt`;
     
-    // Upload the VTT file
     await cloudinary.uploader.upload(`data:text/vtt;base64,${Buffer.from(vttContent).toString('base64')}`, {
       resource_type: 'raw',
       public_id: vttPublicId,
     });
 
-    // Map font name
+    // Font Mapping: Arial is highly reliable for Urdu shaping on Cloudinary
     let fontName = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
     if (fontName === 'Noto Urdu') fontName = 'Arial'; 
 
@@ -69,13 +71,9 @@ export async function POST(request: NextRequest) {
       transformation.push({ effect: `accelerate:${Math.round((playbackSpeed - 1) * 100)}` });
     }
 
-    // Corrected Overlay syntax for Subtitles with Font
+    // Use string-based overlay to prevent 400 errors from SDK colons
     transformation.push({
-      overlay: {
-        resource_type: 'subtitles',
-        // Syntax must be font_name:public_id_with_extension
-        public_id: `${fontName}:${vttPublicId}`
-      },
+      overlay: `subtitles:${fontName}:${vttPublicId}`,
       font_size: Math.round(subtitleFontSize * 0.8),
       font_weight: isBold ? 'bold' : 'normal',
       color: subtitleColor,
