@@ -29,6 +29,7 @@ const parseRgba = (rgba: string) => {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    
     const {
       videoPublicId, subtitles, videoName, subtitleFont, subtitleFontSize,
       subtitleColor, subtitleBackgroundColor, playbackSpeed,
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
     const vttBase64 = Buffer.from(vttContent).toString('base64');
     const vttDataUri = `data:text/vtt;base64,${vttBase64}`;
 
-    // FIX 1: Explicitly add .vtt extension to the public_id during upload
+    // Added .vtt extension to ensure Cloudinary recognizes the file type correctly
     const vttPublicId = `subtitles-${Date.now()}.vtt`;
     await cloudinary.uploader.upload(vttDataUri, {
       resource_type: 'raw',
@@ -65,15 +66,17 @@ export async function POST(request: NextRequest) {
     });
 
     let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
-    if (primaryFont === 'Noto Urdu') primaryFont = 'Arial'; // Arial has better Urdu support on Cloudinary than custom names
+    
+    // FIX: Map Urdu font to Noto Sans Arabic for proper character joining (shaping)
+    if (primaryFont === 'Noto Urdu') {
+      primaryFont = 'Noto Sans Arabic';
+    }
 
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
     const scaledSize = Math.round(subtitleFontSize * 0.8);
 
-    // FIX 2: Clean transformation params (Removed 'border' which crashes video subtitles)
     const transformation: any[] = [];
     
-    // Add speed if not normal
     if (speedMultiplier !== 1.0) {
       transformation.push({ effect: `accelerate:${Math.round((speedMultiplier - 1) * 100)}` });
     }
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest) {
     transformation.push({
       overlay: {
         resource_type: 'subtitles',
-        public_id: vttPublicId, // This must match the filename uploaded
+        public_id: vttPublicId,
         font_family: primaryFont,
         font_size: scaledSize,
         font_weight: body.isBold ? 'bold' : 'normal',
