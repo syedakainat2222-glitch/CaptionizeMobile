@@ -88,37 +88,43 @@ export async function POST(request: NextRequest) {
     if (primaryFont === 'Serif') primaryFont = 'Times';
     if (primaryFont === 'SansSerif') primaryFont = 'Arial';
     if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    
-    // Cairo is the most robust Arabic Google Font on Cloudinary
-    if (primaryFont === 'Cairo') primaryFont = 'Cairo';
+    if (primaryFont === 'Cairo') primaryFont = 'Cairo'; 
+    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Sans Arabic'; 
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // Scaling: 3.5x to match the Android Editor exactly
+    // --- ARABIC STABILITY LOGIC ---
+    const isArabic = ['cairo', 'noto sans arabic'].includes(primaryFont.toLowerCase());
+    
     const scaledSize = Math.round(subtitleFontSize * 3.5);
     const scaledY = Math.round(40 * 3.5);
 
+    const flagsArray = ['layer_apply'];
+    if (isArabic) {
+      flagsArray.push('text_shaping'); // Forces script rendering to connect letters properly
+    }
+
+    // --- TRANSFORMATION OBJECT MATRIX ---
     const transformationParams: any = {
       overlay: {
-        resource_type: 'subtitles',
-        public_id: vttUpload.public_id,
         font_family: primaryFont,
         font_size: scaledSize,
         font_weight: isBold ? 'bold' : 'normal',
         font_style: isItalic ? 'italic' : 'normal',
         text_decoration: textDecoration,
+        public_id: `subtitles:${vttUpload.public_id}` 
       },
-      color: subtitleColor,
-      background: bgColor.replace('#', 'rgb:'),
-      opacity: bgOpacity,
-      // CRITICAL FIX: Enabling text_shaping prevents missing letters like Nun/Meem
-      flags: "layer_apply.text_shaping", 
+      color: subtitleColor.replace('#', 'rgb:'),
+      background: isArabic && subtitleBackgroundColor === 'transparent' ? 'rgb:00000099' : bgColor.replace('#', 'rgb:'),
+      opacity: isArabic && subtitleBackgroundColor === 'transparent' ? 100 : bgOpacity,
+      flags: flagsArray,
       gravity: 'south',
       y: scaledY,
     };
 
-    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
+    // --- Outline Logic ---
+    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent' && !isArabic) {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
       transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
@@ -126,15 +132,18 @@ export async function POST(request: NextRequest) {
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
+    // --- APPLY SPEED EFFECT TO VIDEO ---
     const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
-    const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
+    
+    const transformationArray: any[] = [];
+    if (speedEffectValue !== 0) {
+      transformationArray.push({ effect: `accelerate:${speedEffectValue}` });
+    }
+    transformationArray.push(transformationParams);
 
     const finalUrl = cloudinary.url(videoPublicId, {
       resource_type: 'video',
-      transformation: [
-        speedTransformation,
-        transformationParams
-      ],
+      transformation: transformationArray,
       format: 'mp4',
       quality: 'auto',
       sign_url: true, 
