@@ -83,19 +83,19 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- FONT MAPPING (Android names to Cloudinary names) ---
+    // --- FONT MAPPING ---
     let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
     if (primaryFont === 'Serif') primaryFont = 'Times';
     if (primaryFont === 'SansSerif') primaryFont = 'Arial';
     if (primaryFont === 'Monospace') primaryFont = 'Courier';
     
-    // Cloudinary supports 'cairo' natively as a Google Font
-    if (primaryFont === 'Cairo') primaryFont = 'cairo';
+    // Cairo is the most robust Arabic Google Font on Cloudinary
+    if (primaryFont === 'Cairo') primaryFont = 'Cairo';
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // --- SCALE FIX ---
+    // Scaling: 3.5x to match the Android Editor exactly
     const scaledSize = Math.round(subtitleFontSize * 3.5);
     const scaledY = Math.round(40 * 3.5);
 
@@ -112,8 +112,8 @@ export async function POST(request: NextRequest) {
       color: subtitleColor,
       background: bgColor.replace('#', 'rgb:'),
       opacity: bgOpacity,
-      // CRITICAL FIX: Add 'text_shaping' to the flags array
-      flags: ['layer_apply', 'text_shaping'],
+      // CRITICAL FIX: Enabling text_shaping prevents missing letters like Nun/Meem
+      flags: "layer_apply.text_shaping", 
       gravity: 'south',
       y: scaledY,
     };
@@ -126,7 +126,6 @@ export async function POST(request: NextRequest) {
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
-    // --- APPLY SPEED EFFECT TO VIDEO ---
     const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
     const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
 
