@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       api_secret
     } = body;
 
+    // --- DYNAMIC CONFIGURATION ---
     cloudinary.config({
       cloud_name: cloud_name || process.env.CLOUDINARY_CLOUD_NAME,
       api_key: api_key || process.env.CLOUDINARY_API_KEY,
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing parameters' }, { status: 400 });
     }
 
+    // --- SYNC SUBTITLES WITH SPEED ---
     const speedMultiplier = playbackSpeed || 1.0;
     const adjustedSubtitles = subtitles.map((sub: any) => ({
       ...sub,
@@ -81,26 +83,21 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- ARABIC STABILITY FIX ---
-    // We use Arial (SansSerif) because it is the most reliable for shaping.
+    // --- FONT MAPPING (Android names to Cloudinary names) ---
     let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
     if (primaryFont === 'Serif') primaryFont = 'Times';
     if (primaryFont === 'SansSerif') primaryFont = 'Arial';
     if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    if (primaryFont === 'Cairo') primaryFont = 'Cairo';
+    if (primaryFont === 'Cairo') primaryFont = 'cairo'; // Use lowercase for Cloudinary Google Fonts
+    if (primaryFont === 'Noto Urdu') primaryFont = 'noto-sans-arabic'; // Use robust fallback
 
     const textDecoration = isUnderline ? 'underline' : 'none';
+    const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
+
+    // --- ARABIC STABILITY LOGIC ---
+    const isArabic = ['cairo', 'noto-sans-arabic'].includes(primaryFont.toLowerCase());
     
-    // Default background for readability without border glitches
-    let finalBgColor = '#000000';
-    let finalBgOpacity = 60; // 60% black box for stability
-
-    if (subtitleBackgroundColor && subtitleBackgroundColor !== 'transparent') {
-      const parsed = parseRgba(subtitleBackgroundColor);
-      finalBgColor = parsed.color;
-      finalBgOpacity = parsed.opacity;
-    }
-
+    // Scale Fix: 3.5 multiplier matches your Android editor logic
     const scaledSize = Math.round(subtitleFontSize * 3.5);
     const scaledY = Math.round(40 * 3.5);
 
@@ -115,17 +112,16 @@ export async function POST(request: NextRequest) {
         text_decoration: textDecoration,
       },
       color: subtitleColor,
-      background: finalBgColor.replace('#', 'rgb:'), // Apply box background
-      opacity: finalBgOpacity,
+      // For Arabic, force a background box if none is set to ensure readability without border glitches
+      background: isArabic && subtitleBackgroundColor === 'transparent' ? 'rgb:00000099' : bgColor.replace('#', 'rgb:'),
+      opacity: isArabic && subtitleBackgroundColor === 'transparent' ? 100 : bgOpacity,
       flags: 'layer_apply',
       gravity: 'south',
       y: scaledY,
     };
 
-    // --- DISABLE BORDER FOR ARABIC ---
-    // Outline/Border is what causes Nun/Meem to disappear. 
-    // We remove it entirely for stability.
-    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent' && primaryFont !== 'Arial') {
+    // --- THE FIX: Disable border for Arabic fonts to prevent missing letters ---
+    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent' && !isArabic) {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
       transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
@@ -133,6 +129,7 @@ export async function POST(request: NextRequest) {
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
+    // --- APPLY SPEED EFFECT TO VIDEO ---
     const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
     const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
 
