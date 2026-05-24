@@ -88,16 +88,14 @@ export async function POST(request: NextRequest) {
     if (primaryFont === 'Serif') primaryFont = 'Times';
     if (primaryFont === 'SansSerif') primaryFont = 'Arial';
     if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    if (primaryFont === 'Cairo') primaryFont = 'cairo'; // Use lowercase for Cloudinary Google Fonts
-    if (primaryFont === 'Noto Urdu') primaryFont = 'noto-sans-arabic'; // Use robust fallback
+    
+    // Cloudinary supports 'cairo' natively as a Google Font
+    if (primaryFont === 'Cairo') primaryFont = 'cairo';
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
-    // --- ARABIC STABILITY LOGIC ---
-    const isArabic = ['cairo', 'noto-sans-arabic'].includes(primaryFont.toLowerCase());
-    
-    // Scale Fix: 3.5 multiplier matches your Android editor logic
+    // --- SCALE FIX ---
     const scaledSize = Math.round(subtitleFontSize * 3.5);
     const scaledY = Math.round(40 * 3.5);
 
@@ -112,16 +110,15 @@ export async function POST(request: NextRequest) {
         text_decoration: textDecoration,
       },
       color: subtitleColor,
-      // For Arabic, force a background box if none is set to ensure readability without border glitches
-      background: isArabic && subtitleBackgroundColor === 'transparent' ? 'rgb:00000099' : bgColor.replace('#', 'rgb:'),
-      opacity: isArabic && subtitleBackgroundColor === 'transparent' ? 100 : bgOpacity,
-      flags: 'layer_apply',
+      background: bgColor.replace('#', 'rgb:'),
+      opacity: bgOpacity,
+      // CRITICAL FIX: Add 'text_shaping' to the flags array
+      flags: ['layer_apply', 'text_shaping'],
       gravity: 'south',
       y: scaledY,
     };
 
-    // --- THE FIX: Disable border for Arabic fonts to prevent missing letters ---
-    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent' && !isArabic) {
+    if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
       transformationParams.border = `2px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
