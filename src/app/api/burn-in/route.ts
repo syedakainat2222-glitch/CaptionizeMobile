@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     // --- SCALE FIX: We multiply the font size to match video resolution ---
     // A multiplier of 3.0 to 4.0 usually makes mobile font sizes look correct on 1080p video
-    const scaledSize = Math.round(subtitleFontSize * 2);
+    const scaledSize = Math.round(subtitleFontSize * 1.7);
     const scaledY = Math.round(40 * 3.5);
 
     const transformationParams: any = {
