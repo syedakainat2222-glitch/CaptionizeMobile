@@ -116,12 +116,9 @@ export async function POST(request: NextRequest) {
       y: scaledY,
     };
 
-  // --- OUTLINE FIX ---
+  // --- OUTLINE FIX: Changed from 2px to 1px for a subtler look ---
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      // We use 'stroke' effect with a 1px border. 
-      // Because the font is now scaled correctly (larger), 1px will look much thinner.
-      transformationParams.effect = 'stroke';
       transformationParams.border = `1px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
     
