@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     // --- SCALE FIX: We multiply the font size to match video resolution ---
     // A multiplier of 3.0 to 4.0 usually makes mobile font sizes look correct on 1080p video
-    const scaledSize = Math.round(subtitleFontSize * 1.5);
+    const scaledSize = Math.round(subtitleFontSize * 2);
     const scaledY = Math.round(40 * 3.5);
 
     const transformationParams: any = {
@@ -116,9 +116,13 @@ export async function POST(request: NextRequest) {
       y: scaledY,
     };
 
+  // --- OUTLINE FIX ---
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `0.5px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      // We use 'stroke' effect with a 1px border. 
+      // Because the font is now scaled correctly (larger), 1px will look much thinner.
+      transformationParams.effect = 'stroke';
+      transformationParams.border = `1px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
     
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
@@ -147,4 +151,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
   }
 }
-
