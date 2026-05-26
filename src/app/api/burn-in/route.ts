@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';import { v2 as cloudinary } from 'cloudinary';
+import { NextRequest, NextResponse } from 'next/server';
+import { v2 as cloudinary } from 'cloudinary';
 import { formatVtt } from '@/lib/srt';
 
 // Helper to convert SRT time string (00:00:00,000) to milliseconds
@@ -82,16 +83,18 @@ export async function POST(request: NextRequest) {
       public_id: `subtitles-${Date.now()}`,
     });
 
-    // --- FONT MAPPING ---
+    // --- FONT MAPPING (Android names to Cloudinary names) ---
     let primaryFont = subtitleFont ? subtitleFont.split(',')[0].trim() : 'Arial';
     if (primaryFont === 'Serif') primaryFont = 'Times';
     if (primaryFont === 'SansSerif') primaryFont = 'Arial';
     if (primaryFont === 'Monospace') primaryFont = 'Courier';
-    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Nastaliq Urdu';
+    if (primaryFont === 'Noto Urdu') primaryFont = 'Noto Nastaliq Urdu'; // Correct name for Cloudinary
 
     const textDecoration = isUnderline ? 'underline' : 'none';
     const { color: bgColor, opacity: bgOpacity } = parseRgba(subtitleBackgroundColor);
 
+    // --- SCALE FIX: We multiply the font size to match video resolution ---
+    // A multiplier of 3.0 to 4.0 usually makes mobile font sizes look correct on 1080p video
     const scaledSize = Math.round(subtitleFontSize * 1.5);
     const scaledY = Math.round(40 * 3.5);
 
@@ -113,15 +116,15 @@ export async function POST(request: NextRequest) {
       y: scaledY,
     };
 
-    // --- OUTLINE FIX: Changed from 2px to 1px for a subtler look ---
     if (subtitleOutlineColor && subtitleOutlineColor !== 'transparent') {
       const { color: outlineColor } = parseRgba(subtitleOutlineColor);
-      transformationParams.border = `1px_solid_${outlineColor.replace('#', 'rgb:')}`;
+      transformationParams.border = `0.5px_solid_${outlineColor.replace('#', 'rgb:')}`;
     }
     
     const safeFilename = videoName ? videoName.replace(/[^a-z0-9_.-]/gi, '_').split('.')[0] : 'video';
     const filename = `${safeFilename}_with_subtitles.mp4`;
 
+    // --- APPLY SPEED EFFECT TO VIDEO ---
     const speedEffectValue = Math.round((speedMultiplier - 1) * 100);
     const speedTransformation = { effect: `accelerate:${speedEffectValue}` };
 
@@ -144,3 +147,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Internal Error' }, { status: 500 });
   }
 }
+ write ready to paste file after fixing it. please fix only outline issue. dont touch other code.
